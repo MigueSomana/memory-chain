@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: memory-chain-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=memory_chain
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - memory-chain-network
+
+  backend:
+    build: ./backend
+    container_name: memory-chain-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb+srv://MemoryChain:memoryCHAIN123.@clustermemorychain.zamo0pm.mongodb.net/?retryWrites=true&w=majority&appName=ClusterMemoryChain
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - memory-chain-network
+
+  frontend:
+    build: ./frontend
+    container_name: memory-chain-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - memory-chain-network
+
+volumes:
+  mongo_data:
+
+networks:
+  memory-chain-network:
+    driver: bridge

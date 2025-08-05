@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production builds
+build/
+dist/
+*/build/
+*/dist/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Uploads and temp files
+uploads/
+temp/
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Blockchain
+blockchain/cache/
+blockchain/artifacts/
+blockchain/coverage/
+blockchain/coverage.json
+blockchain/typechain/
+
+# Docker
+docker-compose.override.yml
