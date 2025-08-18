@@ -6,11 +6,11 @@ export const createUser = async (data: Partial<IUser>) => {
 };
 
 export const getAllUsers = async () => {
-  return User.find().populate('institutionIds');
+  return User.find().populate('institution');
 };
 
 export const getUserById = async (id: string) => {
-  return User.findById(id).populate('institutionIds');
+  return User.findById(id).populate('institution');
 };
 
 export const updateUser = async (id: string, data: Partial<IUser>) => {

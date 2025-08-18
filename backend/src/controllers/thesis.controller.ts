@@ -60,7 +60,7 @@ export const getThesisById = async (req: Request, res: Response) => {
     res.status(200).json(thesis);
   } catch (error) {
     res.status(500).json({ error: "Error retrieving thesis" });
-  }
+  } 
 };
 
 export const updateThesis = async (req: Request, res: Response) => {

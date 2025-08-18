@@ -55,7 +55,7 @@ export const searchInstitutions = async (req: Request, res: Response) => {
     const results = await Institution.find({
       $or: [
         { name: { $regex: q, $options: 'i' } },
-        { 'careers.name': { $regex: q, $options: 'i' } },
+        { 'departments.name': { $regex: q, $options: 'i' } },
       ],
     });
     res.json(results);

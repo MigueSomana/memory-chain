@@ -24,7 +24,7 @@ export const searchInstitutions = async (query: string) => {
   return await Institution.find({
     $or: [
       { name: { $regex: query, $options: 'i' } },
-      { 'careers.name': { $regex: query, $options: 'i' } },
+      { 'departments.name': { $regex: query, $options: 'i' } },
     ],
   });
 };
