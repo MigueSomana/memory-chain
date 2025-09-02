@@ -1,65 +1,46 @@
 import { Request, Response } from 'express';
 import Institution from '../models/Institution';
 
-// ✅ Crear nueva institución
-export const createInstitution = async (req: Request, res: Response) => {
+export async function createInstitution(req: Request, res: Response) {
   try {
-    const institution = new Institution(req.body);
-    const saved = await institution.save();
-    res.status(201).json(saved);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    const doc = await Institution.create(req.body);
+    res.status(201).json(doc);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
   }
-};
+}
 
-// ✅ Obtener todas las instituciones
-export const getInstitutions = async (_req: Request, res: Response) => {
-  try {
-    const institutions = await Institution.find();
-    res.json(institutions);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
+export async function getInstitutions(req: Request, res: Response) {
+  const { q } = req.query as any;
+  const filter: any = q ? { $or: [
+    { name: { $regex: q, $options: 'i' } },
+    { country: { $regex: q, $options: 'i' } },
+    { emailDomain: { $regex: q, $options: 'i' } },
+    { 'departments.name': { $regex: q, $options: 'i' } }
+  ] } : {};
+  const rows = await Institution.find(filter).sort({ name: 1 });
+  res.json(rows);
+}
 
-// ✅ Buscar institución por ID
-export const getInstitutionById = async (req: Request, res: Response) => {
-  try {
-    const institution = await Institution.findById(req.params.id);
-    if (!institution) return res.status(404).json({ error: 'Not found' });
-    res.json(institution);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
-};
+export async function getInstitutionById(req: Request, res: Response) {
+  const row = await Institution.findById(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  res.json(row);
+}
 
-// ✅ Actualizar institución
-export const updateInstitution = async (req: Request, res: Response) => {
-  try {
-    const updated = await Institution.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    if (!updated) return res.status(404).json({ error: 'Not found' });
-    res.json(updated);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
-  }
-};
+export async function updateInstitution(req: Request, res: Response) {
+  const row = await Institution.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  res.json(row);
+}
 
-// ✅ Búsqueda por nombre o carrera (AJAX-ready)
-export const searchInstitutions = async (req: Request, res: Response) => {
-  const { q } = req.query;
-  try {
-    const results = await Institution.find({
-      $or: [
-        { name: { $regex: q, $options: 'i' } },
-        { 'departments.name': { $regex: q, $options: 'i' } },
-      ],
-    });
-    res.json(results);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
+export async function searchInstitutions(req: Request, res: Response) {
+  const { q = '' } = req.query as any;
+  const rows = await Institution.find({
+    $or: [
+      { name: { $regex: q, $options: 'i' } },
+      { 'departments.name': { $regex: q, $options: 'i' } }
+    ]
+  }).limit(50);
+  res.json(rows);
+}

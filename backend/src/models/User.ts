@@ -1,68 +1,39 @@
-import mongoose, { Document, Schema, Types } from "mongoose";
-import bcrypt from "bcryptjs";
+import mongoose, { Document, Schema, Types } from 'mongoose';
+import bcrypt from 'bcryptjs';
+
+export type UserRole = 'user' | 'institution_admin' | 'admin';
 
 export interface IUser extends Document {
   name: string;
-  lastname: string;
+  lastname?: string;
   email: string;
   password: string;
-  educationalEmails: string[]; // Múltiples correos educativos
-  institutions: Types.ObjectId[]; // Referencias a instituciones
-  role: "user" | "institution_admin" | "admin";
+  educationalEmails: string[];
+  institutions: Types.ObjectId[];   // refs Institution
+  role: UserRole;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  comparePassword(candidatePassword: string): Promise<boolean>;
-} 
+  comparePassword(candidate: string): Promise<boolean>;
+}
 
-const userSchema = new Schema<IUser>(
-  {
-    name: { type: String, required: true },
-    lastname: { type: String, required: true },
-    email: { type: String, required: true, unique: true, lowercase: true },
-    password: { type: String, required: true },
-    educationalEmails: [{ 
-      type: String, 
-      lowercase: true,
-      validate: {
-        validator: function(email: string) {
-          // Validar que sea un email educativo (.edu, .edu.co, etc.)
-          return /^[^\s@]+@[^\s@]+\.(edu|edu\.[a-z]{2,3})$/i.test(email);
-        },
-        message: 'Must be a valid educational email'
-      }
-    }],
-    institutions: [{ 
-      type: Schema.Types.ObjectId, 
-      ref: 'Institution' 
-    }],
-    role: {
-      type: String,
-      enum: ["user", "institution_admin", "admin"],
-      default: "user",
-    },
-    isActive: { type: Boolean, default: true },
-  },
-  { timestamps: true }
-);
+const UserSchema = new Schema<IUser>({
+  name: { type: String, required: true, trim: true },
+  lastname: { type: String, trim: true },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+  password: { type: String, required: true },
+  educationalEmails: { type: [String], default: [], index: true },
+  institutions: [{ type: Schema.Types.ObjectId, ref: 'Institution', index: true }],
+  role: { type: String, enum: ['user', 'institution_admin', 'admin'], default: 'user', index: true },
+  isActive: { type: Boolean, default: true }
+}, { timestamps: true });
 
-// Hash password before saving
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+UserSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
-// Compare password method
-userSchema.methods.comparePassword = async function (
-  candidatePassword: string
-): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.password);
+UserSchema.methods.comparePassword = function (candidate: string) {
+  return bcrypt.compare(candidate, this.password);
 };
 
-// Index for better performance
-userSchema.index({ email: 1 });
-userSchema.index({ educationalEmails: 1 });
-
-export const User = mongoose.model<IUser>("User", userSchema);
+export const User = mongoose.model<IUser>('User', UserSchema);

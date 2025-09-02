@@ -1,12 +1,10 @@
-import { IUser } from "../../models/User";
-import { Types } from "mongoose";
+import type { IUser } from '../../models/User';
+import type { Types } from 'mongoose';
 
 declare global {
   namespace Express {
     interface Request {
-      user?: IUser & {
-        _id: Types.ObjectId;
-      };
+      user?: (IUser & { _id: Types.ObjectId }) | null;
       fileInfo?: {
         originalName: string;
         filename: string;
@@ -17,3 +15,5 @@ declare global {
     }
   }
 }
+
+export {};

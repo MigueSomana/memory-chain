@@ -1,22 +1,12 @@
 import { User, IUser } from '../models/User';
 
-export const createUser = async (data: Partial<IUser>) => {
-  const user = new User(data);
-  return user.save();
-};
+export const createUser = (data: Partial<IUser>) => new User(data).save();
 
-export const getAllUsers = async () => {
-  return User.find().populate('institution');
-};
+export const getAllUsers = () => User.find().populate('institutions');
 
-export const getUserById = async (id: string) => {
-  return User.findById(id).populate('institution');
-};
+export const getUserById = (id: string) => User.findById(id).populate('institutions');
 
-export const updateUser = async (id: string, data: Partial<IUser>) => {
-  return User.findByIdAndUpdate(id, data, { new: true }).populate('institutionIds');
-};
+export const updateUser = (id: string, data: Partial<IUser>) =>
+  User.findByIdAndUpdate(id, data, { new: true }).populate('institutions');
 
-export const deleteUser = async (id: string) => {
-  return User.findByIdAndDelete(id);
-};
+export const deleteUser = (id: string) => User.findByIdAndDelete(id);

@@ -1,0 +1,210 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "MemoryChain API", "version": "1.0.0" },
+  "servers": [{ "url": "/api" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string" },
+          "lastname": { "type": "string" },
+          "email": { "type": "string" },
+          "educationalEmails": { "type": "array", "items": { "type": "string" } },
+          "institutions": { "type": "array", "items": { "type": "string" } },
+          "role": { "type": "string", "enum": ["user", "institution_admin", "admin"] },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "Institution": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string" },
+          "country": { "type": "string" },
+          "emailDomain": { "type": "string" },
+          "type": { "type": "string", "enum": ["public", "private", "hybrid"] },
+          "isMember": { "type": "boolean" },
+          "canVerify": { "type": "boolean" }
+        }
+      },
+      "Thesis": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "title": { "type": "string" },
+          "authors": {
+            "type": "array",
+            "items": { "type": "object", "properties": { "name": { "type": "string" }, "email": { "type": "string" } } }
+          },
+          "summary": { "type": "string" },
+          "keywords": { "type": "array", "items": { "type": "string" } },
+          "language": { "type": "string" },
+          "degree": { "type": "string" },
+          "workType": { "type": "string" },
+          "department": { "type": "string" },
+          "institution": { "type": "string" },
+          "uploadedBy": { "type": "string" },
+          "file": {
+            "type": "object",
+            "properties": {
+              "filename": { "type": "string" },
+              "size": { "type": "number" },
+              "mimetype": { "type": "string" },
+              "hash": { "type": "string" },
+              "ipfsCid": { "type": "string" }
+            }
+          },
+          "chain": { "type": "string", "example": "polygon" },
+          "blockchainHash": { "type": "string" },
+          "txId": { "type": "string" },
+          "blockNumber": { "type": "number" },
+          "status": { "type": "string", "enum": ["draft", "published", "institution_verified", "certified"] }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/ping": {
+      "get": {
+        "summary": "Healthcheck",
+        "responses": { "200": { "description": "pong" } }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "summary": "Register",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object",
+                "required": ["name","email","password"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "lastname": { "type": "string" },
+                  "email": { "type": "string" },
+                  "password": { "type": "string" },
+                  "role": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } } }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "type": "object",
+              "required": ["email","password"],
+              "properties": {
+                "email": { "type": "string" },
+                "password": { "type": "string" }
+              } } }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/theses": {
+      "get": {
+        "summary": "List theses",
+        "parameters": [
+          { "in": "query", "name": "q", "schema": { "type": "string" } },
+          { "in": "query", "name": "language", "schema": { "type": "string" } },
+          { "in": "query", "name": "degree", "schema": { "type": "string" } },
+          { "in": "query", "name": "workType", "schema": { "type": "string" } },
+          { "in": "query", "name": "institution", "schema": { "type": "string" } },
+          { "in": "query", "name": "page", "schema": { "type": "integer" } },
+          { "in": "query", "name": "limit", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "summary": "Upload & publish thesis",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["title","authors","summary","language","degree","workType","institution","file"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "authors": { "type": "string", "description": "JSON string: [{name, email}]" },
+                  "summary": { "type": "string" },
+                  "keywords": { "type": "string", "description": "comma-separated" },
+                  "language": { "type": "string" },
+                  "degree": { "type": "string" },
+                  "workType": { "type": "string" },
+                  "department": { "type": "string" },
+                  "institution": { "type": "string" },
+                  "publicationDate": { "type": "string", "format": "date" },
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Thesis" } } } } }
+      }
+    },
+    "/theses/{id}": {
+      "get": {
+        "summary": "Get thesis by id",
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } }
+      }
+    },
+    "/search": {
+      "get": {
+        "summary": "Advanced search",
+        "parameters": [
+          { "in": "query", "name": "q", "schema": { "type": "string" } },
+          { "in": "query", "name": "author", "schema": { "type": "string" } },
+          { "in": "query", "name": "email", "schema": { "type": "string" } },
+          { "in": "query", "name": "language", "schema": { "type": "string" } },
+          { "in": "query", "name": "degree", "schema": { "type": "string" } },
+          { "in": "query", "name": "workType", "schema": { "type": "string" } },
+          { "in": "query", "name": "institution", "schema": { "type": "string" } },
+          { "in": "query", "name": "department", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/institutions": {
+      "get": { "summary": "List institutions", "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Create institution", "responses": { "201": { "description": "Created" } } }
+    },
+    "/institutions/{id}": {
+      "get": { "summary": "Get institution", "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } } },
+      "patch": { "summary": "Update institution", "responses": { "200": { "description": "OK" } } }
+    },
+    "/certification/verify": {
+      "post": {
+        "summary": "Verify thesis by institution",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "OK" }, "400": { "description": "Bad request" } }
+      }
+    },
+    "/certification/certify": {
+      "post": {
+        "summary": "Certify thesis (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "OK" }, "400": { "description": "Bad request" } }
+      }
+    }
+  }
+}

@@ -5,150 +5,92 @@ export interface IAuthor {
   email: string;
 }
 
+export type CertificationStatus = 'draft' | 'published' | 'institution_verified' | 'certified';
+
 export interface IThesis extends Document {
   title: string;
-  authors: IAuthor[]; // Mínimo uno
+  authors: IAuthor[];            // ≥1
   summary: string;
   keywords: string[];
-  language: string;
-  publicationDate: Date;
-  uploadDate: Date;
-  
-  // File & Blockchain data
-  file: string; // Path o URL del archivo
-  ipfsHash: string;
-  blockchainHash: string;
-  
-  // Institution data
-  institution: Types.ObjectId;
-  career: string; // Carrera específica
-  degree: 'bachelor' | 'master' | 'phd' | 'other';
-  type: 'thesis' | 'dissertation' | 'project' | 'other';
-  
-  // Verification
-  isVerifiedByInstitution: boolean;
-  verifiedAt?: Date;
-  verifiedBy?: Types.ObjectId; // Usuario que verificó
-  
-  // Uploader
-  uploadedBy: Types.ObjectId; // Usuario que subió
-  
+  language: string;              // es|en|...
+  degree: string;                // Licenciatura/Máster/Doctorado...
+  workType: string;              // Tesis/Trabajo de grado/Artículo...
+  department?: string;           // alias de carrera/área
+  institution: Types.ObjectId;   // ref Institution
+  uploadedBy: Types.ObjectId;    // ref User
+  publicationDate?: Date;
+
+  // Archivo
+  file: {
+    filename: string;
+    size: number;
+    mimetype: string;
+    hash: string;                // hash local del PDF (sha256)
+    ipfsCid?: string;            // CID en IPFS
+  };
+
+  // Blockchain
+  chain: 'polygon';
+  blockchainHash?: string;       // hash que anclas
+  txId?: string;                 // tx hash (si no es mock)
+  blockNumber?: number;
+
+  // Estado
+  status: CertificationStatus;
+
   createdAt: Date;
   updatedAt: Date;
 }
 
 const AuthorSchema = new Schema<IAuthor>({
-  name: { 
-    type: String, 
-    required: true,
-    trim: true 
-  },
-  email: { 
-    type: String, 
-    required: true,
-    lowercase: true,
-    validate: {
-      validator: function(v: string) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-      },
-      message: 'Must be a valid email'
-    }
-  },
-});
-
-const thesisSchema = new Schema<IThesis>({
-  title: { 
-    type: String, 
+  name: { type: String, required: true, trim: true, maxlength: 200 },
+  email: {
+    type: String,
     required: true,
     trim: true,
-    maxlength: 500 
-  },
-  authors: {
-    type: [AuthorSchema],
-    required: true,
+    lowercase: true,
     validate: {
-      validator: function(authors: IAuthor[]) {
-        return authors && authors.length >= 1;
-      },
-      message: 'At least one author is required'
+      validator: (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+      message: 'Must be a valid email'
     }
+  }
+});
+
+const ThesisSchema = new Schema<IThesis>({
+  title: { type: String, required: true, trim: true, maxlength: 500 },
+  authors: { type: [AuthorSchema], required: true, validate: (arr: IAuthor[]) => arr.length >= 1 },
+  summary: { type: String, required: true, maxlength: 5000 },
+  keywords: { type: [String], default: [], index: true },
+  language: { type: String, required: true, index: true },
+  degree: { type: String, required: true, index: true },
+  workType: { type: String, required: true, index: true },
+  department: { type: String, index: true },
+  institution: { type: Schema.Types.ObjectId, ref: 'Institution', required: true, index: true },
+  uploadedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  publicationDate: { type: Date },
+
+  file: {
+    filename: { type: String, required: true },
+    size: { type: Number, required: true },
+    mimetype: { type: String, required: true },
+    hash: { type: String, required: true, index: true },
+    ipfsCid: { type: String, index: true }
   },
-  summary: { 
-    type: String, 
-    required: true,
-    maxlength: 2000 
-  },
-  keywords: [{ 
+
+  chain: { type: String, enum: ['polygon'], default: 'polygon' },
+  blockchainHash: { type: String, index: true },
+  txId: { type: String, index: true },
+  blockNumber: { type: Number },
+
+  status: {
     type: String,
-    trim: true 
-  }],
-  language: { 
-    type: String, 
-    required: true,
-    enum: ['spanish', 'english', 'portuguese', 'french', 'other']
-  },
-  publicationDate: { 
-    type: Date, 
-    required: true 
-  },
-  uploadDate: { 
-    type: Date, 
-    default: Date.now 
-  },
-  
-  // Files & Blockchain
-  file: { type: String, required: true },
-  ipfsHash: { type: String, required: true },
-  blockchainHash: { type: String, required: true },
-  
-  // Institution
-  institution: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'Institution', 
-    required: true 
-  },
-  career: { 
-    type: String, 
-    required: true 
-  },
-  degree: {
-    type: String,
-    enum: ['bachelor', 'master', 'phd', 'other'],
-    required: true
-  },
-  type: {
-    type: String,
-    enum: ['thesis', 'dissertation', 'project', 'other'],
-    default: 'thesis'
-  },
-  
-  // Verification
-  isVerifiedByInstitution: { 
-    type: Boolean, 
-    default: false 
-  },
-  verifiedAt: { type: Date },
-  verifiedBy: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'User' 
-  }, 
-  
-  // Uploader
-  uploadedBy: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
-  },
+    enum: ['draft', 'published', 'institution_verified', 'certified'],
+    default: 'published',
+    index: true
+  }
 }, { timestamps: true });
 
-// Indexes para búsquedas eficientes
-thesisSchema.index({ title: 'text', summary: 'text', keywords: 'text' });
-thesisSchema.index({ 'authors.name': 1 });
-thesisSchema.index({ 'authors.email': 1 });
-thesisSchema.index({ institution: 1 });
-thesisSchema.index({ language: 1 });
-thesisSchema.index({ degree: 1 });
-thesisSchema.index({ uploadDate: -1 });
-thesisSchema.index({ isVerifiedByInstitution: 1 });
+// Búsqueda básica
+ThesisSchema.index({ title: 'text', summary: 'text', keywords: 'text' });
 
-export const Thesis = model<IThesis>('Thesis', thesisSchema);
+export const Thesis = model<IThesis>('Thesis', ThesisSchema);
