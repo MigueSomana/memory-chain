@@ -12,6 +12,8 @@ export interface IUser extends Document {
   institutions: Types.ObjectId[];   // refs Institution
   role: UserRole;
   isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
 }
 
@@ -24,7 +26,9 @@ const UserSchema = new Schema<IUser>({
   institutions: [{ type: Schema.Types.ObjectId, ref: 'Institution', index: true }],
   role: { type: String, enum: ['user', 'institution_admin', 'admin'], default: 'user', index: true },
   isActive: { type: Boolean, default: true }
-}, { timestamps: true });
+}, { 
+  timestamps: true // Esto añade automáticamente createdAt y updatedAt
+});
 
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();

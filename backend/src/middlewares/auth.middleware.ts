@@ -3,6 +3,9 @@ import { Request, Response, NextFunction } from "express";
 import { User, IUser } from "../models/User";
 import { Types } from "mongoose";
 
+// Importar tipos personalizados
+import '../types/express';
+
 const JWT_SECRET = process.env.JWT_SECRET || "default_secret_key";
 
 interface JWTPayload {
@@ -32,7 +35,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return res.status(401).json({ message: "Account is inactive" });
     }
 
-    // Asignar usuario directamente
+    // Asignar usuario con tipo correcto
     req.user = user as IUser & { _id: Types.ObjectId };
     
     next();

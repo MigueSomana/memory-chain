@@ -5,6 +5,11 @@ import {
   validateThesisData,
   sanitizeInput 
 } from '../services/validation.service';
+import { IUser } from '../models/User';
+import { Types } from 'mongoose';
+
+// Importar tipos personalizados explícitamente
+import '../types/express';
 
 /**
  * Middleware para validar datos de usuario
@@ -153,81 +158,25 @@ export const validatePagination = (req: Request, res: Response, next: NextFuncti
 };
 
 /**
- * Middleware para validar filtros de búsqueda
- */
-export const validateSearchFilters = (req: Request, res: Response, next: NextFunction) => {
-  const { 
-    title, 
-    language, 
-    degree, 
-    verified, 
-    dateFrom, 
-    dateTo 
-  } = req.query;
-  
-  const errors: string[] = [];
-  
-  // Validar idioma si se proporciona
-  if (language) {
-    const allowedLanguages = ['spanish', 'english', 'portuguese', 'french', 'other'];
-    if (!allowedLanguages.includes(language as string)) {
-      errors.push(`Language must be one of: ${allowedLanguages.join(', ')}`);
-    }
-  }
-  
-  // Validar grado si se proporciona
-  if (degree) {
-    const allowedDegrees = ['bachelor', 'master', 'phd', 'other'];
-    if (!allowedDegrees.includes(degree as string)) {
-      errors.push(`Degree must be one of: ${allowedDegrees.join(', ')}`);
-    }
-  }
-  
-  // Validar verified si se proporciona
-  if (verified && !['true', 'false'].includes(verified as string)) {
-    errors.push('Verified must be true or false');
-  }
-  
-  // Validar fechas si se proporcionan
-  if (dateFrom && isNaN(Date.parse(dateFrom as string))) {
-    errors.push('Invalid dateFrom format');
-  }
-  
-  if (dateTo && isNaN(Date.parse(dateTo as string))) {
-    errors.push('Invalid dateTo format');
-  }
-  
-  if (dateFrom && dateTo && new Date(dateFrom as string) > new Date(dateTo as string)) {
-    errors.push('dateFrom cannot be later than dateTo');
-  }
-  
-  if (errors.length > 0) {
-    return res.status(400).json({
-      error: 'Invalid search filters',
-      details: errors
-    });
-  }
-  
-  next(); 
-};
-
-/**
  * Middleware para validar permisos de usuario
  */
 export const validateUserPermissions = (requiredRole: string[] = []) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
+    // Usar casting directo para evitar el error de TypeScript
+    const user = req.user as (IUser & { _id: Types.ObjectId }) | undefined;
+    
+    if (!user) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
     
-    if (requiredRole.length > 0 && !requiredRole.includes(req.user.role)) {
+    if (requiredRole.length > 0 && !requiredRole.includes(user.role)) {
       return res.status(403).json({ 
         error: 'Insufficient permissions',
         details: [`Required role: ${requiredRole.join(' or ')}`]
       });
     }
     
-    if (!req.user.isActive) {
+    if (!user.isActive) {
       return res.status(403).json({ 
         error: 'Account inactive',
         details: ['User account is deactivated']
