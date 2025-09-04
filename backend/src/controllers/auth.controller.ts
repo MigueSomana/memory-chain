@@ -6,7 +6,7 @@ import { generateToken } from "../utils/jwt";
 import '../types/express';
 
 export const register = async (req: Request, res: Response) => {
-  const { name, lastname, email, password } = req.body;
+  const { name, lastname, email, password, educationalEmails, institutions } = req.body;
 
   try {
     // Verificar si el email ya existe
@@ -16,34 +16,57 @@ export const register = async (req: Request, res: Response) => {
         message: "Email already in use",
         details: ["An account with this email already exists"] 
       });
-    }
+    } 
 
     // Crear nuevo usuario
-    const newUser = new User({ 
+    const userData = { 
       name: name.trim(), 
-      lastname: lastname?.trim(), 
       email: email.toLowerCase(), 
-      password 
-    });
+      password,
+      ...(lastname && { lastname: lastname.trim() }),
+      ...(educationalEmails && Array.isArray(educationalEmails) && { educationalEmails }),
+      ...(institutions && Array.isArray(institutions) && { institutions })
+    };
+
+    const newUser = new User(userData);
     await newUser.save();
 
     // Generar token
     const token = generateToken(newUser);
 
-    // Respuesta sin password
-    const userResponse = newUser.toObject();
-    delete userResponse.password;
+    // Poblar para respuesta completa
+    const populatedUser = await User.findById(newUser._id)
+      .select('-password')
+      .populate('institutions', 'name emailDomain country type');
 
     return res.status(201).json({ 
       token, 
-      user: userResponse,
+      user: populatedUser,
       message: "Registration successful"
     });
   } catch (err: any) {
     console.error('Registration error:', err);
+    
+    // Manejar errores de validación de Mongoose
+    if (err.name === 'ValidationError') {
+      const errors = Object.values(err.errors).map((e: any) => e.message);
+      return res.status(400).json({ 
+        message: "Validation error", 
+        details: errors
+      });
+    }
+    
+    // Error de duplicado
+    if (err.code === 11000) {
+      return res.status(400).json({ 
+        message: "Email already in use",
+        details: ["An account with this email already exists"] 
+      });
+    }
+    
     return res.status(500).json({ 
       message: "Registration error", 
-      error: err.message 
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
     });
   }
 };
@@ -52,8 +75,10 @@ export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   try {
-    // Buscar usuario por email
-    const user = await User.findOne({ email: email.toLowerCase() });
+    // Buscar usuario por email con populate
+    const user = await User.findOne({ email: email.toLowerCase() })
+      .populate('institutions', 'name emailDomain country type');
+      
     if (!user) {
       return res.status(400).json({ 
         message: "Invalid credentials",
@@ -94,7 +119,7 @@ export const login = async (req: Request, res: Response) => {
     console.error('Login error:', err);
     return res.status(500).json({ 
       message: "Login error", 
-      error: err.message 
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
     });
   }
 };
@@ -111,7 +136,13 @@ export const me = async (req: Request, res: Response) => {
     // Poblar instituciones para respuesta completa
     const populatedUser = await User.findById(user._id)
       .select('-password')
-      .populate('institutions', 'name emailDomain country type');
+      .populate('institutions', 'name emailDomain country type departments');
+
+    if (!populatedUser) {
+      return res.status(404).json({ 
+        message: "User not found" 
+      });
+    }
 
     return res.status(200).json({ 
       user: populatedUser,
@@ -121,7 +152,7 @@ export const me = async (req: Request, res: Response) => {
     console.error('Get profile error:', err);
     return res.status(500).json({ 
       message: "Error retrieving profile", 
-      error: err.message 
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
     });
   }
 };

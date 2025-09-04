@@ -61,4 +61,4 @@ export async function certify(req: Request, res: Response): Promise<void> {
     console.error('Certification error:', e);
     res.status(400).json({ error: e.message });
   }
-}
+} 

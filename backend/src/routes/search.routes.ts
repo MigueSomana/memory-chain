@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import * as ctrl from '../controllers/search.controller';
-import { validateThesis, validatePagination } from '../middlewares/validation.middleware';
+import { validatePagination } from '../middlewares/validation.middleware';
 
 const router = Router();
 
-router.get('/', validatePagination, validateThesis, ctrl.search);
+// Solo validar paginación en búsquedas, no datos de tesis
+router.get('/', validatePagination, ctrl.search);
 
 export default router;
