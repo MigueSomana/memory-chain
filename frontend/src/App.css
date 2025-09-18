@@ -20,12 +20,12 @@ body {
   display: flex;
   justify-content: flex-end;
 }
-.fix-form-modal{
-    display: flex;
-    width: 80% !important;
-    margin: 3% 10% 5% 10% !important;
+.fix-form-modal {
+  display: flex;
+  width: 80% !important;
+  margin: 3% 10% 5% 10% !important;
 }
-.btn-close{
+.btn-close {
   filter: invert(100%) !important;
 }
 
@@ -64,7 +64,7 @@ body {
 
 /* Navbar General*/
 .sticky-nav {
-  background: #121212; /* Transparent background 12121200*/
+  background: #12121200; /* Transparent background 12121200*/
   position: sticky;
   top: 0;
   z-index: 0;
@@ -93,4 +93,254 @@ body {
   margin: 3rem;
   width: 100%;
   max-width: 700px;
+}
+:root {
+  --mc-bg: #121212;
+  --mc-active: #1eab81;
+}
+
+.nav .nav-link.active {
+  background-color: var(--mc-active) !important;
+  color: #0b2a22 !important;
+}
+
+.nav-icon {
+  width: 36px;
+  height: 36px;
+}
+
+@media (min-width: 992px) {
+  .nav-icon {
+    width: 40px;
+    height: 40px;
+  }
+}
+.basic-info-left {
+  display: flex;
+  align-items: center; /* centra verticalmente */
+  gap: 12px;
+}
+
+/* Avatar */
+.basic-info-avatar {
+  width: 96px;
+  height: 96px;
+  background: #f2f2f2;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid #dee2e6;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Botón de toggle de password: color de icono por defecto y en hover */
+.password-toggle-btn {
+  color: #121212 !important; /* icono por defecto */
+  border-color: #ced4da !important;
+  background-color: transparent !important;
+}
+.password-toggle-btn:hover {
+  color: #ffffff !important; /* icono al hover */
+  background-color: #20c997 !important; /* tu verde */
+  border-color: #20c997 !important;
+}
+
+/* Asegura que el SVG hereda el color del botón */
+.password-toggle-btn svg {
+  fill: currentColor;
+}
+
+/* Botones secundarios neutrales dentro del perfil (por coherencia) */
+.btn-outline-neutral {
+  --bs-btn-color: #121212;
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: #6c6f72;
+  --bs-btn-hover-color: #121212;
+  --bs-btn-hover-bg: #6c6f72;
+  --bs-btn-hover-border-color: #6c6f72;
+}
+.form-control:focus,
+.form-select:focus {
+  border-color: #20c997 !important;
+  box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.25) !important; /* verde translúcido */
+}
+
+/* Botones con outline-memory focus shadow */
+.btn.btn-memory:focus,
+.btn.btn-outline-memory:focus {
+  box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.3) !important;
+}
+/* Estado base */
+.password-toggle-btn {
+  color: #121212 !important;
+  border-color: #cdd1d4 !important;
+  background-color: transparent !important;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Heredar color al SVG */
+.password-toggle-btn svg {
+  fill: currentColor;
+}
+
+/* Estado hover/focus/active → estilo btn-secondary Bootstrap */
+.password-toggle-btn:hover {
+  background-color: #343537 !important; /* gris secundario */
+  border-color: #6c6f72 !important;
+  color: #ffffff !important; /* texto blanco */
+}
+.password-toggle-btn:hover svg,
+.password-toggle-btn:focus svg,
+.password-toggle-btn:active svg {
+  fill: #ffffff; /* icono blanco */
+}
+
+/* ====== MemoryChain form theming for filter panel ====== */
+.mc-filters .form-check-input {
+  /* Soporte moderno (Chrome/Edge/Firefox/Safari actuales) */
+  accent-color: #20c997;
+}
+
+/* Fallback + subir especificidad con !important */
+.mc-filters .form-check-input:checked {
+  background-color: #20c997 !important;
+  border-color: #20c997 !important;
+}
+
+.mc-filters .form-check-input:focus {
+  border-color: #20c997 !important;
+  box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.25) !important;
+}
+
+/* Select focus (el "glow" verde en vez de azul) */
+.mc-filters .form-select:focus {
+  border-color: #20c997 !important;
+  box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.25) !important;
+}
+
+/* (Opcional) Hover de la opción del select: soportado irregularmente entre navegadores */
+.mc-filters select.form-select option:hover {
+  background-color: rgba(32, 201, 151, 0.12);
+}
+
+/* Checkbox/radio hover visual (cursor + leve sombra) */
+.mc-filters .form-check-input:hover {
+  cursor: pointer;
+  box-shadow: 0 0 0 0.15rem rgba(32, 201, 151, 0.15);
+}
+
+/* ==== Dual range theming ==== */
+
+/* Base */
+.mc-dualrange .mc-dualrange-input {
+  accent-color: #20c997; /* navegadores modernos */
+  appearance: none; /* reset cross-browser */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Quita el glow azul */
+.mc-dualrange .mc-dualrange-input:focus {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* --- WebKit (Chrome/Edge/Safari) --- */
+.mc-dualrange .mc-dualrange-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto; /* <- clave para que capte el drag */
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #20c997 !important;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+.mc-dualrange .mc-dualrange-input:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.25);
+}
+
+/* aseguramos el apilado cuando coinciden */
+.mc-dualrange .mc-dualrange-min::-webkit-slider-thumb {
+  z-index: 2;
+}
+.mc-dualrange .mc-dualrange-max::-webkit-slider-thumb {
+  z-index: 3;
+}
+
+/* --- Firefox --- */
+.mc-dualrange .mc-dualrange-input::-moz-range-thumb {
+  appearance: none;
+  pointer-events: auto; /* <- clave */
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #20c997 !important;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+.mc-dualrange .mc-dualrange-input:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.25);
+}
+.mc-dualrange .mc-dualrange-min::-moz-range-thumb {
+  z-index: 2;
+}
+.mc-dualrange .mc-dualrange-max::-moz-range-thumb {
+  z-index: 3;
+}
+
+/* opcional: estiliza el track nativo por si se ve detrás (no debería) */
+.mc-dualrange .mc-dualrange-input::-webkit-slider-runnable-track {
+  background: transparent !important;
+}
+.mc-dualrange .mc-dualrange-input::-moz-range-track {
+  background: transparent !important;
+}
+.mc-pagination .page-link {
+  color: #20c997;
+  border-color: #20c997;
+}
+.mc-pagination .page-link:hover {
+  background-color: rgba(32, 201, 151, 0.08);
+  color: #20c997;
+  border-color: #20c997;
+}
+.mc-pagination .page-item.active .page-link {
+  background-color: #20c997;
+  border-color: #20c997;
+  color: #fff;
+}
+.mc-pagination .page-item.disabled .page-link {
+  color: #6c757d;
+  border-color: #dee2e6;
+}
+.mc-sort .btn {
+  border-color: #20c997;
+  color: #20c997;
+}
+.mc-sort .btn:hover,
+.mc-sort .btn:focus {
+  background-color: rgba(32, 201, 151, 0.08);
+  border-color: #20c997;
+  color: #20c997;
+}
+.mc-sort .dropdown-menu {
+  border-color: #20c997;
+}
+.mc-sort .dropdown-item.active,
+.mc-sort .dropdown-item:active {
+  background-color: #20c997;
+  color: #fff;
+}
+.mc-sort .dropdown-item:hover {
+  background-color: rgba(32, 201, 151, 0.08);
+  color: #20c997;
+}
+.w-66 {
+  width: 66% !important;
 }

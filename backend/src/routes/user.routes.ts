@@ -1,46 +1,77 @@
-import express from 'express';
-import * as userController from '../controllers/user.controller';
+import { Router } from 'express';
+import {
+  create,
+  getAll,
+  getByIdCtrl,
+  update,
+  remove,
+  addEduEmail,
+  removeEduEmail,
+  linkInst,
+  unlinkInst
+} from '../controllers/user.controller';
 import { authMiddleware } from '../middlewares/auth.middleware';
 import { roleGuard } from '../middlewares/role.guard';
-import { validateUser, validateObjectId, validatePagination } from '../middlewares/validation.middleware';
+import { validateUser } from '../middlewares/validation.middleware';
 
-const router = express.Router();
+// Políticas base (ajústalas a tu negocio)
+const requireAdmin = [authMiddleware, roleGuard(['admin'])] as const;
+const requireAdminOrInstAdmin = [authMiddleware, roleGuard(['admin', 'institution_admin'])] as const;
 
-// Todas las rutas de usuarios requieren autenticación
-router.use(authMiddleware);
+const router = Router();
 
-// Solo admins pueden listar todos los usuarios
-router.get('/', 
-  roleGuard(['admin']),
-  validatePagination,
-  userController.getAllUsers
-);
+/**
+ * @route POST /users
+ * @desc  Registro público de usuario (si quieres restringir, agrega auth/role)
+ */
+router.post('/', validateUser, create);
 
-// Un usuario puede ver su propio perfil, admins pueden ver cualquiera
-router.get('/:id', 
-  validateObjectId('id'),
-  userController.getUserById
-);
+/**
+ * @route GET /users
+ * @desc  Listado paginado (solo admin)
+ */
+router.get('/', ...requireAdmin, getAll);
 
-// Solo admins pueden crear usuarios directamente
-router.post('/', 
-  roleGuard(['admin']),
-  validateUser,
-  userController.createUser
-);
+/**
+ * @route GET /users/:id
+ * @desc  Ver usuario (admin o inst_admin; si quieres permitir self-view, crea endpoint /me)
+ */
+router.get('/:id', ...requireAdminOrInstAdmin, getByIdCtrl);
 
-// Un usuario puede actualizar su propio perfil, admins pueden actualizar cualquiera
-router.patch('/:id',
-  validateObjectId('id'),
-  // validateUser, // Comentado porque necesita lógica especial para updates
-  userController.updateUser
-);
+/**
+ * @route PATCH /users/:id
+ * @desc  Actualizar usuario (admin o inst_admin)
+ */
+router.patch('/:id', ...requireAdminOrInstAdmin, validateUser, update);
 
-// Solo admins pueden eliminar usuarios
-router.delete('/:id',
-  roleGuard(['admin']),
-  validateObjectId('id'),
-  userController.deleteUser
-);
+/**
+ * @route DELETE /users/:id
+ * @desc  Eliminar usuario (solo admin)
+ */
+router.delete('/:id', ...requireAdmin, remove);
+
+/**
+ * @route POST /users/:id/edu-emails
+ * @desc  Agrega correo educativo (admin o inst_admin)
+ */
+router.post('/:id/edu-emails', ...requireAdminOrInstAdmin, addEduEmail);
+
+/**
+ * @route DELETE /users/:id/edu-emails
+ * @desc  Quita correo educativo (admin o inst_admin)
+ */
+router.delete('/:id/edu-emails', ...requireAdminOrInstAdmin, removeEduEmail);
+
+/**
+ * @route POST /users/:id/link-institution
+ * @desc  Vincular institución (admin o inst_admin)
+ */
+router.post('/:id/link-institution', ...requireAdminOrInstAdmin, linkInst);
+
+/**
+ * @route POST /users/:id/unlink-institution
+ * @desc  Desvincular institución (admin o inst_admin)
+ */
+router.post('/:id/unlink-institution', ...requireAdminOrInstAdmin, unlinkInst);
 
 export default router;

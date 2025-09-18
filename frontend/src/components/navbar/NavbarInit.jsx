@@ -1,7 +1,7 @@
 import React from "react";
 import logo from "../../assets/logo.png";
 
-const Navbar = () => {
+const NavbarInit = () => {
   return (
     <nav className=" fluid-extended sticky-nav">
       <header>
@@ -60,24 +60,6 @@ const Navbar = () => {
                       height="24"
                       aria-hidden="true"
                       fill="currentColor"
-                      className="bi bi-layers-fill d-block mx-auto mb-1"
-                      viewBox="0 0 16 16"
-                    >
-                      <path d="M7.765 1.559a.5.5 0 0 1 .47 0l7.5 4a.5.5 0 0 1 0 .882l-7.5 4a.5.5 0 0 1-.47 0l-7.5-4a.5.5 0 0 1 0-.882z" />
-                      <path d="m2.125 8.567-1.86.992a.5.5 0 0 0 0 .882l7.5 4a.5.5 0 0 0 .47 0l7.5-4a.5.5 0 0 0 0-.882l-1.86-.992-5.17 2.756a1.5 1.5 0 0 1-1.41 0z" />
-                      <use xlink:href="#home"></use>
-                    </svg>
-                    Dashboard
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="nav-link text-white">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      aria-hidden="true"
-                      fill="currentColor"
                       className="bi bi-question-diamond-fill d-block mx-auto mb-1"
                       viewBox="0 0 16 16"
                     >
@@ -87,7 +69,6 @@ const Navbar = () => {
                     About Us
                   </a>
                 </li>
-
                 <li>
                   <a
                     href="#modalLogin"
@@ -122,4 +103,4 @@ const Navbar = () => {
   );
 };
 
-export default Navbar;
+export default NavbarInit;

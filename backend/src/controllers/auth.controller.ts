@@ -1,158 +1,56 @@
-import { Request, Response } from "express";
-import { User } from "../models/User";
-import { generateToken } from "../utils/jwt";
+import { Request, Response, NextFunction } from 'express';
+import jwt, { Secret, SignOptions } from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import { findUserByEmail } from '../services/user.service';
 
-// Importar tipos personalizados
-import '../types/express';
+// --- Tipos compatibles con jsonwebtoken v9 ---
+type TimeUnit = 'ms' | 's' | 'm' | 'h' | 'd' | 'w' | 'y';
+type ExpiresIn = `${number}${TimeUnit}` | number;
 
-export const register = async (req: Request, res: Response) => {
-  const { name, lastname, email, password, educationalEmails, institutions } = req.body;
+const JWT_SECRET: Secret = (process.env.JWT_SECRET ?? 'changeme') as Secret;
+const JWT_EXPIRES: ExpiresIn = (process.env.JWT_EXPIRES ?? '7d') as ExpiresIn;
 
+// Type guard para obtener un string de cualquier _id (ObjectId|string|desconocido)
+function toIdString(id: unknown): string {
+  if (typeof id === 'string') return id;
+  if (id && typeof (id as any).toString === 'function') return (id as any).toString();
+  throw new Error('Invalid _id type');
+}
+
+export async function login(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    // Verificar si el email ya existe
-    const existing = await User.findOne({ email: email.toLowerCase() });
-    if (existing) {
-      return res.status(400).json({ 
-        message: "Email already in use",
-        details: ["An account with this email already exists"] 
-      });
-    } 
-
-    // Crear nuevo usuario
-    const userData = { 
-      name: name.trim(), 
-      email: email.toLowerCase(), 
-      password,
-      ...(lastname && { lastname: lastname.trim() }),
-      ...(educationalEmails && Array.isArray(educationalEmails) && { educationalEmails }),
-      ...(institutions && Array.isArray(institutions) && { institutions })
-    };
-
-    const newUser = new User(userData);
-    await newUser.save();
-
-    // Generar token
-    const token = generateToken(newUser);
-
-    // Poblar para respuesta completa
-    const populatedUser = await User.findById(newUser._id)
-      .select('-password')
-      .populate('institutions', 'name emailDomain country type');
-
-    return res.status(201).json({ 
-      token, 
-      user: populatedUser,
-      message: "Registration successful"
-    });
-  } catch (err: any) {
-    console.error('Registration error:', err);
-    
-    // Manejar errores de validación de Mongoose
-    if (err.name === 'ValidationError') {
-      const errors = Object.values(err.errors).map((e: any) => e.message);
-      return res.status(400).json({ 
-        message: "Validation error", 
-        details: errors
-      });
+    const { email, password } = req.body;
+    if (!email || !password) {
+      res.status(400).json({ success: false, message: 'Email and password are required' });
+      return;
     }
-    
-    // Error de duplicado
-    if (err.code === 11000) {
-      return res.status(400).json({ 
-        message: "Email already in use",
-        details: ["An account with this email already exists"] 
-      });
-    }
-    
-    return res.status(500).json({ 
-      message: "Registration error", 
-      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
-    });
-  }
-};
 
-export const login = async (req: Request, res: Response) => {
-  const { email, password } = req.body;
-
-  try {
-    // Buscar usuario por email con populate
-    const user = await User.findOne({ email: email.toLowerCase() })
-      .populate('institutions', 'name emailDomain country type');
-      
+    const user = await findUserByEmail(email, { includePassword: true });
     if (!user) {
-      return res.status(400).json({ 
-        message: "Invalid credentials",
-        details: ["Email or password is incorrect"]
-      });
+      res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return;
     }
 
-    // Verificar si la cuenta está activa
-    if (!user.isActive) {
-      return res.status(401).json({ 
-        message: "Account is inactive",
-        details: ["Your account has been deactivated. Contact support."]
-      });
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return;
     }
 
-    // Verificar password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(400).json({ 
-        message: "Invalid credentials",
-        details: ["Email or password is incorrect"]
-      });
-    }
+    const payload = { id: toIdString(user._id), role: user.role };
+    const options: SignOptions = { expiresIn: JWT_EXPIRES };
+    const token = jwt.sign(payload, JWT_SECRET, options);
 
-    // Generar token
-    const token = generateToken(user);
-
-    // Respuesta sin password
-    const userResponse = user.toObject();
-    delete userResponse.password;
-
-    return res.status(200).json({ 
-      token, 
-      user: userResponse,
-      message: "Login successful"
-    });
-  } catch (err: any) {
-    console.error('Login error:', err);
-    return res.status(500).json({ 
-      message: "Login error", 
-      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
-    });
+    res.json({ success: true, data: { token, user: user.toJSON() } });
+  } catch (err) {
+    next(err);
   }
-};
+}
 
-export const me = async (req: Request, res: Response) => {
+export async function me(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({ 
-        message: "User not authenticated" 
-      });
-    }
-
-    // Poblar instituciones para respuesta completa
-    const populatedUser = await User.findById(user._id)
-      .select('-password')
-      .populate('institutions', 'name emailDomain country type departments');
-
-    if (!populatedUser) {
-      return res.status(404).json({ 
-        message: "User not found" 
-      });
-    }
-
-    return res.status(200).json({ 
-      user: populatedUser,
-      message: "User profile retrieved successfully"
-    });
-  } catch (err: any) {
-    console.error('Get profile error:', err);
-    return res.status(500).json({ 
-      message: "Error retrieving profile", 
-      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
-    });
+    res.json({ success: true, data: req.user });
+  } catch (err) {
+    next(err);
   }
-};
+}

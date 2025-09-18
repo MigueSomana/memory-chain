@@ -1,15 +1,15 @@
 import './App.css'
 import Modal from './components/modal/Modal'
-import Home from './pages/home/Home'
+import PrincipalSearch from './pages/search/PrincipalSearch'
 
 function App() {
 
   return (
     <>
-      <Home />
+      <PrincipalSearch />
       <Modal />
     </>
   )
 }
 
-export default App
+export default App;

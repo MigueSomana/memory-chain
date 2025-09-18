@@ -1,13 +1,13 @@
 import React from 'react'
 
-const ModalSignUp = () => {
+const ModalSignOut = () => {
   return (
      <>
       <div
         className="modal fade"
-        id="modalSign"
+        id="modalExit"
         tabindex="-1"
-        aria-labelledby="modalSignLabel"
+        aria-labelledby="modalExitLabel"
         aria-hidden="true"
       >
         <div className="modal-dialog modal-dialog-centered">
@@ -22,7 +22,7 @@ const ModalSignUp = () => {
                     aria-label="Close"
                   ></button>
                 </div>
-                <p>HOLA</p>
+                <p>HOLA MENOR</p>
               </div>
             </div>
           </div>
@@ -32,4 +32,4 @@ const ModalSignUp = () => {
   )
 }
 
-export default ModalSignUp;
+export default ModalSignOut;

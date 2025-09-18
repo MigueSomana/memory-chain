@@ -1,0 +1,33 @@
+/* ====== MemoryChain form theming for filter panel ====== */
+.mc-filters .form-check-input {
+  /* Soporte moderno (Chrome/Edge/Firefox/Safari actuales) */
+  accent-color: #20c997;
+}
+
+/* Fallback + subir especificidad con !important */
+.mc-filters .form-check-input:checked {
+  background-color: #20c997 !important;
+  border-color: #20c997 !important;
+}
+
+.mc-filters .form-check-input:focus {
+  border-color: #20c997 !important;
+  box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.25) !important;
+}
+
+/* Select focus (el "glow" verde en vez de azul) */
+.mc-filters .form-select:focus {
+  border-color: #20c997 !important;
+  box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.25) !important;
+}
+
+/* (Opcional) Hover de la opción del select: soportado irregularmente entre navegadores */
+.mc-filters select.form-select option:hover {
+  background-color: rgba(32, 201, 151, 0.12);
+}
+
+/* Checkbox/radio hover visual (cursor + leve sombra) */
+.mc-filters .form-check-input:hover {
+  cursor: pointer;
+  box-shadow: 0 0 0 0.15rem rgba(32, 201, 151, 0.15);
+}

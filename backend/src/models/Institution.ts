@@ -1,60 +1,110 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Document, Model, Schema } from 'mongoose';
 
-export interface Department { 
-  name: string; 
-  code?: string; 
-  description?: string; 
+export interface Department {
+  name: string;
+  code?: string;
+  description?: string;
 }
 
-export interface InstitutionDocument extends Document {
+export type InstitutionType = 'public' | 'private' | 'hybrid';
+
+export interface IInstitution extends Document {
   name: string;
   description?: string;
   country: string;
   website?: string;
-  emailDomain: string;          // ej: "univ.edu"
-  type: 'public' | 'private' | 'hybrid';
+  /**
+   * Campo legado para compatibilidad con código existente.
+   * Recomendado migrar a `emailDomains` (array).
+   */
+  emailDomain?: string; // ej: "univ.edu"
+  emailDomains: string[]; // soporta múltiples dominios
+  type: InstitutionType;
   departments: Department[];
-  isMember: boolean;            // membresía activa
-  canVerify: boolean;           // puede verificar tesis
+  isMember: boolean; // plan de membresía (modelo de negocio)
+  canVerify: boolean; // puede certificar/verificar tesis
   logo?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }
 
-const DepartmentSchema = new Schema<Department>({
-  name: { type: String, required: true, trim: true },
-  code: { type: String, trim: true },
-  description: { type: String, trim: true }
-}, { _id: false }); // No generar _id para subdocumentos
+type IInstitutionModel = Model<IInstitution>;
 
-const InstitutionSchema = new Schema<InstitutionDocument>({
-  name: { type: String, required: true, trim: true, index: true },
-  description: { type: String, trim: true },
-  country: { type: String, required: true, index: true },
-  website: { type: String, trim: true },
-  emailDomain: { 
-    type: String, 
-    required: true, 
-    unique: true, 
-    lowercase: true, 
-    trim: true, 
-    index: true 
+const URL_REGEX =
+  /^(https?:\/\/)[\w\-]+(\.[\w\-]+)+(:\d+)?(\/\S*)?$/i;
+
+const DepartmentSchema = new Schema<Department>(
+  {
+    name: { type: String, required: true, trim: true },
+    code: { type: String, trim: true },
+    description: { type: String, trim: true },
   },
-  type: { 
-    type: String, 
-    enum: ['public', 'private', 'hybrid'], 
-    required: true 
+  { _id: false }
+);
+
+const InstitutionSchema = new Schema<IInstitution, IInstitutionModel>(
+  {
+    name: { type: String, required: true, trim: true, index: true, unique: true },
+    description: { type: String, trim: true },
+    country: { type: String, required: true, trim: true, index: true },
+    website: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: function (v: string | undefined) {
+          if (!v) return true;
+          return URL_REGEX.test(v);
+        },
+        message: 'El sitio web no parece una URL válida.',
+      },
+    },
+    emailDomain: { type: String, trim: true }, // legacy
+    emailDomains: {
+      type: [String],
+      default: function (this: any) {
+        // Arranca con el legado si existe
+        return this.emailDomain ? [this.emailDomain] : [];
+      },
+      validate: {
+        validator: function (arr: string[]) {
+          return arr.every((d) => typeof d === 'string' && d.includes('.'));
+        },
+        message: 'emailDomains contiene un dominio inválido.',
+      },
+      index: true,
+    },
+    type: {
+      type: String,
+      enum: ['public', 'private', 'hybrid'],
+      required: true,
+      index: true,
+    },
+    departments: { type: [DepartmentSchema], default: [] },
+    isMember: { type: Boolean, default: false, index: true },
+    canVerify: { type: Boolean, default: false, index: true },
+    logo: { type: String, trim: true },
   },
-  departments: { type: [DepartmentSchema], default: [] },
-  isMember: { type: Boolean, default: false },
-  canVerify: { type: Boolean, default: false },
-  logo: { type: String, trim: true }
-}, { 
-  timestamps: true // Añade createdAt y updatedAt automáticamente
+  {
+    timestamps: true,
+    versionKey: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
+);
+
+// Virtual para compatibilidad: toma el primero de emailDomains
+InstitutionSchema.virtual('primaryEmailDomain').get(function (this: IInstitution) {
+  return this.emailDomains?.[0] ?? this.emailDomain;
 });
 
-// Índices adicionales para búsquedas eficientes
+// Índices avanzados
 InstitutionSchema.index({ 'departments.name': 1 });
 InstitutionSchema.index({ name: 'text', 'departments.name': 'text' });
 
-export default mongoose.model<InstitutionDocument>('Institution', InstitutionSchema);
+const Institution =
+  (mongoose.models.Institution as IInstitutionModel) ||
+  mongoose.model<IInstitution, IInstitutionModel>('Institution', InstitutionSchema);
+
+export { Institution };
+export default Institution;

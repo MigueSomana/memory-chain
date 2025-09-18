@@ -1,10 +1,12 @@
 import { Router } from 'express';
-import * as ctrl from '../controllers/search.controller';
-import { validatePagination } from '../middlewares/validation.middleware';
+import { searchAll } from '../controllers/search.controller';
 
 const router = Router();
 
-// Solo validar paginación en búsquedas, no datos de tesis
-router.get('/', validatePagination, ctrl.search);
+/**
+ * @route GET /search
+ * @desc  Búsqueda simple → ?type=thesis|institution&query=...
+ */
+router.get('/', searchAll);
 
 export default router;

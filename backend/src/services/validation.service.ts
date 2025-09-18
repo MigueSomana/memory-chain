@@ -1,169 +1,134 @@
 import validator from 'validator';
-import { User } from '../models/User';
-import Institution from '../models/Institution';
 import { Types } from 'mongoose';
+import { User, IUser } from '../models/User';
+import { Institution } from '../models/Institution';
+import { IThesis } from '../models/Thesis';
 
-export interface ValidationResult { 
-  isValid: boolean; 
-  errors: string[]; 
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
 }
 
-export async function validateUserData(p: {
-  name?: string; 
-  lastname?: string; 
-  email?: string; 
-  password?: string;
-  educationalEmails?: string[]; 
-  institutions?: string[];
-  _id?: string; // Para updates
-}): Promise<ValidationResult> {
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CID_V0 = /^Qm[1-9A-HJ-NP-Za-km-z]{44}$/;
+const CID_V1 = /^bafy[1-9A-HJ-NP-Za-km-z]+$/;
+const HASH_HEX = /^[a-f0-9]{64}$/i;
+
+export async function validateUserData(p: Partial<IUser> & { idForUpdate?: string }): Promise<ValidationResult> {
   const errors: string[] = [];
 
-  // Validaciones básicas
-  if (!p.name?.trim()) errors.push('Name is required');
-  if (p.name && p.name.trim().length < 2) errors.push('Name must be at least 2 characters');
-  if (p.name && p.name.trim().length > 100) errors.push('Name cannot exceed 100 characters');
-
-  if (!p.email?.trim()) errors.push('Email is required');
-  if (p.email && !validator.isEmail(p.email)) errors.push('Invalid email format');
-
-  if (p.password) {
-    if (p.password.length < 8) errors.push('Password must be at least 8 characters');
-    if (!/(?=.*[a-z])/.test(p.password)) errors.push('Password must contain at least one lowercase letter');
-    if (!/(?=.*[A-Z])/.test(p.password)) errors.push('Password must contain at least one uppercase letter');
-    if (!/(?=.*\d)/.test(p.password)) errors.push('Password must contain at least one number');
+  if (p.name !== undefined && !String(p.name).trim()) errors.push('name is required');
+  if (p.email !== undefined) {
+    const email = String(p.email).toLowerCase().trim();
+    if (!EMAIL_REGEX.test(email)) errors.push('email format is invalid');
+    // unique (exclude current id)
+    const exists = await User.exists({ email, _id: { $ne: p.idForUpdate } });
+    if (exists) errors.push('email already in use');
   }
-
-  // Validar emails educativos
-  if (p.educationalEmails) {
+  if (p.password !== undefined && String(p.password).length < 8) {
+    errors.push('password must be at least 8 characters');
+  }
+  if (p.educationalEmails !== undefined) {
     for (const e of p.educationalEmails) {
-      if (!validator.isEmail(e)) errors.push(`Invalid educational email: ${e}`);
+      if (!EMAIL_REGEX.test(String(e))) errors.push(`invalid educational email: ${e}`);
     }
   }
-
-  // Validar instituciones
   if (p.institutions) {
-    for (const id of p.institutions) {
-      if (!Types.ObjectId.isValid(id)) {
-        errors.push(`Invalid institution ID format: ${id}`);
-      } else {
-        const exists = await Institution.exists({ _id: id });
-        if (!exists) errors.push(`Institution not found: ${id}`);
+    for (const id of p.institutions as any[]) {
+      if (!Types.ObjectId.isValid(String(id))) {
+        errors.push(`invalid institution id: ${id}`);
       }
     }
-  }
-
-  // Verificar email único (solo si no es update del mismo usuario)
-  if (p.email) {
-    const query: any = { email: p.email };
-    if (p._id) query._id = { $ne: p._id };
-    
-    const existing = await User.findOne(query);
-    if (existing) errors.push('Email already in use');
   }
 
   return { isValid: errors.length === 0, errors };
 }
 
-export async function validateInstitutionData(p: {
-  name?: string; 
-  country?: string; 
-  emailDomain?: string; 
-  type?: string;
-  _id?: string; // Para updates
-}): Promise<ValidationResult> {
+export async function validateInstitutionData(p: Partial<any>): Promise<ValidationResult> {
   const errors: string[] = [];
+  if (p.name !== undefined && !String(p.name).trim()) errors.push('name is required');
+  if (p.country !== undefined && !String(p.country).trim()) errors.push('country is required');
 
-  if (!p.name?.trim()) errors.push('Institution name is required');
-  if (p.name && p.name.trim().length < 2) errors.push('Institution name must be at least 2 characters');
-
-  if (!p.country?.trim()) errors.push('Country is required');
-  if (p.country && p.country.trim().length !== 2) errors.push('Country must be a valid 2-letter ISO code');
-
-  if (!p.emailDomain?.trim()) errors.push('Email domain is required');
-  if (p.emailDomain && !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(p.emailDomain)) {
-    errors.push('Invalid email domain format (e.g., university.edu)');
+  if (p.website) {
+    const ok = validator.isURL(String(p.website), { protocols: ['http','https'], require_protocol: true });
+    if (!ok) errors.push('website is not a valid URL (must include http/https)');
   }
-
-  if (!p.type) errors.push('Institution type is required');
-  if (p.type && !['public', 'private', 'hybrid'].includes(p.type)) {
-    errors.push('Institution type must be: public, private, or hybrid');
-  }
-
-  // Verificar emailDomain único
   if (p.emailDomain) {
-    const query: any = { emailDomain: p.emailDomain.toLowerCase() };
-    if (p._id) query._id = { $ne: p._id };
-    
-    const existing = await Institution.findOne(query);
-    if (existing) errors.push('Email domain already registered');
+    if (!String(p.emailDomain).includes('.')) errors.push('emailDomain looks invalid');
   }
-
+  if (p.emailDomains) {
+    for (const d of p.emailDomains as string[]) {
+      if (typeof d !== 'string' || !d.includes('.')) errors.push(`invalid email domain: ${d}`);
+    }
+  }
+  if (p.type && !['public','private','hybrid'].includes(String(p.type))) {
+    errors.push('type must be one of public|private|hybrid');
+  }
   return { isValid: errors.length === 0, errors };
 }
 
-export function sanitizeInput(s: string): string {
-  if (typeof s !== 'string') return '';
-  return s.replace(/[<>${}]/g, '').trim();
-}
-
-export function validateThesisData(p: {
-  title?: string; 
-  authors?: Array<{name: string; email: string}>;
-  summary?: string; 
-  language?: string; 
-  degree?: string; 
-  workType?: string;
-  institution?: string;
-  keywords?: string[];
-}): ValidationResult {
+export async function validateThesisData(p: Partial<IThesis>): Promise<ValidationResult> {
   const errors: string[] = [];
 
-  // Validaciones obligatorias
-  if (!p.title?.trim()) errors.push('Title is required');
-  if (p.title && p.title.trim().length < 5) errors.push('Title must be at least 5 characters');
-  if (p.title && p.title.trim().length > 500) errors.push('Title cannot exceed 500 characters');
+  if (p.title !== undefined && !String(p.title).trim()) errors.push('title is required');
+  if (p.summary !== undefined && !String(p.summary).trim()) errors.push('summary is required');
+  if (p.language !== undefined && !String(p.language).trim()) errors.push('language is required');
+  if (p.degree !== undefined && !String(p.degree).trim()) errors.push('degree is required');
 
-  if (!p.summary?.trim()) errors.push('Summary is required');
-  if (p.summary && p.summary.trim().length < 20) errors.push('Summary must be at least 20 characters');
-  if (p.summary && p.summary.trim().length > 5000) errors.push('Summary cannot exceed 5000 characters');
-
-  if (!p.language?.trim()) errors.push('Language is required');
-  const allowedLanguages = ['es', 'en', 'pt', 'fr', 'de', 'it', 'other'];
-  if (p.language && !allowedLanguages.includes(p.language)) {
-    errors.push(`Language must be one of: ${allowedLanguages.join(', ')}`);
-  }
-
-  if (!p.degree?.trim()) errors.push('Degree is required');
-  if (!p.workType?.trim()) errors.push('Work type is required');
-  if (!p.institution?.trim()) errors.push('Institution is required');
-  
-  if (p.institution && !Types.ObjectId.isValid(p.institution)) {
-    errors.push('Invalid institution ID format');
-  }
-
-  // Validar autores
-  if (!p.authors || !Array.isArray(p.authors) || p.authors.length === 0) {
-    errors.push('At least one author is required');
-  } else {
-    p.authors.forEach((author, index) => {
-      if (!author.name?.trim()) {
-        errors.push(`Author ${index + 1}: name is required`);
+  if (p.authors) {
+    if (!Array.isArray(p.authors) || p.authors.length === 0) {
+      errors.push('authors must be a non-empty array');
+    } else {
+      const emails = new Set<string>();
+      for (let i=0;i<p.authors.length;i++) {
+        const a: any = p.authors[i];
+        if (!a?.name || !String(a.name).trim()) errors.push(`author[${i}].name is required`);
+        if (a.email) {
+          if (!EMAIL_REGEX.test(String(a.email))) errors.push(`author[${i}].email is invalid`);
+          const e = String(a.email).toLowerCase();
+          if (emails.has(e)) errors.push('author emails must be unique');
+          emails.add(e);
+        }
       }
-      if (!author.email?.trim()) {
-        errors.push(`Author ${index + 1}: email is required`);
-      } else if (!validator.isEmail(author.email)) {
-        errors.push(`Author ${index + 1}: invalid email format (${author.email})`);
-      }
-    });
-
-    // Verificar emails únicos entre autores
-    const emails = p.authors.map(a => a.email?.toLowerCase()).filter(Boolean);
-    const uniqueEmails = new Set(emails);
-    if (emails.length !== uniqueEmails.size) {
-      errors.push('Author emails must be unique');
     }
   }
 
+  if (p.institution) {
+    if (!Types.ObjectId.isValid(String(p.institution))) errors.push('institution must be a valid ObjectId');
+  }
+  if (p.year !== undefined) {
+    const y = Number(p.year);
+    if (Number.isNaN(y) || y < 1900 || y > 2100) errors.push('year must be between 1900 and 2100');
+  }
+
+  if (p.fileHash !== undefined && !HASH_HEX.test(String(p.fileHash))) {
+    errors.push('fileHash must be a 64-char hex sha256');
+  }
+  if (p.ipfsCid !== undefined) {
+    const s = String(p.ipfsCid);
+    if (!(CID_V0.test(s) || CID_V1.test(s))) errors.push('ipfsCid is not a valid CIDv0/v1');
+  }
+
   return { isValid: errors.length === 0, errors };
+}
+
+/**
+ * Regla de negocio opcional:
+ * educationalEmails del usuario deben pertenecer a alguno de los dominios de sus instituciones.
+ * Retorna lista de correos que NO cumplen la regla.
+ */
+export async function checkEducationalEmailDomains(userId: string): Promise<{ invalidEmails: string[] }> {
+  if (!Types.ObjectId.isValid(userId)) throw new Error('invalid user id');
+  const user = await User.findById(userId).select('educationalEmails institutions');
+  if (!user) throw new Error('user not found');
+  if (!user.institutions?.length || !user.educationalEmails?.length) return { invalidEmails: [] };
+
+  const institutions = await Institution.find({ _id: { $in: user.institutions } }).select('emailDomains');
+  const domains = new Set<string>();
+  institutions.forEach(inst => (inst.emailDomains || []).forEach(d => domains.add(d.toLowerCase())));
+  const invalid = user.educationalEmails.filter((e) => {
+    const domain = String(e).split('@')[1]?.toLowerCase();
+    return domain ? !domains.has(domain) : true;
+  });
+  return { invalidEmails: invalid };
 }
