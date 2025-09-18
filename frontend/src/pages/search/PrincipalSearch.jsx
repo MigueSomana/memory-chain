@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from "react";
 import NavbarReal from "../../components/navbar/NavbarReal";
-import Layout from "../../components/layout/Layout";
+import Layout from "../../components/layout/LayoutPrivado";
 
 const ThesisSearch = lazy(() => import("../search/ThesisSearch"));
 const InstitutionSearch = lazy(() => import("../search/InstitutionsSearch"));

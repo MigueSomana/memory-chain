@@ -15,7 +15,7 @@ const Segmented = ({ options, value, onChange }) => (
   </div>
 );
 
-const Layout = ({
+const LayoutPrivado = ({
   icon,
   title,
   children,
@@ -79,5 +79,5 @@ const Layout = ({
   );
 };
 
-export default Layout;
+export default LayoutPrivado;
 
