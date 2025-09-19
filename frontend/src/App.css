@@ -1,3 +1,4 @@
+
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap");
 
 /* General Styles */
@@ -332,7 +333,6 @@ body {
 .mc-sort .dropdown-menu {
   border-color: #20c997;
 }
-.mc-sort .dropdown-item.active,
 .mc-sort .dropdown-item:active {
   background-color: #20c997;
   color: #fff;

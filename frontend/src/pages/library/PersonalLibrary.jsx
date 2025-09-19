@@ -1,6 +1,6 @@
 import React from "react";
 import NavbarReal from "../../components/navbar/NavbarReal";
-import Layout from "../../components/layout/Layout";
+import Layout from "../../components/layout/LayoutPrivado";
 import LibraryPSearch from "../search/LibraryPSearch";
 
 const PersonalLibrary = () => {

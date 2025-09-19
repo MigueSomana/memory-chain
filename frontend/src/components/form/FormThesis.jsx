@@ -1,4 +1,3 @@
-// src/pages/thesis/ThesisUpload.jsx
 import React, { useMemo, useRef, useState } from "react";
 
 const MAX_PDF_MB = 25;
