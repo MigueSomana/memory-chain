@@ -1,19 +1,9 @@
 import { Router } from 'express';
-import { login, me } from '../controllers/auth.controller';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { register, login } from '../controllers/auth.controller';
 
 const router = Router();
 
-/**
- * @route POST /auth/login
- * @desc  Login y devolución de JWT + usuario
- */
+router.post('/register', register);
 router.post('/login', login);
-
-/**
- * @route GET /auth/me
- * @desc  Devuelve el usuario autenticado
- */
-router.get('/me', authMiddleware, me);
 
 export default router;

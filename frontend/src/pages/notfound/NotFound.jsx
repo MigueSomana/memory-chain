@@ -1,11 +1,11 @@
 import React from "react";
 
-const AboutUs = () => {
+const NotFound = () => {
   return (
     <div className="background-home text-white">
-      <h1>En proceso About</h1>
+      <h1>En proceso NotFound</h1>
     </div>
   );
 };
 
-export default AboutUs;
+export default NotFound;

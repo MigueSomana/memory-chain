@@ -27,7 +27,7 @@
     "react-dom": "^19.1.0",
     "react-dropzone": "^14.3.8",
     "react-pdf": "^9.2.1",
-    "react-router-dom": "^7.9.1",
+    "react-router-dom": "^7.9.5",
     "web3": "^4.16.0"
   },
   "devDependencies": {

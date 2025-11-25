@@ -1,67 +1,72 @@
 import { Request, Response, NextFunction } from 'express';
-import {
-  createThesis,
-  getByUser,
-  getById,
-  updateThesis,
-  searchTheses,
-  attachTxData
-} from '../services/thesis.service';
+import { Thesis, IThesisDocument } from '../models/thesis.model';
+import { uploadThesisFile } from '../services/storage.service';
 
-export async function create(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const thesis = await createThesis({ ...req.body, uploadedBy: req.user._id });
-    res.status(201).json({ success: true, data: thesis });
-  } catch (err) {
-    next(err);
-  }
+// Si usas multer:
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
 }
 
-export async function getMine(req: Request, res: Response, next: NextFunction): Promise<void> {
+export const createThesis = async (req: MulterRequest, res: Response, next: NextFunction) => {
   try {
-    const result = await getByUser(req.user._id, Number(req.query.page), Number(req.query.limit));
-    res.json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
-}
+    const {
+      title,
+      authors,
+      advisors,
+      summary,
+      keywords,
+      language,
+      degree,
+      field,
+      year,
+      institution,
+      department,
+      doi,
+    } = req.body;
 
-export async function getByIdCtrl(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const thesis = await getById(req.params.id);
-    if (!thesis) {
-      res.status(404).json({ success: false, message: 'Thesis not found' });
-      return;
+    if (!req.file) {
+      return res.status(400).json({ message: 'Archivo de tesis requerido' });
     }
-    res.json({ success: true, data: thesis });
-  } catch (err) {
-    next(err);
-  }
-}
 
-export async function update(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const updated = await updateThesis(req.params.id, req.body);
-    res.json({ success: true, data: updated });
-  } catch (err) {
-    next(err);
-  }
-}
+    // Subir a Storacha/IPFS
+    const buffer = req.file.buffer;
+    const { cid, hash } = await uploadThesisFile(buffer);
 
-export async function search(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const result = await searchTheses(req.query);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
-}
+    const thesis: IThesisDocument = new Thesis({
+      title,
+      authors, // asegúrate que viene como array de IAuthor desde el frontend
+      advisors,
+      summary,
+      keywords,
+      language,
+      degree,
+      field,
+      year,
+      likes: 0,
+      institution,
+      department,
+      doi,
+      version: 1,
+      status: 'pending',
+      uploadedBy: (req as any).user?._id, // si ya tienes middleware de auth
+      fileHash: hash,
+      hashAlgorithm: 'sha256',
+      ipfsCid: cid,
+    });
 
-export async function attachTx(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const updated = await attachTxData(req.params.id, req.body);
-    res.json({ success: true, data: updated });
-  } catch (err) {
-    next(err);
+    await thesis.save();
+
+    return res.status(201).json(thesis);
+  } catch (error) {
+    next(error);
   }
-}
+};
+
+export const getTheses = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const list = await Thesis.find().populate('institution').populate('uploadedBy');
+    return res.json(list);
+  } catch (error) {
+    next(error);
+  }
+};

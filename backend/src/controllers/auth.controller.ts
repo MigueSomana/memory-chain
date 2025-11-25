@@ -1,56 +1,72 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt, { Secret, SignOptions } from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
-import { findUserByEmail } from '../services/user.service';
+import { User, IUserDocument } from '../models/user.model';
+import { generateToken } from '../utils/jwt';
+import { hashPassword, comparePassword } from '../utils/password';
 
-// --- Tipos compatibles con jsonwebtoken v9 ---
-type TimeUnit = 'ms' | 's' | 'm' | 'h' | 'd' | 'w' | 'y';
-type ExpiresIn = `${number}${TimeUnit}` | number;
+export const register = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { name, lastname, email, password } = req.body;
 
-const JWT_SECRET: Secret = (process.env.JWT_SECRET ?? 'changeme') as Secret;
-const JWT_EXPIRES: ExpiresIn = (process.env.JWT_EXPIRES ?? '7d') as ExpiresIn;
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: 'El correo ya está registrado' });
+    }
 
-// Type guard para obtener un string de cualquier _id (ObjectId|string|desconocido)
-function toIdString(id: unknown): string {
-  if (typeof id === 'string') return id;
-  if (id && typeof (id as any).toString === 'function') return (id as any).toString();
-  throw new Error('Invalid _id type');
-}
+    const passwordHash = await hashPassword(password);
 
-export async function login(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const user: IUserDocument = new User({
+      name,
+      lastname,
+      email,
+      password: passwordHash,
+      educationalEmails: [],
+      institutions: [],
+      role: 'user',
+      isActive: true,
+    });
+
+    await user.save();
+
+    const token = generateToken(user._id.toString());
+
+    return res.status(201).json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+      token,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      res.status(400).json({ success: false, message: 'Email and password are required' });
-      return;
-    }
 
-    const user = await findUserByEmail(email, { includePassword: true });
+    const user = await User.findOne({ email });
     if (!user) {
-      res.status(401).json({ success: false, message: 'Invalid credentials' });
-      return;
+      return res.status(400).json({ message: 'Credenciales inválidas' });
     }
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      res.status(401).json({ success: false, message: 'Invalid credentials' });
-      return;
+    const isValid = await comparePassword(password, user.password);
+    if (!isValid) {
+      return res.status(400).json({ message: 'Credenciales inválidas' });
     }
 
-    const payload = { id: toIdString(user._id), role: user.role };
-    const options: SignOptions = { expiresIn: JWT_EXPIRES };
-    const token = jwt.sign(payload, JWT_SECRET, options);
+    const token = generateToken(user._id.toString());
 
-    res.json({ success: true, data: { token, user: user.toJSON() } });
-  } catch (err) {
-    next(err);
+    return res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+      token,
+    });
+  } catch (error) {
+    next(error);
   }
-}
-
-export async function me(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    res.json({ success: true, data: req.user });
-  } catch (err) {
-    next(err);
-  }
-}
+};

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { NavLink } from "react-router-dom"; 
 
 const NavbarReal = () => {
   const [activeKey, setActiveKey] = useState("dashboard");
@@ -12,7 +13,7 @@ const NavbarReal = () => {
           <path d="M256 144C256 117.5 277.5 96 304 96L336 96C362.5 96 384 117.5 384 144L384 496C384 522.5 362.5 544 336 544L304 544C277.5 544 256 522.5 256 496L256 144zM64 336C64 309.5 85.5 288 112 288L144 288C170.5 288 192 309.5 192 336L192 496C192 522.5 170.5 544 144 544L112 544C85.5 544 64 522.5 64 496L64 336zM496 160L528 160C554.5 160 576 181.5 576 208L576 496C576 522.5 554.5 544 528 544L496 544C469.5 544 448 522.5 448 496L448 208C448 181.5 469.5 160 496 160z"/>
         </svg>
       ),
-      href: "#",
+      href: "/dashboardP",
     },
     {
       key: "explore",
@@ -22,7 +23,7 @@ const NavbarReal = () => {
           <path d="M4.5 1A1.5 1.5 0 0 0 3 2.5V3h4v-.5A1.5 1.5 0 0 0 5.5 1zM7 4v1h2V4h4v.882a.5.5 0 0 0 .276.447l.895.447A1.5 1.5 0 0 1 15 7.118V13H9v-1.5a.5.5 0 0 1 .146-.354l.854-.853V9.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v.793l.854.853A.5.5 0 0 1 7 11.5V13H1V7.118a1.5 1.5 0 0 1 .83-1.342l.894-.447A.5.5 0 0 0 3 4.882V4zM1 14v.5A1.5 1.5 0 0 0 2.5 16h3A1.5 1.5 0 0 0 7 14.5V14zm8 0v.5a1.5 1.5 0 0 0 1.5 1.5h3a1.5 1.5 0 0 0 1.5-1.5V14zm4-11H9v-.5A1.5 1.5 0 0 1 10.5 1h1A1.5 1.5 0 0 1 13 2.5z"/>
         </svg>
       ),
-      href: "#",
+      href: "/searchP",
     },
     {
       key: "library",
@@ -33,7 +34,7 @@ const NavbarReal = () => {
           <path d="m2.125 8.567-1.86.992a.5.5 0 0 0 0 .882l7.5 4a.5.5 0 0 0 .47 0l7.5-4a.5.5 0 0 0 0-.882l-1.86-.992-5.17 2.756a1.5 1.5 0 0 1-1.41 0z"/>
         </svg>
       ),
-      href: "#",
+      href:"/libraryP",
     },
     {
       key: "profile",
@@ -44,10 +45,10 @@ const NavbarReal = () => {
           <path fillRule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"/>
         </svg>
       ),
-      href: "#",
+      href: "/profileP",
     },
     {
-      key: "signout nav-link text-white",
+      key: "signout",
       label: "Sign Out",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="nav-icon" viewBox="0 0 640 640" fill="currentColor">
@@ -55,40 +56,76 @@ const NavbarReal = () => {
         </svg>
       ),
       href:"#modalExit",
-                    dbt1:"modal",
-                    dbt2:"#modalExit",
+      dbt1:"modal",
+      dbt2:"#modalExit",
     },
   ];
 
-const renderItemDesktop = (it) => (
-  <li className="nav-item flex-grow-1 d-flex" key={it.key}>
-    <a
-      href={it.href}
-      onClick={() => setActiveKey(it.key)}
-      className={`nav-link text-white text-center d-flex flex-column align-items-center justify-content-center w-100 h-100 rounded ${activeKey === it.key ? "active" : "opacity-75"}`}
-      data-bs-toggle={it.dbt1}
-      data-bs-target={it.dbt2}
-    >
-      <span className="d-block mb-1">{it.icon}</span>
-      <span className="fw-semibold">{it.label}</span>
-    </a>
-  </li>
-);
+const renderItemDesktop = (it) => {
+    const isHash = it.href && it.href.startsWith('#');
+    if (isHash) {
+      return (
+        <li className="nav-item flex-grow-1 d-flex" key={it.key}>
+          <a
+            href={it.href}
+            onClick={() => setActiveKey(it.key)}
+            className={`nav-link text-white text-center d-flex flex-column align-items-center justify-content-center w-100 h-100 rounded ${activeKey === it.key ? "active" : "opacity-75"}`}
+            data-bs-toggle={it.dbt1}
+            data-bs-target={it.dbt2}
+          >
+            <span className="d-block mb-1">{it.icon}</span>
+            <span className="fw-semibold">{it.label}</span>
+          </a>
+        </li>
+      );
+    }
 
+    return (
+      <li className="nav-item flex-grow-1 d-flex" key={it.key}>
+        <NavLink
+          to={it.href}
+          onClick={() => setActiveKey(it.key)}
+          className={({ isActive }) => `nav-link text-white text-center d-flex flex-column align-items-center justify-content-center w-100 h-100 rounded ${isActive || activeKey === it.key ? "active" : "opacity-75"}`}
+        >
+          <span className="d-block mb-1">{it.icon}</span>
+          <span className="fw-semibold">{it.label}</span>
+        </NavLink>
+      </li>
+    );
+  };
 
-  const renderItemMobile = (it) => (
-    <li className="nav-item" key={it.key}>
-      <a
-        href={it.href}
-        data-bs-dismiss="offcanvas"
-        onClick={() => setActiveKey(it.key)}
-        className={`nav-link d-flex align-items-center gap-2 px-3 py-2 rounded ${activeKey === it.key ? "active" : "text-white-50"}`}
-      >
-        {it.icon}
-        <span className="fw-semibold">{it.label}</span>
-      </a>
-    </li>
-  );
+  const renderItemMobile = (it) => {
+    const isHash = it.href && it.href.startsWith('#');
+    if (isHash) {
+      return (
+        <li className="nav-item" key={it.key}>
+          <a
+            href={it.href}
+            data-bs-dismiss="offcanvas"
+            onClick={() => setActiveKey(it.key)}
+            className={`nav-link d-flex align-items-center gap-2 px-3 py-2 rounded ${activeKey === it.key ? "active" : "text-white-50"}`}
+          >
+            {it.icon}
+            <span className="fw-semibold">{it.label}</span>
+          </a>
+        </li>
+      );
+    }
+
+    return (
+      <li className="nav-item" key={it.key}>
+        <NavLink
+          to={it.href}
+          data-bs-dismiss="offcanvas"
+          onClick={() => setActiveKey(it.key)}
+          className={({ isActive }) => `nav-link d-flex align-items-center gap-2 px-3 py-2 rounded ${isActive || activeKey === it.key ? "active" : "text-white-50"}`}
+        >
+          {it.icon}
+          <span className="fw-semibold">{it.label}</span>
+        </NavLink>
+      </li>
+    );
+  };
 
   return (
     <>
