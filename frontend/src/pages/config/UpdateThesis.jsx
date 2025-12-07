@@ -21,6 +21,7 @@ useEffect(() => {
       try {
         const token = getAuthToken?.() || localStorage.getItem("memorychain_token");
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
         const res = await axios.get(
           `${API_BASE_URL}/api/institutions`,
           headers ? { headers } : undefined
@@ -61,7 +62,7 @@ useEffect(() => {
           institutionOptions={institutionOptions}
             idUser={idUser}
             idInstitution={idInstitution}
-            idThesis={null}
+            idThesis={idThesis}
           />
         </Layout>
       </div>

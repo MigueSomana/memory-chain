@@ -13,6 +13,7 @@ import DashboardP from './pages/dashboard/DashboardPersonal'
 import SearchP from './pages/search/LibraryPSearch'
 import LibraryP from './pages/library/PersonalLibrary'
 import ProfileP from './pages/config/ProfilePersonal'
+import UploadThesis from './pages/config/UploadThesis'
 
 // University Import
 import DashboardU from './pages/dashboard/DashboardUniversity'
@@ -26,7 +27,7 @@ function App() {
     <>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<DashboardP />} />
+        <Route path="/" element={<Home />} />
         <Route path="/search" element={<Search />} />
         <Route path="/about" element={<About />} />
         <Route path="*" element={<NotFound />} />
@@ -35,6 +36,9 @@ function App() {
         <Route path="/searchP" element={<SearchP />} />
         <Route path="/libraryP" element={<LibraryP />} />
         <Route path="/profileP" element={<ProfileP />} />
+        <Route path="/upload" element={<UploadThesis />} />
+
+        
         <Route path="/dashboardU" element={<DashboardU />} />
         <Route path="/searchU" element={<SearchU />} />
         <Route path="/libraryU" element={<LibraryU />} />

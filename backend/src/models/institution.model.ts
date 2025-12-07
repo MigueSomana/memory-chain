@@ -1,47 +1,95 @@
-import { Schema, model, Document } from 'mongoose';
-import { InstitutionType } from './types';
+import mongoose, { Document, Schema } from "mongoose";
 
-export interface IInstitution {
+export type InstitutionType = "UNIVERSITY" | "INSTITUTE" | "OTHER";
+
+export interface IInstitution extends Document {
   name: string;
   description?: string;
   country: string;
   website?: string;
-  emailDomain?: string;
+
+  // Login principal de la institución
+  email: string;
+  password: string; // HASH, no texto plano
+
+  // Dominios institucionales para correos estudiantiles
   emailDomains: string[];
+
   type: InstitutionType;
-  departmentsName: string;
-  departmentCode: string;
-  isMember: boolean;
-  canVerify: boolean;
-  logo?: string;
+  departments?: string[];
+
+  isMember: boolean; // membresía activa
+  canVerify: boolean; // puede certificar tesis
+
+  logo?: string; // URL/base64 (igual estilo que imgUrl de usuario)
+
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface IInstitutionDocument extends IInstitution, Document {}
-
-const institutionSchema = new Schema<IInstitutionDocument>(
+const InstitutionSchema = new Schema<IInstitution>(
   {
-    name: { type: String, required: true },
-    description: { type: String },
-    country: { type: String, required: true },
-    website: { type: String },
-    emailDomain: { type: String }, // opcional, por compatibilidad
-    emailDomains: { type: [String], default: [] },
+    name: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
+    country: { type: String, required: true, trim: true },
+    website: { type: String, trim: true },
+
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: true, // recuerda guardarla siempre hasheada
+      minlength: 8,
+    },
+
+    emailDomains: {
+      type: [String],
+      default: [],
+    },
+
     type: {
       type: String,
-      enum: ['university', 'institute', 'other'],
-      default: 'university',
+      enum: ["UNIVERSITY", "INSTITUTE", "OTHER"],
+      default: "UNIVERSITY",
     },
-    departmentsName: { type: String, required: true },
-    departmentCode: { type: String, required: true },
-    isMember: { type: Boolean, default: false },
-    canVerify: { type: Boolean, default: false },
-    logo: { type: String },
+
+    departments: {
+      type: [String],
+      default: [],
+    },
+
+    isMember: {
+      type: Boolean,
+      default: false,
+    },
+    canVerify: {
+      type: Boolean,
+      default: false,
+    },
+
+    logo: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,
   }
 );
 
-export const Institution = model<IInstitutionDocument>('Institution', institutionSchema);
+// Por seguridad, NUNCA devuelvas password en JSON
+InstitutionSchema.methods.toJSON = function () {
+  const obj: any = this.toObject();
+  delete obj.password;
+  return obj;
+};
+
+export const Institution = mongoose.model<IInstitution>(
+  "Institution",
+  InstitutionSchema
+);

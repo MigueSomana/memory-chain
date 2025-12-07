@@ -1,7 +1,26 @@
-import { Schema, model, Document, Types } from 'mongoose';
-import { IAuthor, CertificationStatus } from './types';
+import mongoose, { Document, Schema, Types } from "mongoose";
 
-export interface IThesis {
+export type CertificationStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED";
+
+export interface IAuthor {
+  name: string;
+  lastname?: string;
+  email?: string;
+}
+
+const AuthorSchema = new Schema<IAuthor>(
+  {
+    name: { type: String, required: true, trim: true },
+    lastname: { type: String, trim: true },
+    email: { type: String, trim: true, lowercase: true },
+  },
+  { _id: false }
+);
+
+export interface IThesis extends Document {
   title: string;
   authors: IAuthor[];
   advisors?: IAuthor[];
@@ -11,64 +30,76 @@ export interface IThesis {
   degree: string;
   field?: string;
   year?: number;
+
   likes: number;
+  likedBy: Types.ObjectId[];
+
   institution: Types.ObjectId;
   department?: string;
   doi?: string;
-  version?: number;
   status: CertificationStatus;
   uploadedBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
+
   // Archivo + blockchain
   fileHash: string;
-  hashAlgorithm: 'sha256' | 'sha3' | 'keccak256';
+  hashAlgorithm: "sha256" | "sha3" | "keccak256";
   ipfsCid: string;
   txHash?: string;
   chainId?: number;
   blockNumber?: number;
 }
 
-export interface IThesisDocument extends IThesis, Document {}
-
-const authorSchema = new Schema<IAuthor>(
+const ThesisSchema = new Schema<IThesis>(
   {
-    name: { type: String, required: true },
-    lastname: { type: String },
-    email: { type: String },
-    institution: { type: Schema.Types.ObjectId, ref: 'Institution' },
-  },
-  { _id: false }
-);
-
-const thesisSchema = new Schema<IThesisDocument>(
-  {
-    title: { type: String, required: true },
-    authors: { type: [authorSchema], required: true },
-    advisors: { type: [authorSchema], default: [] },
-    summary: { type: String, required: true },
-    keywords: { type: [String], default: [] },
-    language: { type: String, required: true },
-    degree: { type: String, required: true },
-    field: { type: String },
+    title: { type: String, required: true, trim: true },
+    authors: {
+      type: [AuthorSchema],
+      validate: [(v: IAuthor[]) => v.length > 0, "At least one author."],
+    },
+    advisors: {
+      type: [AuthorSchema],
+      default: [],
+    },
+    summary: { type: String, required: true, trim: true },
+    keywords: {
+      type: [String],
+      default: [],
+    },
+    language: { type: String, required: true, trim: true },
+    degree: { type: String, required: true, trim: true },
+    field: { type: String, trim: true },
     year: { type: Number },
+
     likes: { type: Number, default: 0 },
-    institution: { type: Schema.Types.ObjectId, ref: 'Institution', required: true },
-    department: { type: String },
-    doi: { type: String },
-    version: { type: Number, default: 1 },
+    likedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
+
+    institution: {
+      type: Schema.Types.ObjectId,
+      ref: "Institution",
+      required: true,
+    },
+    department: { type: String, trim: true },
+    doi: { type: String, trim: true },
+
     status: {
       type: String,
-      enum: ['pending', 'certified', 'rejected'],
-      default: 'pending',
+      enum: ["PENDING", "APPROVED", "REJECTED"],
+      default: "PENDING",
     },
-    uploadedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+
+    uploadedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
 
     fileHash: { type: String, required: true },
     hashAlgorithm: {
       type: String,
-      enum: ['sha256', 'sha3', 'keccak256'],
-      default: 'sha256',
+      enum: ["sha256", "sha3", "keccak256"],
+      required: true,
+      default: "sha256",
     },
     ipfsCid: { type: String, required: true },
     txHash: { type: String },
@@ -80,4 +111,4 @@ const thesisSchema = new Schema<IThesisDocument>(
   }
 );
 
-export const Thesis = model<IThesisDocument>('Thesis', thesisSchema);
+export const Thesis = mongoose.model<IThesis>("Thesis", ThesisSchema);

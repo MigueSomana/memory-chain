@@ -2,8 +2,16 @@ import React, { Suspense, lazy } from "react";
 import NavbarReal from "../../components/navbar/NavbarReal";
 import Layout from "../../components/layout/LayoutPrivado";
 
+// 👉 Si ThesisSearch es export default:
 const ThesisSearch = lazy(() => import("../search/ThesisSearch"));
-const InstitutionSearch = lazy(() => import("../search/InstitutionsSearch"));
+
+// 👉 Si InstitutionsSearch ES export nombrado (ej: export const InstitutionsSearch = ...)
+//    usa esta forma:
+const InstitutionSearch = lazy(() =>
+  import("../search/InstitutionsSearch").then((m) => ({
+    default: m.default || m.InstitutionsSearch || m.InstitutionSearch,
+  }))
+);
 
 const PrincipalSearch = () => {
   return (

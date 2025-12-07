@@ -1,9 +1,23 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import axios from "axios";
+import { getAuthToken } from "../../utils/authSession";
+import { EyeIcon, EyeSlashIcon } from "../../utils/icons";
 
-const FormProfileU = ({ initialData, onSubmit }) => {
+const API_BASE_URL = "http://localhost:4000/api";
+const token = getAuthToken();
+
+const FormProfileU = ({ initialData: initialDataProp /*, onSubmit*/ }) => {
+  // ------------------ ESTADO BÁSICO ------------------
+  const [initialData, setInitialData] = useState(initialDataProp || null);
+  const [loading, setLoading] = useState(!initialDataProp);
+  const [loadError, setLoadError] = useState("");
+  const [deptAlert, setDeptAlert] = useState("");
+
+  // Member (depende de initialData)
   const isMember = Boolean(initialData?.isMember);
 
-  const [logoPreview, setLogoPreview] = useState(initialData?.logo || "");
+  // Logo
+  const [logoPreview, setLogoPreview] = useState("");
   const [logoFile, setLogoFile] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -30,19 +44,14 @@ const FormProfileU = ({ initialData, onSubmit }) => {
     reader.readAsDataURL(file);
   };
 
-  const [name, setName] = useState(initialData?.name || "");
-  const [description, setDescription] = useState(
-    initialData?.description || ""
-  );
-  const [country, setCountry] = useState(initialData?.country || "");
-  const [website, setWebsite] = useState(initialData?.website || "");
-  const [type, setType] = useState(initialData?.type || "");
+  // Campos de la institución
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [country, setCountry] = useState("");
+  const [website, setWebsite] = useState("");
+  const [type, setType] = useState("");
 
-  const [departments, setDepartments] = useState(
-    (initialData?.departments || []).map((d) =>
-      typeof d === "string" ? { name: d } : d
-    )
-  );
+  const [departments, setDepartments] = useState([]);
   const [deptInput, setDeptInput] = useState("");
 
   const addDepartment = () => {
@@ -51,20 +60,40 @@ const FormProfileU = ({ initialData, onSubmit }) => {
     const exists = departments.some(
       (d) => d.name.toLowerCase() === val.toLowerCase()
     );
-    if (exists) return;
-    setDepartments((prev) => [...prev, { name: val }]);
-    setDeptInput("");
+    if (exists) {
+    setDeptAlert(`The department "${val}" is already in the list.`);
+    return;
+  }setDepartments((prev) => [...prev, { name: val }]);
+  setDeptInput("");
+  setDeptAlert("");
   };
   const removeDepartment = (name) => {
     setDepartments((prev) => prev.filter((d) => d.name !== name));
   };
 
-  const [email, setEmail] = useState(initialData?.email || "");
-  const [secondaryEmail, setSecondaryEmail] = useState(
-    initialData?.secondaryEmail || ""
-  );
+  const [email, setEmail] = useState("");
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+  // Email domains
+  const [emailDomains, setEmailDomains] = useState([]);
+  const [domainInput, setDomainInput] = useState("");
+
+  const addDomain = () => {
+    const val = domainInput.trim();
+    if (!val) return;
+    const exists = emailDomains.some(
+      (d) => d.value.toLowerCase() === val.toLowerCase()
+    );
+    if (exists) return;
+    setEmailDomains((prev) => [...prev, { value: val }]);
+    setDomainInput("");
+  };
+
+  const removeDomain = (value) => {
+    setEmailDomains((prev) => prev.filter((d) => d.value !== value));
+  };
+
+  // Password
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -72,14 +101,102 @@ const FormProfileU = ({ initialData, onSubmit }) => {
 
   const [errors, setErrors] = useState({});
 
+  // ------------------ CARGA INICIAL (GET /institutions/:id) ------------------
+  useEffect(() => {
+    // Si ya me pasaron initialData por props, no hago fetch
+    if (initialDataProp) {
+      setInitialData(initialDataProp);
+      setLoading(false);
+      return;
+    }
+
+    const fetchInstitution = async () => {
+      try {
+        if (!token) {
+          setLoadError("No auth token found. Please log in again.");
+          setLoading(false);
+          return;
+        }
+
+        // Sacamos institutionId del JWT
+        let institutionId = null;
+        try {
+          const [, payloadB64] = token.split(".");
+          const payloadJson = JSON.parse(atob(payloadB64));
+          institutionId =
+            payloadJson.institutionId ||
+            payloadJson.institutionID ||
+            payloadJson.institution_id ||
+            null;
+        } catch (err) {
+          console.error("Error decoding token", err);
+        }
+
+        if (!institutionId) {
+          setLoadError("No institution id found in token.");
+          setLoading(false);
+          return;
+        }
+
+        const res = await axios.get(
+          `${API_BASE_URL}/institutions/${institutionId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        setInitialData(res.data);
+        setLoading(false);
+      } catch (err) {
+        console.error(err);
+        setLoadError("Error loading institution profile.");
+        setLoading(false);
+      }
+    };
+
+    fetchInstitution();
+  }, [initialDataProp]);
+
+  // ------------------ SINCRONIZAR CAMPOS CUANDO LLEGA initialData ------------------
+  useEffect(() => {
+    if (!initialData) return;
+
+    setLogoPreview(initialData.logo || "");
+    setName(initialData.name || "");
+    setDescription(initialData.description || "");
+    setCountry(initialData.country || "");
+    setWebsite(initialData.website || "");
+    setType(initialData.type || "");
+    setEmail(initialData.email || "");
+
+    const instDepts = (initialData.departments || []).map((d) =>
+      typeof d === "string" ? { name: d } : d
+    );
+    setDepartments(instDepts);
+
+    const instDomains = (initialData.emailDomains || []).map((d) =>
+      typeof d === "string" ? { value: d } : d
+    );
+    setEmailDomains(instDomains);
+  }, [initialData]);
+
+  // ------------------ VALIDACIONES ------------------
   const validate = () => {
     const e = {};
+
+    // Obligatorios
     if (!name.trim()) e.name = "Name is required.";
     if (!country.trim()) e.country = "Country is required.";
     if (!type) e.type = "Institution type is required.";
-    if (email && !EMAIL_RE.test(email)) e.email = "Invalid email.";
-    if (secondaryEmail && !EMAIL_RE.test(secondaryEmail))
-      e.secondaryEmail = "Invalid secondary email.";
+    if (!email.trim()) e.email = "Primary email is required.";
+    if (!website.trim()) e.website = "Website is required.";
+
+    // Email
+    if (email && !EMAIL_RE.test(email)) {
+      e.email = "Invalid email.";
+    }
+
+    // Website URL
     if (website) {
       try {
         new URL(website.startsWith("http") ? website : `https://${website}`);
@@ -87,68 +204,110 @@ const FormProfileU = ({ initialData, onSubmit }) => {
         e.website = "Invalid URL.";
       }
     }
+
+    // Password (solo si se intenta cambiar)
     if (password || confirm) {
       if (password.length < 8) e.password = "At least 8 characters.";
       if (password !== confirm) e.confirm = "Passwords do not match.";
     }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const EyeIcon = (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 640 640"
-      width="18"
-      height="18"
-    >
-      <path
-        d="M320 96C239.2 96 174.5 132.8 127.4 176.6C80.6 220.1 49.3 272 34.4 307.7C31.1 315.6 31.1 324.4 34.4 332.3C49.3 368 80.6 420 127.4 463.4C174.5 507.1 239.2 544 320 544C400.8 544 465.5 507.2 512.6 463.4C559.4 419.9 590.7 368 605.6 332.3C608.9 324.4 608.9 315.6 605.6 307.7C590.7 272 559.4 220 512.6 176.6C465.5 132.9 400.8 96 320 96zM176 320C176 240.5 240.5 176 320 176C399.5 176 464 240.5 464 320C464 399.5 399.5 464 320 464C240.5 464 176 399.5 176 320zM320 256C320 291.3 291.3 320 256 320C244.5 320 233.7 317 224.3 311.6C223.3 322.5 224.2 333.7 227.2 344.8C240.9 396 293.6 426.4 344.8 412.7C396 399 426.4 346.3 412.7 295.1C400.5 249.4 357.2 220.3 311.6 224.3C316.9 233.6 320 244.4 320 256z"
-        fill="currentColor"
-      />
-    </svg>
-  );
+  // ------------------ SUBMIT (PUT /institutions/:id) ------------------
+// ------------------ SUBMIT (PUT /institutions/:id) ------------------
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!validate()) return;
 
-  const EyeSlashIcon = (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 640 640"
-      width="18"
-      height="18"
-    >
-      <path
-        d="M73 39.1C63.6 29.7 48.4 29.7 39.1 39.1C29.8 48.5 29.7 63.7 39 73.1L567 601.1C576.4 610.5 591.6 610.5 600.9 601.1C610.2 591.7 610.3 576.5 600.9 567.2L504.5 470.8C507.2 468.4 509.9 466 512.5 463.6C559.3 420.1 590.6 368.2 605.5 332.5C608.8 324.6 608.8 315.8 605.5 307.9C590.6 272.2 559.3 220.2 512.5 176.8C465.4 133.1 400.7 96.2 319.9 96.2C263.1 96.2 214.3 114.4 173.9 140.4L73 39.1zM236.5 202.7C260 185.9 288.9 176 320 176C399.5 176 464 240.5 464 320C464 351.1 454.1 379.9 437.3 403.5L402.6 368.8C415.3 347.4 419.6 321.1 412.7 295.1C399 243.9 346.3 213.5 295.1 227.2C286.5 229.5 278.4 232.9 271.1 237.2L236.4 202.5zM357.3 459.1C345.4 462.3 332.9 464 320 464C240.5 464 176 399.5 176 320C176 307.1 177.7 294.6 180.9 282.7L101.4 203.2C68.8 240 46.4 279 34.5 307.7C31.2 315.6 31.2 324.4 34.5 332.3C49.4 368 80.7 420 127.5 463.4C174.6 507.1 239.3 544 320.1 544C357.4 544 391.3 536.1 421.6 523.4L357.4 459.2z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validate()) return;
+  if (!initialData || !initialData._id) {
+    alert("Institution data not loaded yet.");
+    return;
+  }
 
-    const payload = {
-      logo: logoPreview || initialData?.logo || "",
-      name: name.trim(),
-      description: description.trim() || undefined,
-      country: country.trim(),
-      website: website.trim() || undefined,
-      type: type || undefined,
-      departments: departments.map((d) => d.name),
-      isMember, 
-      email: email.trim().toLowerCase() || undefined,
-      secondaryEmail: secondaryEmail.trim().toLowerCase() || undefined,
-      password: password || undefined,
-    };
+  // Tomamos TODOS los campos actuales de la institución como base,
+  // excepto los que no tiene sentido mandar/actualizar directamente.
+  const {
+    _id,
+    __v,
+    // añade aquí cualquier otro campo que NO quieras que se sobreescriba directamente
+    ...base
+  } = initialData;
 
-    if (typeof onSubmit === "function") {
-      await onSubmit({ payload, logoFile });
-    } else {
-      console.log("SUBMIT University payload ->", payload, logoFile);
-      alert(
-        "Form OK (see console). Wire up onSubmit to send it to the backend."
-      );
-    }
+  // Construimos el payload partiendo de base y sobrescribiendo con el estado del form
+  const payload = {
+    ...base, // resto de campos que el backend espera y que no editas en el form
+
+    // Overrides desde el formulario:
+    logo: logoPreview || initialData.logo || "",
+    name: name.trim(),
+    description: description.trim() || undefined,
+    country: country.trim(),
+    website: website.trim() || undefined,
+    type: type || undefined,
+    departments: departments.map((d) => d.name),
+    email: email.trim().toLowerCase(),
+    emailDomains: emailDomains.map((d) => d.value),
+
+    // Por si tu schema lo espera para validar
+    isMember: initialData.isMember,
   };
+
+  // Password: solo si se escribió algo (y ya pasó validación)
+  if (password) {
+    payload.password = password;
+  } else {
+    // si en initialData venía un hash o algo y NO lo queremos tocar,
+    // nos aseguramos de no mandar undefined
+    delete payload.password;
+  }
+
+  console.log("Institution UPDATE payload ->", payload);
+
+  try {
+    if (!token) {
+      alert("No auth token found. Please log in again.");
+      return;
+    }
+
+    const res = await axios.put(
+      `${API_BASE_URL}/institutions/${initialData._id}`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    alert("Institution profile updated successfully.");
+
+    // Actualizamos initialData en memoria con lo que devuelva el backend
+    setInitialData(res.data || { ...(initialData || {}), ...payload });
+
+    // Limpiamos campos sensibles
+    setPassword("");
+    setConfirm("");
+  } catch (err) {
+    console.error("Update institution error:", err?.response?.data || err);
+    alert(
+      err?.response?.data?.message ||
+        "Error updating institution profile."
+    );
+  }
+};
+
+
+
+  // ------------------ RENDER ------------------
+  if (loading) {
+    return <div className="container mt-4">Loading institution profile...</div>;
+  }
+
+  if (loadError) {
+    return <div className="container mt-4 text-danger">{loadError}</div>;
+  }
 
   return (
     <form className="container" onSubmit={handleSubmit}>
@@ -170,10 +329,12 @@ const FormProfileU = ({ initialData, onSubmit }) => {
         </div>
       )}
 
+      {/* BASIC INFO */}
       <section className="mb-4">
         <h5 className="mb-3">Basic information</h5>
 
         <div className="row g-4">
+          {/* Logo */}
           <div className="col-md-4 d-flex align-items-center gap-3">
             <div
               className="overflow-hidden border"
@@ -228,7 +389,9 @@ const FormProfileU = ({ initialData, onSubmit }) => {
             </div>
           </div>
 
+          {/* Text fields */}
           <div className="col-md-8">
+            {/* Name */}
             <div className="mb-3">
               <label className="form-label">Name</label>
               <input
@@ -242,8 +405,9 @@ const FormProfileU = ({ initialData, onSubmit }) => {
               )}
             </div>
 
+            {/* Country (full row) */}
             <div className="row g-3">
-              <div className="col-md-6">
+              <div className="col-12">
                 <label className="form-label">Country</label>
                 <input
                   className={`form-control ${
@@ -257,40 +421,10 @@ const FormProfileU = ({ initialData, onSubmit }) => {
                   <div className="invalid-feedback">{errors.country}</div>
                 )}
               </div>
-              <div className="col-md-6">
-                <label className="form-label">Website</label>
-                <input
-                  className={`form-control ${
-                    errors.website ? "is-invalid" : ""
-                  }`}
-                  value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  placeholder="example.edu"
-                />
-                {errors.website && (
-                  <div className="invalid-feedback">{errors.website}</div>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-3">
-              <label className="form-label">Institution type</label>
-              <select
-                className={`form-select ${errors.type ? "is-invalid" : ""}`}
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-              >
-                <option value="">— Select Type —</option>
-                <option value="public">Public</option>
-                <option value="private">Private</option>
-                <option value="hybrid">Hybrid</option>
-              </select>
-              {errors.type && (
-                <div className="invalid-feedback">{errors.type}</div>
-              )}
             </div>
           </div>
 
+          {/* Description */}
           <div className="col-12 mt-3">
             <label className="form-label">Description</label>
             <textarea
@@ -303,62 +437,17 @@ const FormProfileU = ({ initialData, onSubmit }) => {
           </div>
         </div>
       </section>
-      <hr />
-
-      <section className="mb-4">
-        <h5 className="mb-3">Departments</h5>
-        <div className="row g-3 align-items-end">
-          <div className="col-md-8">
-            <label className="form-label">Add a department</label>
-            <input
-              className="form-control"
-              value={deptInput}
-              onChange={(e) => setDeptInput(e.target.value)}
-              placeholder="e.g., Computer Science"
-            />
-          </div>
-          <div className="col-md-4 d-grid">
-            <button
-              type="button"
-              className="btn btn-outline-memory"
-              onClick={addDepartment}
-              disabled={!deptInput.trim()}
-            >
-              Add Deparment
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-3 d-flex flex-wrap gap-2">
-          {departments.length === 0 ? (
-            <span className="text-muted">No departments added.</span>
-          ) : (
-            departments.map((d, idx) => (
-              <span
-                key={`${d.name}-${idx}`}
-                className="badge text-bg-light d-flex align-items-center gap-2"
-              >
-                {d.name}
-                <button
-                  type="button"
-                  className="btn btn-sm btn-link text-danger p-0"
-                  onClick={() => removeDepartment(d.name)}
-                >
-                  ×
-                </button>
-              </span>
-            ))
-          )}
-        </div>
-      </section>
 
       <hr />
 
+      {/* EMAIL SECTION */}
       <section className="mb-4">
-        <h5 className="mb-3">Emails</h5>
+        <h5 className="mb-3">Email</h5>
+
+        {/* Email + Website */}
         <div className="row g-3">
           <div className="col-md-6">
-            <label className="form-label">Primary email</label>
+            <label className="form-label">Email Institutional</label>
             <input
               className={`form-control ${errors.email ? "is-invalid" : ""}`}
               type="email"
@@ -370,26 +459,70 @@ const FormProfileU = ({ initialData, onSubmit }) => {
               <div className="invalid-feedback">{errors.email}</div>
             )}
           </div>
+
           <div className="col-md-6">
-            <label className="form-label">Secondary email</label>
+            <label className="form-label">Website</label>
             <input
-              className={`form-control ${
-                errors.secondaryEmail ? "is-invalid" : ""
-              }`}
-              type="email"
-              value={secondaryEmail}
-              onChange={(e) => setSecondaryEmail(e.target.value)}
-              placeholder="contact@institution.edu"
+              className={`form-control ${errors.website ? "is-invalid" : ""}`}
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="example.edu"
             />
-            {errors.secondaryEmail && (
-              <div className="invalid-feedback">{errors.secondaryEmail}</div>
+            {errors.website && (
+              <div className="invalid-feedback">{errors.website}</div>
             )}
           </div>
+        </div>
+
+        {/* Email domains (igual estilo que Departments) */}
+        <div className="row g-3 align-items-end mt-3">
+          <div className="col-md-8">
+            <label className="form-label">Add email domain</label>
+            <input
+              className="form-control"
+              value={domainInput}
+              onChange={(e) => setDomainInput(e.target.value)}
+              placeholder="e.g., university.edu"
+            />
+          </div>
+          <div className="col-md-4 d-grid">
+            <button
+              type="button"
+              className="btn btn-outline-memory"
+              onClick={addDomain}
+              disabled={!domainInput.trim()}
+            >
+              Add domain
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 d-flex flex-wrap gap-2">
+          {emailDomains.length === 0 ? (
+            <span className="text-muted">No email domains added.</span>
+          ) : (
+            emailDomains.map((d, idx) => (
+              <span
+                key={`${d.value}-${idx}`}
+                className="badge text-bg-light d-flex align-items-center gap-2"
+              >
+                {d.value}
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link text-danger p-0"
+                  onClick={() => removeDomain(d.value)}
+                >
+                  ×
+                </button>
+              </span>
+            ))
+          )}
         </div>
       </section>
 
       <hr />
 
+      {/* SECURITY */}
       <section className="mb-4">
         <h5 className="mb-3">Security</h5>
         <div className="row g-3">
@@ -418,7 +551,9 @@ const FormProfileU = ({ initialData, onSubmit }) => {
               </button>
             </div>
             {errors.password && (
-              <div className="invalid-feedback d-block">{errors.password}</div>
+              <div className="invalid-feedback d-block">
+                {errors.password}
+              </div>
             )}
           </div>
 
@@ -445,12 +580,70 @@ const FormProfileU = ({ initialData, onSubmit }) => {
               </button>
             </div>
             {errors.confirm && (
-              <div className="invalid-feedback d-block">{errors.confirm}</div>
+              <div className="invalid-feedback d-block">
+                {errors.confirm}
+              </div>
             )}
           </div>
         </div>
       </section>
 
+      <hr />
+
+      {/* DEPARTMENTS */}
+      <section className="mb-4">
+        <h5 className="mb-3">Departments</h5>
+        <div className="row g-3 align-items-end">
+          <div className="col-md-8">
+            <label className="form-label">Add a department</label>
+            <input
+              className="form-control"
+              value={deptInput}
+              onChange={(e) => setDeptInput(e.target.value)}
+              placeholder="e.g., Computer Science"
+            />
+          </div>
+          <div className="col-md-4 d-grid">
+            <button
+              type="button"
+              className="btn btn-outline-memory"
+              onClick={addDepartment}
+              disabled={!deptInput.trim()}
+            >
+              Add Deparment
+            </button>
+          </div>
+        </div>
+{deptAlert && (
+    <div className="mt-3 alert alert-warning py-2">
+      {deptAlert}
+    </div>
+  )}
+        <div className="mt-3 d-flex flex-wrap gap-2">
+
+          {departments.length === 0 ? (
+            <span className="text-muted">No departments added.</span>
+          ) : (
+            departments.map((d, idx) => (
+              <span
+                key={`${d.name}-${idx}`}
+                className="badge text-bg-light d-flex align-items-center gap-2"
+              >
+                {d.name}
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link text-danger p-0"
+                  onClick={() => removeDepartment(d.name)}
+                >
+                  ×
+                </button>
+              </span>
+            ))
+          )}
+        </div>
+      </section>
+
+      {/* BOTONES */}
       <div className="mt-4 d-flex justify-content-end gap-2">
         <button
           type="button"

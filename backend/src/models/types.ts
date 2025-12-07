@@ -1,12 +1,19 @@
-import { Types } from 'mongoose';
-
-export type CertificationStatus = 'pending' | 'certified' | 'rejected';
-export type UserRole = 'user' | 'institutionAdmin' | 'superAdmin';
-export type InstitutionType = 'university' | 'institute' | 'other';
-
-export interface IAuthor {
-  name: string;
-  lastname?: string;
-  email?: string;
-  institution?: Types.ObjectId;
+export enum UserRole {
+  REGULAR = "REGULAR",
+  STUDENT = "STUDENT",
+  INSTITUTION = "INSTITUTION"
 }
+
+export enum InstitutionType {
+  UNIVERSITY = "UNIVERSITY",
+  INSTITUTE = "INSTITUTE",
+  OTHER = "OTHER"
+}
+
+export enum CertificationStatus {
+  PENDING = "PENDING",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED"
+}
+
+export type HashAlgorithm = "sha256" | "sha3" | "keccak256";

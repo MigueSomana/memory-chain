@@ -1,46 +1,65 @@
-import { Schema, model, Document, Types } from 'mongoose';
-import { UserRole } from './types';
+import mongoose, { Schema, Document, Types } from "mongoose";
+import { UserRole } from "./types";
 
-export interface IUser {
+export interface IEmailEducational {
+  institution: string;
+  email?: string;
+}
+
+const EmailEducationalSchema = new Schema<IEmailEducational>(
+  {
+    institution: { type: String, required: true },
+    email: { type: String },
+  },
+  { _id: false }
+);
+
+export interface IUser extends Document {
+  img?: {
+    data: Buffer; // binario de la imagen
+    contentType: string; // tipo MIME (image/png, image/jpeg, etc.)
+  };
   name: string;
   lastname?: string;
   email: string;
   password: string;
-  educationalEmails: string[];
-  institutions: Types.ObjectId[];
+  educationalEmails: IEmailEducational[];
   role: UserRole;
   isActive: boolean;
-  likedTheses: Types.ObjectId[];
+  institutions: Types.ObjectId[]; // instituciones asociadas
+  likedTheses: Types.ObjectId[]; // tesis a las que dio like
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface IUserDocument extends IUser, Document {}
-
-const userSchema = new Schema<IUserDocument>(
+const UserSchema = new Schema<IUser>(
   {
+    img: {
+      data: Buffer,
+      contentType: String,
+    },
     name: { type: String, required: true },
     lastname: { type: String },
-    email: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true, index: true },
     password: { type: String, required: true },
-    educationalEmails: { type: [String], default: [] },
-    institutions: [{ type: Schema.Types.ObjectId, ref: 'Institution' }],
+    educationalEmails: { type: [EmailEducationalSchema], default: [] },
     role: {
       type: String,
-      enum: ['user', 'institutionAdmin', 'superAdmin'],
-      default: 'user',
+      enum: Object.values(UserRole),
+      default: UserRole.REGULAR,
     },
     isActive: { type: Boolean, default: true },
-    likedTheses: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'Thesis',
-        default: [],
-      },],
+    institutions: [{ type: Schema.Types.ObjectId, ref: "Institution" }],
+    likedTheses: [{ type: Schema.Types.ObjectId, ref: "Thesis" }],
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-export const User = model<IUserDocument>('User', userSchema);
+// quitar password al convertir a JSON
+UserSchema.methods.toJSON = function () {
+  const obj = this.toObject();
+  delete obj.password;
+  return obj;
+};
+
+export const User = mongoose.model<IUser>("User", UserSchema);

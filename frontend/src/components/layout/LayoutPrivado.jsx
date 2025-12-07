@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { BackIcon, PlusIcon } from "../../utils/icons";
+import { getAuthActor } from "../../utils/authSession";
 
 const Segmented = ({ options, value, onChange }) => (
   <div className="btn-group" role="group" aria-label="Segmented switch">
@@ -6,7 +8,9 @@ const Segmented = ({ options, value, onChange }) => (
       <button
         key={opt.key}
         type="button"
-        className={`btn ${value === opt.key ? "btn-memory" : "btn-outline-memory"}`}
+        className={`btn ${
+          value === opt.key ? "btn-memory" : "btn-outline-memory"
+        }`}
         onClick={() => onChange(opt.key)}
       >
         {opt.label}
@@ -23,6 +27,7 @@ const LayoutPrivado = ({
   // ✅ Opcional: mostrar u ocultar el switch
   showSwitch = false,
   showButton = false,
+  showBack = false,
 
   // ✅ Opcional: controlar el switch desde fuera (o dejarlo no-controlado)
   activeKey: controlledKey,
@@ -53,17 +58,31 @@ const LayoutPrivado = ({
 
           {showSwitch && (
             <div style={{ marginLeft: "auto" }}>
-              <Segmented options={options} value={activeKey} onChange={handleChange} />
+              <Segmented
+                options={options}
+                value={activeKey}
+                onChange={handleChange}
+              />
             </div>
           )}
           {showButton && (
             <div style={{ marginLeft: "auto" }}>
-              <button
-              type="button"
-              className="btn btn-memory"
-            >
-              + Add Thesis
-            </button>
+              <a href="/upload" type="button" className="btn btn-memory">
+                {PlusIcon} Add Thesis
+              </a>
+            </div>
+          )}
+          {showBack && (
+            <div style={{ marginLeft: "auto" }}>
+              <a
+                href={
+                  getAuthActor() === "institution" ? "/libraryU" : "/libraryP"
+                }
+                type="button"
+                className="btn btn-secondary"
+              >
+                {BackIcon} Back
+              </a>
             </div>
           )}
         </div>
@@ -80,4 +99,3 @@ const LayoutPrivado = ({
 };
 
 export default LayoutPrivado;
-

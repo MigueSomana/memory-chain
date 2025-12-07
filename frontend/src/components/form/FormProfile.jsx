@@ -1,11 +1,27 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, {
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+} from "react";
+import { getAuthToken } from "../../utils/authSession";
+import axios from "axios";
+import { EyeIcon, EyeSlashIcon, EditIcon, DiscardIcon, CloseIcon } from "../../utils/icons";
 
-const FormProfile = ({
-  initialData,
-  institutionOptions = [],
-  onSubmit,
-}) => {
-  const [imgPreview, setImgPreview] = useState(initialData?.imgUrl || "");
+// Cambia esto si tu backend corre en otro puerto o ruta
+const API_BASE_URL = "http://localhost:4000/api";
+const token = getAuthToken();
+
+const FormProfile = () => {
+  // ------------------ ESTADO BÁSICO ------------------
+  const [initialData, setInitialData] = useState(null);
+  const [institutionOptions, setInstitutionOptions] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  // Imagen
+  const [imgPreview, setImgPreview] = useState("");
   const [imgFile, setImgFile] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -32,23 +48,123 @@ const FormProfile = ({
     reader.readAsDataURL(file);
   };
 
-  const [name, setName] = useState(initialData?.name || "");
-  const [lastname, setLastname] = useState(initialData?.lastname || "");
-  const [email, setEmail] = useState(initialData?.email || "");
-  const [secondaryEmail, setSecondaryEmail] = useState(
-    initialData?.secondaryEmail || ""
-  );
+  // Datos básicos
+  const [name, setName] = useState("");
+  const [lastname, setLastname] = useState("");
+  const [email, setEmail] = useState("");
 
+  // Seguridad
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const [selectedInstitutionId, setSelectedInstitutionId] = useState("");
-  const [institutions, setInstitutions] = useState(
-    initialData?.institutions || []
-  );
+  // Instituciones seleccionadas por el usuario
+  const [institutions, setInstitutions] = useState([]);
+  // Correo institucional por institución: { [instId]: email }
+  const [institutionEmails, setInstitutionEmails] = useState({});
 
+  // Para el select de instituciones
+  const [selectedInstitutionId, setSelectedInstitutionId] = useState("");
+  // Id de la institución que se está editando (para mostrar/ocultar inputs)
+  const [editingInstitutionId, setEditingInstitutionId] = useState("");
+
+  const [errors, setErrors] = useState({});
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // IDs de instituciones que ya existían en el perfil al cargar (no se pueden borrar)
+  const initialInstitutionIdSet = useMemo(() => {
+    const ids = new Set();
+    if (!initialData) return ids;
+
+    const eduEmails = initialData.educationalEmails || [];
+    eduEmails.forEach((entry) => {
+      if (!entry) return;
+      const inst = entry.institution;
+      if (typeof inst === "string") {
+        ids.add(inst);
+      } else if (inst && inst._id) {
+        ids.add(inst._id);
+      }
+    });
+
+    const insts = initialData.institutions || [];
+    insts.forEach((inst) => {
+      if (typeof inst === "string") {
+        ids.add(inst);
+      } else if (inst && inst._id) {
+        ids.add(inst._id);
+      }
+    });
+
+    return ids;
+  }, [initialData]);
+
+  // ------------------ CARGA INICIAL (GET /me + GET /institutions) ------------------
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        if (!token) {
+          setLoadError("No auth token found. Please log in again.");
+          setLoading(false);
+          return;
+        }
+
+        const [userRes, instRes] = await Promise.all([
+          axios.get(`${API_BASE_URL}/users/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          axios.get(`${API_BASE_URL}/institutions`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        const user = userRes.data;
+        const allInstitutions = instRes.data;
+
+        setInitialData(user);
+        setInstitutionOptions(allInstitutions);
+
+        // Imagen inicial (si tu modelo tiene imgUrl)
+        const imgUrl = user.imgUrl || "";
+        setImgPreview(imgUrl);
+
+        // Datos básicos
+        setName(user.name || "");
+        setLastname(user.lastname || "");
+        setEmail(user.email || "");
+
+        // educationalEmails
+        const eduEmails = user.educationalEmails || [];
+
+        // 1) Mapeamos institutionId -> email
+        const emailMap = {};
+        eduEmails.forEach((entry) => {
+          if (entry.institution && entry.email) {
+            emailMap[entry.institution] = entry.email;
+          }
+        });
+        setInstitutionEmails(emailMap);
+
+        // 2) A partir de esos IDs construimos el arreglo de instituciones
+        const instIdsFromEdu = eduEmails.map((e) => e.institution);
+        const userInsts = allInstitutions.filter((inst) =>
+          instIdsFromEdu.includes(inst._id)
+        );
+        setInstitutions(userInsts);
+
+        setLoading(false);
+      } catch (err) {
+        console.error(err);
+        setLoadError("Error loading profile data.");
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // ------------------ OPCIONES DE INSTITUCIONES RESTANTES ------------------
   const remainingOptions = useMemo(() => {
     const selectedIds = new Set(institutions.map((i) => i._id));
     return institutionOptions.filter((opt) => !selectedIds.has(opt._id));
@@ -58,75 +174,227 @@ const FormProfile = ({
     if (!selectedInstitutionId) return;
     const opt = institutionOptions.find((o) => o._id === selectedInstitutionId);
     if (!opt) return;
-    setInstitutions((prev) =>
-      prev.some((i) => i._id === opt._id) ? prev : [...prev, opt]
-    );
+
+    setInstitutions((prev) => {
+      if (prev.some((i) => i._id === opt._id)) return prev;
+      return [...prev, opt];
+    });
+
+    // Al añadir una institución nueva, abrimos inmediatamente sus inputs de edición
+    setEditingInstitutionId(opt._id);
     setSelectedInstitutionId("");
   };
 
   const removeInstitution = (id) => {
     setInstitutions((prev) => prev.filter((i) => i._id !== id));
+    setInstitutionEmails((prev) => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+    setEditingInstitutionId((prev) => (prev === id ? "" : prev));
   };
 
-  const [errors, setErrors] = useState({});
-  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const handleInstitutionEmailChange = (instId, value) => {
+    setInstitutionEmails((prev) => ({
+      ...prev,
+      [instId]: value,
+    }));
+  };
 
-  const validate = () => {
+  // ------------------ VALIDACIONES ------------------
+  const validateBasic = () => {
     const e = {};
+
+    // Campos básicos: no vacíos
     if (!name.trim()) e.name = "First name is required.";
     if (!lastname.trim()) e.lastname = "Last name is required.";
-    if (!email.trim() || !EMAIL_RE.test(email)) {
-      e.email = "Invalid primary email.";
+    if (!email.trim()) {
+      e.email = "Email is required.";
+    } else if (!EMAIL_RE.test(email)) {
+      e.email = "Invalid email format.";
     }
-    if (secondaryEmail && !EMAIL_RE.test(secondaryEmail)) {
-      e.secondaryEmail = "Invalid secondary email.";
-    }
+
+    // Password: solo validamos si el usuario intenta cambiarla
     if (password || confirm) {
-      if (password.length < 8) e.password = "At least 8 characters.";
-      if (password !== confirm) e.confirm = "Passwords do not match.";
+      const pwd = password || "";
+      const conf = confirm || "";
+
+      if (!pwd.trim()) {
+        e.password = "Password is required.";
+      }
+
+      if (!conf.trim()) {
+        e.confirm = "Please confirm your password.";
+      }
+
+      if (pwd.trim()) {
+        // Longitud mínima
+        if (pwd.length < 8) {
+          e.password = "Password must be at least 8 characters long.";
+        }
+
+        // Reglas de complejidad
+        const hasUpper = /[A-Z]/.test(pwd);
+        const hasLower = /[a-z]/.test(pwd);
+        const hasDigit = /\d/.test(pwd);
+        const hasSymbol = /[^A-Za-z0-9]/.test(pwd);
+
+        if (!hasUpper || !hasLower || !hasDigit || !hasSymbol) {
+          e.password =
+            "Password must have uppercase, lowercase, a number and a symbol.";
+        }
+      }
+
+      // Coincidencia
+      if (pwd && conf && pwd !== conf) {
+        e.confirm = "Passwords do not match.";
+      }
     }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
+  const validateInstitutionEmails = () => {
+    // Recorremos cada email institucional y validamos dominio
+    for (const [instId, eduEmailRaw] of Object.entries(institutionEmails)) {
+      const eduEmail = eduEmailRaw.trim();
+      if (!eduEmail) continue; // si está vacío, lo ignoramos
+
+      const institution = institutionOptions.find((i) => i._id === instId);
+      if (!institution) continue;
+
+      const atIndex = eduEmail.indexOf("@");
+      if (atIndex === -1) {
+        alert(
+          `The institutional email "${eduEmail}" for "${institution.name}" is invalid.`
+        );
+        return false;
+      }
+
+      const domain = eduEmail.slice(atIndex + 1).toLowerCase();
+      const allowedDomains = (institution.emailDomains || []).map((d) =>
+        d.toLowerCase()
+      );
+
+      if (!allowedDomains.length) {
+        alert(
+          `Institution "${institution.name}" has no configured email domains, cannot validate "${eduEmail}".`
+        );
+        return false;
+      }
+
+      if (!allowedDomains.includes(domain)) {
+        alert(
+          `The email "${eduEmail}" does not match any allowed domain for "${institution.name}" (${allowedDomains.join(
+            ", "
+          )}).`
+        );
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // ------------------ SUBMIT (PUT /users/me) ------------------
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    if (!validate()) return;
+    if (!validateBasic()) return;
+    if (!validateInstitutionEmails()) return;
 
-    const payload = {
-      imgUrl: imgPreview || initialData?.imgUrl || "",
-      name: name.trim(),
-      lastname: lastname.trim(),
-      email: email.trim().toLowerCase(),
-      secondaryEmail: secondaryEmail.trim().toLowerCase() || undefined,
-      password: password || undefined,
-      institutions: institutions.map((i) => i._id),
-    };
+    if (!initialData) {
+      alert("Profile not loaded yet.");
+      return;
+    }
 
-    if (typeof onSubmit === "function") {
-      await onSubmit({ payload, imgFile });
-    } else {
-      console.log("SUBMIT payload ->", payload);
-      alert(
-        "Form OK (see console). Wire up onSubmit to send it to the backend."
-      );
+    const payload = {};
+
+    // imgUrl: solo si cambió
+    const initialImgUrl = initialData.imgUrl || "";
+    if (imgPreview !== initialImgUrl) {
+      payload.imgUrl = imgPreview || "";
+    }
+
+    // Name
+    const initialName = initialData.name || "";
+    if (name.trim() !== initialName) {
+      payload.name = name.trim();
+    }
+
+    // Lastname
+    const initialLastname = initialData.lastname || "";
+    if (lastname.trim() !== initialLastname) {
+      payload.lastname = lastname.trim();
+    }
+
+    // Email
+    const initialEmail = (initialData.email || "").toLowerCase();
+    const currentEmail = email.trim().toLowerCase();
+    if (currentEmail !== initialEmail) {
+      payload.email = currentEmail;
+    }
+
+    // Password: solo si se escribió algo (y ya pasó validación)
+    if (password) {
+      payload.password = password;
+    }
+
+    // Instituciones: siempre enviamos el arreglo de IDs
+    const currentInstIds = institutions.map((i) => i._id);
+    payload.institutions = currentInstIds;
+
+    // educationalEmails: { institution, email }
+    const educationalEmailsPayload = Object.entries(institutionEmails)
+      .map(([instId, eduEmailRaw]) => ({
+        institution: instId,
+        email: eduEmailRaw.trim(),
+      }))
+      .filter((entry) => entry.email.length > 0);
+    payload.educationalEmails = educationalEmailsPayload;
+
+    console.log(payload);
+
+    try {
+      if (!token) {
+        alert("No auth token found. Please log in again.");
+        return;
+      }
+
+      await axios.put(`${API_BASE_URL}/users/me`, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      alert("Profile updated successfully.");
+
+      // Actualizamos initialData en memoria
+      setInitialData((prev) => ({
+        ...(prev || {}),
+        ...payload,
+      }));
+
+      // Al guardar, ocultamos cualquier panel de edición
+      setEditingInstitutionId("");
+    } catch (err) {
+      console.error(err);
+      alert("Error updating profile.");
     }
   };
 
-  const EyeIcon = (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="18" height="18">
-      <path d="M320 96C239.2 96 174.5 132.8 127.4 176.6C80.6 220.1 49.3 272 34.4 307.7C31.1 315.6 31.1 324.4 34.4 332.3C49.3 368 80.6 420 127.4 463.4C174.5 507.1 239.2 544 320 544C400.8 544 465.5 507.2 512.6 463.4C559.4 419.9 590.7 368 605.6 332.3C608.9 324.4 608.9 315.6 605.6 307.7C590.6 272 559.3 220 512.6 176.6C465.5 132.9 400.8 96 320 96zM176 320C176 240.5 240.5 176 320 176C399.5 176 464 240.5 464 320C464 399.5 399.5 464 320 464C240.5 464 176 399.5 176 320zM320 256C320 291.3 291.3 320 256 320C244.5 320 233.7 317 224.3 311.6C223.3 322.5 224.2 333.7 227.2 344.8C240.9 396 293.6 426.4 344.8 412.7C396 399 426.4 346.3 412.7 295.1C400.5 249.4 357.2 220.3 311.6 224.3C316.9 233.6 320 244.4 320 256z" />
-    </svg>
-  );
+  // ------------------ RENDER ------------------
+  if (loading) {
+    return <div className="container mt-4">Loading profile...</div>;
+  }
 
-  const EyeSlashIcon = (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="18" height="18">
-      <path d="M73 39.1C63.6 29.7 48.4 29.7 39.1 39.1C29.8 48.5 29.7 63.7 39 73.1L567 601.1C576.4 610.5 591.6 610.5 600.9 601.1C610.2 591.7 610.3 576.5 600.9 567.2L504.5 470.8C507.2 468.4 509.9 466 512.5 463.6C559.3 420.1 590.6 368.2 605.5 332.5C608.8 324.6 608.8 315.8 605.5 307.9C590.6 272.2 559.3 220.2 512.5 176.8C465.4 133.1 400.7 96.2 319.9 96.2C263.1 96.2 214.3 114.4 173.9 140.4L73 39.1zM236.5 202.7C260 185.9 288.9 176 320 176C399.5 176 464 240.5 464 320C464 351.1 454.1 379.9 437.3 403.5L402.6 368.8C415.3 347.4 419.6 321.1 412.7 295.1C399 243.9 346.3 213.5 295.1 227.2C286.5 229.5 278.4 232.9 271.1 237.2L236.4 202.5zM357.3 459.1C345.4 462.3 332.9 464 320 464C240.5 464 176 399.5 176 320C176 307.1 177.7 294.6 180.9 282.7L101.4 203.2C68.8 240 46.4 279 34.5 307.7C31.2 315.6 31.2 324.4 34.5 332.3C49.4 368 80.7 420 127.5 463.4C174.6 507.1 239.3 544 320.1 544C357.4 544 391.3 536.1 421.6 523.4L357.4 459.2z" />
-    </svg>
-  );
+  if (loadError) {
+    return <div className="container mt-4 text-danger">{loadError}</div>;
+  }
 
   return (
     <form className="container" onSubmit={handleSubmit}>
+      {/* BASIC INFORMATION */}
       <section className="mb-4">
         <h5 className="mb-3 mt-0">Basic information</h5>
 
@@ -171,29 +439,53 @@ const FormProfile = ({
               />
             </div>
           </div>
+
           <div className="col-md-8">
-            <div className="mb-3">
-              <label className="form-label">First name </label>
-              <input
-                className={`form-control ${errors.name ? "is-invalid" : ""}`}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your first name"
-              />
-              {errors.name && (
-                <div className="invalid-feedback">{errors.name}</div>
-              )}
+            {/* First + Last name en la misma fila */}
+            <div className="row g-3">
+              <div className="col-md-6">
+                <label className="form-label">First name </label>
+                <input
+                  className={`form-control ${errors.name ? "is-invalid" : ""}`}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your first name"
+                  required
+                />
+                {errors.name && (
+                  <div className="invalid-feedback">{errors.name}</div>
+                )}
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Last name </label>
+                <input
+                  className={`form-control ${
+                    errors.lastname ? "is-invalid" : ""
+                  }`}
+                  value={lastname}
+                  onChange={(e) => setLastname(e.target.value)}
+                  placeholder="Your last name"
+                  required
+                />
+                {errors.lastname && (
+                  <div className="invalid-feedback">{errors.lastname}</div>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="form-label">Last name </label>
+
+            {/* Email debajo */}
+            <div className="mt-3">
+              <label className="form-label">Email </label>
               <input
-                className={`form-control ${errors.lastname ? "is-invalid" : ""}`}
-                value={lastname}
-                onChange={(e) => setLastname(e.target.value)}
-                placeholder="Your last name"
+                className={`form-control ${errors.email ? "is-invalid" : ""}`}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@domain.com"
+                required
               />
-              {errors.lastname && (
-                <div className="invalid-feedback">{errors.lastname}</div>
+              {errors.email && (
+                <div className="invalid-feedback">{errors.email}</div>
               )}
             </div>
           </div>
@@ -202,42 +494,7 @@ const FormProfile = ({
 
       <hr />
 
-      <section className="mb-4">
-        <h5 className="mb-3">Emails</h5>
-        <div className="row g-3">
-          <div className="col-md-6">
-            <label className="form-label">Primary email </label>
-            <input
-              className={`form-control ${errors.email ? "is-invalid" : ""}`}
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@domain.com"
-            />
-            {errors.email && (
-              <div className="invalid-feedback">{errors.email}</div>
-            )}
-          </div>
-          <div className="col-md-6">
-            <label className="form-label">Secondary email</label>
-            <input
-              className={`form-control ${
-                errors.secondaryEmail ? "is-invalid" : ""
-              }`}
-              type="email"
-              value={secondaryEmail}
-              onChange={(e) => setSecondaryEmail(e.target.value)}
-              placeholder="academic@university.edu"
-            />
-            {errors.secondaryEmail && (
-              <div className="invalid-feedback">{errors.secondaryEmail}</div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <hr />
-
+      {/* SECURITY */}
       <section className="mb-4">
         <h5 className="mb-3">Security</h5>
         <div className="row g-3">
@@ -245,7 +502,9 @@ const FormProfile = ({
             <label className="form-label">New password</label>
             <div className="input-group">
               <input
-                className={`form-control ${errors.password ? "is-invalid" : ""}`}
+                className={`form-control ${
+                  errors.password ? "is-invalid" : ""
+                }`}
                 type={showPass ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -264,7 +523,9 @@ const FormProfile = ({
               </button>
             </div>
             {errors.password && (
-              <div className="invalid-feedback d-block">{errors.password}</div>
+              <div className="invalid-feedback d-block">
+                {errors.password}
+              </div>
             )}
           </div>
 
@@ -272,7 +533,9 @@ const FormProfile = ({
             <label className="form-label">Confirm password</label>
             <div className="input-group">
               <input
-                className={`form-control ${errors.confirm ? "is-invalid" : ""}`}
+                className={`form-control ${
+                  errors.confirm ? "is-invalid" : ""
+                }`}
                 type={showConfirm ? "text" : "password"}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
@@ -291,7 +554,9 @@ const FormProfile = ({
               </button>
             </div>
             {errors.confirm && (
-              <div className="invalid-feedback d-block">{errors.confirm}</div>
+              <div className="invalid-feedback d-block">
+                {errors.confirm}
+              </div>
             )}
           </div>
         </div>
@@ -299,9 +564,128 @@ const FormProfile = ({
 
       <hr />
 
+      {/* INSTITUTIONS */}
       <section className="mb-4">
         <h5 className="mb-3">Institutions</h5>
 
+        {/* Cards siempre visibles */}
+        <div className="mb-3 d-flex flex-column gap-3">
+          {institutions.length === 0 ? (
+            <span className="text-muted">No institutions added.</span>
+          ) : (
+            institutions.map((inst) => {
+              const instId = inst._id;
+              const eduEmail = institutionEmails[instId] || "";
+              const allowedDomains = inst.emailDomains || [];
+              const isEditing = editingInstitutionId === instId;
+              const isNew = !initialInstitutionIdSet.has(instId);
+
+              return (
+                <React.Fragment key={instId}>
+                  <div className="card shadow-sm">
+                    <div className="card-body d-flex align-items-center gap-3">
+                      {/* Logo */}
+                      <div
+                        style={{
+                          width: 72,
+                          height: 72,
+                          borderRadius: 12,
+                          overflow: "hidden",
+                          background: "#f8f9fa",
+                          border: "1px solid #eee",
+                          flex: "0 0 auto",
+                        }}
+                        className="d-flex align-items-center justify-content-center text-muted"
+                      >
+                        {inst.logo ? (
+                          <img
+                            src={inst.logo}
+                            alt={inst.name}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        ) : (
+                          "LOGO"
+                        )}
+                      </div>
+
+                      {/* Info principal */}
+                      <div className="flex-grow-1">
+                        <h5 className="m-0 fw-semibold">{inst.name}</h5>
+                        <div className="text-muted small">
+                          {eduEmail || "No institutional email"}
+                        </div>
+                      </div>
+
+                      {/* Botón editar */}
+                      <div className="d-flex align-items-center gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-warning btn-sm d-flex align-items-center justify-content-center text-white"
+                          onClick={() =>
+                            setEditingInstitutionId((prev) =>
+                              prev === instId ? "" : instId
+                            )
+                          }
+                          title={isEditing ? "Close" : "Edit"}
+                        >
+                          {isEditing ? CloseIcon : EditIcon}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Panel de edición SOLO cuando se está editando esta institución */}
+                  {isEditing && (
+                    <div className="mt-2 border rounded p-2">
+                      <label
+                        className="form-label mb-1"
+                        style={{ fontSize: 12 }}
+                      >
+                        Institutional email
+                        {allowedDomains && allowedDomains.length > 0 && (
+                          <span className="text-muted ms-1">
+                            (allowed: {allowedDomains.join(", ")})
+                          </span>
+                        )}
+                      </label>
+                      <div className="d-flex gap-2">
+                        <input
+                          type="email"
+                          className="form-control form-control-sm"
+                          value={institutionEmails[instId] || ""}
+                          onChange={(e) =>
+                            handleInstitutionEmailChange(
+                              instId,
+                              e.target.value
+                            )
+                          }
+                          placeholder="john@youruniversity.edu"
+                        />
+                        {/* Solo se puede descartar si es una institución nueva */}
+                        {isNew && (
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-sm d-flex align-items-center justify-content-center text-white"
+                            onClick={() => removeInstitution(instId)}
+                            title="Discard"
+                          >
+                            {DiscardIcon}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })
+          )}
+        </div>
+
+        {/* Selector para añadir nuevas instituciones */}
         <div className="row g-3 align-items-end">
           <div className="col-md-8">
             <label className="form-label">Select an institution</label>
@@ -329,28 +713,6 @@ const FormProfile = ({
             </button>
           </div>
         </div>
-        <div className="mt-3 d-flex flex-wrap gap-2">
-          {institutions.length === 0 ? (
-            <span className="text-muted">No institutions added.</span>
-          ) : (
-            institutions.map((inst) => (
-              <span
-                key={inst._id}
-                className="badge text-bg-light d-flex align-items-center gap-2"
-              >
-                {inst.name}
-                <button
-                  type="button"
-                  className="btn btn-sm btn-link text-danger p-0"
-                  onClick={() => removeInstitution(inst._id)}
-                  title="Remove"
-                >
-                  ×
-                </button>
-              </span>
-            ))
-          )}
-        </div> 
       </section>
 
       <div className="mt-4 d-flex justify-content-end gap-2">

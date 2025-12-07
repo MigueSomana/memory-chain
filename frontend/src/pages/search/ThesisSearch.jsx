@@ -1,50 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { getAuthRole, getAuthToken } from "../../utils/authSession";
+import axios from "axios";
+import { EyeFillIcon, HeartFill, HeartOutline, CloudArrowDownFill } from "../../utils/icons";
 
-const MOCK_THESES = [
-  { _id: "t101", title: "1 Deep Learning for Medical Imaging", authors: ["Alice Brown", "John Doe"], year: 2021, language: "en", degree: "PhD", institution: "Harvard University", department: "Computer Science", keywords: ["deep learning", "medical", "imaging"] },
-  { _id: "t102", title: "2 Optimización de Sistemas de Energía Renovable", authors: ["María Pérez"], year: 2019, language: "es", degree: "Master", institution: "Universidad de Buenos Aires", department: "Ingeniería", keywords: ["energía", "optimización", "renovable"] },
-  { _id: "t103", title: "3 Quantum Algorithms for Graph Problems", authors: ["Wei Zhang", "Emily Clark"], year: 2024, language: "en", degree: "Bachelor", institution: "MIT", department: "Mathematics", keywords: ["quantum", "algorithms", "graphs"] },
-  { _id: "t111", title: "4 Deep Learning for Medical Imaging", authors: ["Alice Brown", "John Doe"], year: 2021, language: "en", degree: "PhD", institution: "Harvard University", department: "Computer Science", keywords: ["deep learning", "medical", "imaging"] },
-  { _id: "t112", title: "5 Optimización de Sistemas de Energía Renovable", authors: ["María Pérez"], year: 2019, language: "es", degree: "Master", institution: "Universidad de Buenos Aires", department: "Ingeniería", keywords: ["energía", "optimización", "renovable"] },
-  { _id: "t113", title: "6 Quantum Algorithms for Graph Problems", authors: ["Wei Zhang", "Emily Clark"], year: 2024, language: "en", degree: "Bachelor", institution: "MIT", department: "Mathematics", keywords: ["quantum", "algorithms", "graphs"] },
-  { _id: "t121", title: "7 Deep Learning for Medical Imaging", authors: ["Alice Brown", "John Doe"], year: 2021, language: "en", degree: "PhD", institution: "Harvard University", department: "Computer Science", keywords: ["deep learning", "medical", "imaging"] },
-  { _id: "t122", title: "8 Optimización de Sistemas de Energía Renovable", authors: ["María Pérez"], year: 2019, language: "es", degree: "Master", institution: "Universidad de Buenos Aires", department: "Ingeniería", keywords: ["energía", "optimización", "renovable"] },
-  { _id: "t123", title: "9 Quantum Algorithms for Graph Problems", authors: ["Wei Zhang", "Emily Clark"], year: 2024, language: "en", degree: "Bachelor", institution: "MIT", department: "Mathematics", keywords: ["quantum", "algorithms", "graphs"] },
-  { _id: "t141", title: "10 Deep Learning for Medical Imaging", authors: ["Alice Brown", "John Doe"], year: 2021, language: "en", degree: "PhD", institution: "Harvard University", department: "Computer Science", keywords: ["deep learning", "medical", "imaging"] },
-  { _id: "t142", title: "11 Optimización de Sistemas de Energía Renovable", authors: ["María Pérez"], year: 2019, language: "es", degree: "Master", institution: "Universidad de Buenos Aires", department: "Ingeniería", keywords: ["energía", "optimización", "renovable"] },
-  { _id: "t143", title: "12 Quantum Algorithms for Graph Problems", authors: ["Wei Zhang", "Emily Clark"], year: 2024, language: "en", degree: "Bachelor", institution: "MIT", department: "Mathematics", keywords: ["quantum", "algorithms", "graphs"] },
-  { _id: "t151", title: "13 Deep Learning for Medical Imaging", authors: ["Alice Brown", "John Doe"], year: 2021, language: "en", degree: "PhD", institution: "Harvard University", department: "Computer Science", keywords: ["deep learning", "medical", "imaging"] },
-  { _id: "t152", title: "14 Optimización de Sistemas de Energía Renovable", authors: ["María Pérez"], year: 2019, language: "es", degree: "Master", institution: "Universidad de Buenos Aires", department: "Ingeniería", keywords: ["energía", "optimización", "renovable"] },
-  { _id: "t153", title: "15 Quantum Algorithms for Graph Problems", authors: ["Wei Zhang", "Emily Clark"], year: 2024, language: "en", degree: "Bachelor", institution: "MIT", department: "Mathematics", keywords: ["quantum", "algorithms", "graphs"] },
-];
-
-/** --------- ICONOS --------- */
-const EyeFill = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-    fill="#fff" viewBox="0 0 16 16" className="bi bi-eye-fill">
-    <path d="M10.5 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/>
-    <path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8m8 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7"/>
-  </svg>
-);
-const HeartFill = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-    fill="#fff" viewBox="0 0 16 16" className="bi bi-heart-fill">
-    <path fillRule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314"/>
-  </svg>
-);
-// corazón contorno para estado "no like"
-const HeartOutline = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-    fill="#fff" viewBox="0 0 16 16" className="bi bi-heart">
-    <path d="m8 2.748-.717-.737C5.6.281 2.514.878 1.4 3.053c-.523 1.023-.641 2.5.314 4.385.92 1.815 2.834 3.989 6.286 6.357 3.452-2.368 5.365-4.542 6.286-6.357.955-1.886.838-3.362.314-4.385C13.486.878 10.4.28 8.717 2.01zM8 15C-7.333 4.868 3.279-3.04 7.824 1.143q.09.083.176.171a3 3 0 0 1 .176-.17C12.72-3.042 23.333 4.867 8 15"/>
-  </svg>
-);
-const CloudArrowDownFill = (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-    fill="#fff" viewBox="0 0 16 16" className="bi bi-cloud-arrow-down-fill">
-    <path d="M8 2a5.53 5.53 0 0 0-3.594 1.342c-.766.66-1.321 1.52-1.464 2.383C1.266 6.095 0 7.555 0 9.318 0 11.366 1.708 13 3.781 13h8.906C14.502 13 16 11.57 16 9.773c0-1.636-1.242-2.969-2.834-3.194C12.923 3.999 10.69 2 8 2m2.354 6.854-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 1 1 .708-.708L7.5 9.293V5.5a.5.5 0 0 1 1 0v3.793l1.146-1.147a.5.5 0 0 1 .708.708"/>
-  </svg>
-);
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const role = getAuthRole();
+const token = getAuthToken();
 
 /** --------- ORDEN --------- */
 const SORT_OPTIONS = [
@@ -56,10 +17,40 @@ const SORT_OPTIONS = [
   { key: "ratings_least", label: "Least ratings" },
 ];
 
+// helper para obtener el nombre de institución de forma robusta
+const getInstitutionName = (thesis) => {
+  const inst = thesis.institution;
+  if (!inst) return "";
+  if (typeof inst === "string") return inst;
+  return inst.name || "";
+};
+
+// helper para convertir authors (strings u objetos) a un string buscable
+const buildAuthorsSearchString = (authors) => {
+  if (!Array.isArray(authors)) return "";
+  return authors
+    .map((a) => {
+      if (typeof a === "string") return a;
+      if (a && typeof a === "object") {
+        const parts = [];
+        if (a.name) parts.push(a.name);
+        if (a.lastname) parts.push(a.lastname);
+        return parts.join(" ");
+      }
+      return "";
+    })
+    .join(" ")
+    .toLowerCase();
+};
+
 const ThesisSearch = () => {
-  // estado local con likes y “liked” por tesis
-  const [theses, setTheses] = useState(MOCK_THESES.map(t => ({ likes: 0, ...t })));
-  const [liked, setLiked] = useState(Object.fromEntries(MOCK_THESES.map(t => [t._id, false])));
+  // tesis reales desde backend
+  const [theses, setTheses] = useState([]);
+  const [liked, setLiked] = useState({});
+  const [institutions, setInstitutions] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   // ---------- Search & filters ----------
   const [query, setQuery] = useState("");
@@ -68,54 +59,171 @@ const ThesisSearch = () => {
   const now = new Date().getFullYear();
   const [minYear, setMinYear] = useState(1980);
   const [maxYear, setMaxYear] = useState(now);
-  const [institution, setInstitution] = useState("all");
+  const [institutionFilter, setInstitutionFilter] = useState("all");
 
-  // orden
   const [sortBy, setSortBy] = useState("recent");
-
-  // pagination
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // instituciones para filtro
-  const institutionOptions = useMemo(() => {
-    const set = new Set(theses.map((t) => t.institution));
-    return ["all", ...Array.from(set)];
-  }, [theses]);
+  // ---------- CARGA DE THESES ----------
+  useEffect(() => {
+    const fetchTheses = async () => {
+      try {
+        setLoading(true);
+        setLoadError("");
 
-  // Filtrado
+        const headers = token
+          ? { Authorization: `Bearer ${token}` }
+          : undefined;
+
+        const res = await axios.get(
+          `${API_BASE_URL}/api/theses`,
+          headers ? { headers } : undefined
+        );
+
+        const data = Array.isArray(res.data) ? res.data : [];
+        // sacar id del usuario actual desde localStorage
+      let currentUserId = null;
+      try {
+        const rawUser = localStorage.getItem("memorychain_user");
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          currentUserId = parsed?._id || parsed?.id || null;
+        }
+      } catch (e) {
+        console.warn("No se pudo parsear memorychain_user", e);
+      }
+
+      // normalizar y marcar si el usuario ya dio like
+      const mapped = data.map((t) => {
+        const likes = t.likes ?? 0;
+        const ratingCount = t.ratingCount ?? 0;
+
+        const userLiked =
+          Array.isArray(t.likedBy) && currentUserId
+            ? t.likedBy.some((u) => String(u._id ?? u) === String(currentUserId))
+            : false;
+
+        return {
+          ...t,
+          likes,
+          ratingCount,
+          userLiked,
+        };
+      });
+
+        setTheses(mapped);
+
+       // mapa inicial de liked basado en userLiked
+      const likedMap = {};
+      mapped.forEach((t) => {
+        likedMap[t._id] = !!t.userLiked;
+      });
+      setLiked(likedMap);
+    } catch (err) {
+      console.error("Error loading theses:", err);
+      setLoadError("Error loading theses. Please try again later.");
+      setTheses([]);
+    } finally {
+      setLoading(false);
+      }
+    };
+
+    fetchTheses();
+  }, []);
+
+  // ---------- CARGA DE INSTITUCIONES PARA FILTRO ----------
+  useEffect(() => {
+    const fetchInstitutions = async () => {
+      try {
+        const tokenLocal = localStorage.getItem("memorychain_token");
+        const headers = tokenLocal
+          ? { Authorization: `Bearer ${tokenLocal}` }
+          : undefined;
+
+        const res = await axios.get(
+          `${API_BASE_URL}/api/institutions`,
+          headers ? { headers } : undefined
+        );
+
+        const data = Array.isArray(res.data) ? res.data : [];
+        setInstitutions(data);
+      } catch (err) {
+        console.error("Error loading institutions for thesis filter:", err);
+        setInstitutions([]);
+      }
+    };
+
+    fetchInstitutions();
+  }, []);
+
+  // instituciones para filtro (desde BD)
+  const institutionOptions = useMemo(() => {
+    const names = institutions.map((i) => i.name).filter(Boolean);
+    const unique = Array.from(new Set(names)).sort((a, b) =>
+      a.localeCompare(b)
+    );
+    return ["all", ...unique];
+  }, [institutions]);
+
+  // ---------- FILTRADO ----------
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const selectedInst = institutionFilter.toLowerCase();
+
     return theses.filter((t) => {
+      const instName = getInstitutionName(t);
+      const authorsSearch = buildAuthorsSearchString(t.authors);
+      const keywordsSearch = Array.isArray(t.keywords)
+        ? t.keywords.map((k) => String(k).toLowerCase())
+        : [];
+
       const matchesQ =
         !q ||
-        t.title.toLowerCase().includes(q) ||
-        t.authors.some((a) => a.toLowerCase().includes(q)) ||
-        t.keywords?.some((k) => k.toLowerCase().includes(q)) ||
-        t.institution.toLowerCase().includes(q);
+        (t.title || "").toLowerCase().includes(q) ||
+        authorsSearch.includes(q) ||
+        keywordsSearch.some((k) => k.includes(q)) ||
+        instName.toLowerCase().includes(q);
 
-      const matchesLang = language === "all" || t.language === language;
-      const matchesDegree = degree === "all" || t.degree === degree;
-      const inYearRange = Number(t.year) >= Number(minYear) && Number(t.year) <= Number(maxYear);
-      const matchesInst = institution === "all" || t.institution === institution;
+      const matchesLang =
+        language === "all" || (t.language || "").toLowerCase() === language;
 
-      return matchesQ && matchesLang && matchesDegree && inYearRange && matchesInst;
+      const matchesDegree =
+        degree === "all" || String(t.degree || "") === degree;
+
+      const yearNum = Number(t.year);
+      const inYearRange =
+        !Number.isNaN(yearNum) &&
+        yearNum >= Number(minYear) &&
+        yearNum <= Number(maxYear);
+
+      const matchesInst =
+        selectedInst === "all" || instName.toLowerCase() === selectedInst;
+
+      return (
+        matchesQ && matchesLang && matchesDegree && inYearRange && matchesInst
+      );
     });
-  }, [theses, query, language, degree, minYear, maxYear, institution]);
+  }, [theses, query, language, degree, minYear, maxYear, institutionFilter]);
 
-  // Orden dinámico (estable con tie-break por título y _id)
+  // ---------- ORDEN ----------
   const filteredOrdered = useMemo(() => {
     const arr = [...filtered];
     arr.sort((a, b) => {
-      const byTitle = a.title.localeCompare(b.title);
+      const byTitle = (a.title || "").localeCompare(b.title || "");
       const byId = String(a._id ?? "").localeCompare(String(b._id ?? ""));
+      const ya = Number(a.year);
+      const yb = Number(b.year);
+      const ra = a.ratingCount ?? 0;
+      const rb = b.ratingCount ?? 0;
+
       switch (sortBy) {
         case "recent":
-          if (b.year !== a.year) return b.year - a.year;
+          if (yb !== ya) return yb - ya;
           if (byTitle !== 0) return byTitle;
           return byId;
         case "oldest":
-          if (a.year !== b.year) return a.year - b.year;
+          if (ya !== yb) return ya - yb;
           if (byTitle !== 0) return byTitle;
           return byId;
         case "title_az":
@@ -124,20 +232,14 @@ const ThesisSearch = () => {
         case "title_za":
           if (byTitle !== 0) return -byTitle;
           return byId;
-        case "ratings_most": {
-          const ra = a.ratingCount ?? 0;
-          const rb = b.ratingCount ?? 0;
+        case "ratings_most":
           if (rb !== ra) return rb - ra;
           if (byTitle !== 0) return byTitle;
           return byId;
-        }
-        case "ratings_least": {
-          const ra = a.ratingCount ?? 0;
-          const rb = b.ratingCount ?? 0;
+        case "ratings_least":
           if (ra !== rb) return ra - rb;
           if (byTitle !== 0) return byTitle;
           return byId;
-        }
         default:
           return 0;
       }
@@ -145,23 +247,89 @@ const ThesisSearch = () => {
     return arr;
   }, [filtered, sortBy]);
 
+  // ---------- PAGINACIÓN ----------
   const totalPages = Math.max(1, Math.ceil(filteredOrdered.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const start = (currentPage - 1) * pageSize;
   const end = start + pageSize;
-  const pageItems = useMemo(() => filteredOrdered.slice(start, end), [filteredOrdered, start, end]);
-  const pagesArray = useMemo(() => Array.from({ length: totalPages }, (_, i) => i + 1), [totalPages]);
+
+  const pageItems = useMemo(
+    () => filteredOrdered.slice(start, end),
+    [filteredOrdered, start, end]
+  );
+
+  const pagesArray = useMemo(
+    () => Array.from({ length: totalPages }, (_, i) => i + 1),
+    [totalPages]
+  );
+
   const go = (p) => setPage(p);
 
-  // toggle like
-  const toggleLike = (id) => {
-    setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
-    setTheses((prev) =>
-      prev.map((t) =>
-        t._id === id ? { ...t, likes: Math.max(0, t.likes + (liked[id] ? -1 : 1)) } : t
-      )
-    );
+  // ---------- HANDLERS VIEW / DOWNLOAD ----------
+  const handleView = (thesis) => {
+    console.log("hola soy view", thesis._id, thesis.title);
+    // aquí luego puedes abrir modal, navegar a detalle, etc.
   };
+
+  const handleDownload = (thesis) => {
+    console.log("hola soy download", thesis._id, thesis.title);
+    // aquí luego puedes hacer window.open a la URL IPFS, etc.
+  };
+
+  // ---------- LIKE: sincronizado con backend ----------
+  const handleToggleLike = async (id) => {
+    if (!token) {
+      console.warn("No auth token, no se puede hacer like");
+      return;
+    }
+
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // AJUSTA ESTA URL/MÉTODO SI TU ROUTE ES DISTINTO:
+      // e.g. PATCH /api/theses/:id/like o /toggle-like
+      const res = await axios.post(
+        `${API_BASE_URL}/api/theses/${id}/like`,
+        null,
+        { headers }
+      );
+
+      const { thesis, liked: isLiked } = res.data || {};
+
+      // actualizar likes en la lista
+      if (thesis && thesis._id) {
+        setTheses((prev) =>
+          prev.map((t) =>
+            t._id === thesis._id ? { ...t, likes: thesis.likes ?? 0 } : t
+          )
+        );
+      }
+
+      // actualizar estado liked local
+      setLiked((prev) => ({ ...prev, [id]: !!isLiked }));
+    } catch (err) {
+      console.error("Error toggling like:", err);
+    }
+  };
+
+  // ---------- RENDER ----------
+  if (loading) {
+    return (
+      <div className="container py-4">
+        <div className="text-muted">Loading theses…</div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="container py-4">
+        <div className="alert alert-danger" role="alert">
+          {loadError}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container py-4">
@@ -185,13 +353,16 @@ const ThesisSearch = () => {
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                Sort by: {SORT_OPTIONS.find(o => o.key === sortBy)?.label ?? "—"}
+                Sort by:{" "}
+                {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
               </button>
               <ul className="dropdown-menu dropdown-menu-end">
                 {SORT_OPTIONS.map((opt) => (
                   <li key={opt.key}>
                     <button
-                      className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
+                      className={`dropdown-item ${
+                        sortBy === opt.key ? "active" : ""
+                      }`}
                       onClick={() => {
                         setSortBy(opt.key);
                         setPage(1);
@@ -208,7 +379,9 @@ const ThesisSearch = () => {
 
         <div className="col-lg-4 text-lg-end">
           <span className="text-muted">
-            {filteredOrdered.length} result{filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of {totalPages}
+            {filteredOrdered.length} result
+            {filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
+            {totalPages}
           </span>
         </div>
       </div>
@@ -218,16 +391,22 @@ const ThesisSearch = () => {
         <div className="col-lg-8 d-flex flex-column gap-3">
           {pageItems.map((t, idx) => {
             const rowKey = `${t._id}-${start + idx}`;
-            const isLiked = liked[t._id] === true;
+            const isLiked = liked[t._id] ?? t.userLiked ?? false;
+            const instName = getInstitutionName(t);
+
             return (
               <div key={rowKey} className="card shadow-sm">
                 <div className="card-body d-flex align-items-center gap-3">
                   {/* Thumbnail */}
                   <div
                     style={{
-                      width: 72, height: 72, borderRadius: 12,
-                      overflow: "hidden", background: "#f8f9fa",
-                      border: "1px solid #eee", flex: "0 0 auto"
+                      width: 72,
+                      height: 72,
+                      borderRadius: 12,
+                      overflow: "hidden",
+                      background: "#f8f9fa",
+                      border: "1px solid #eee",
+                      flex: "0 0 auto",
                     }}
                     className="d-flex align-items-center justify-content-center text-muted"
                   >
@@ -238,79 +417,144 @@ const ThesisSearch = () => {
                   <div className="flex-grow-1">
                     <h5 className="m-0">{t.title}</h5>
                     <div className="text-muted small">
-                      {t.authors.join(", ")} · {t.institution} · {t.department}
+                      {instName}
+                      {t.department ? ` · ${t.department}` : ""}
                     </div>
                     <div className="text-muted small">
-                      {t.year} · {t.language.toUpperCase()} · {t.degree} · {t.ratingCount ?? 0} ratings
+                      {Array.isArray(t.authors)
+                        ? t.authors
+                            .map((a) =>
+                              typeof a === "string"
+                                ? a
+                                : `${a.lastname ?? ""} ${a.name ?? ""}`.trim()
+                            )
+                            .join(", ")
+                        : typeof t.authors === "object" && t.authors !== null
+                        ? `${t.authors.lastname ?? ""} ${
+                            t.authors.name ?? ""
+                          }`.trim()
+                        : ""}
+
+                      {" · "}
+                    </div>
+                    <div className="text-muted small">
+                      {t.department ? ` ${t.department}` : ""} ·{" "}
+                      {(t.language || "").toUpperCase()} · {t.degree} ·{" "}
+                      {t.ratingCount ?? 0} ratings
                     </div>
                     {t.keywords?.length ? (
                       <div className="mt-1 d-flex flex-wrap gap-2">
                         {t.keywords.map((k, kidx) => (
-                          <span key={`${rowKey}-kw-${kidx}`} className="badge text-bg-light">{k}</span>
+                          <span
+                            key={`${rowKey}-kw-${kidx}`}
+                            className="badge text-bg-light"
+                          >
+                            {k}
+                          </span>
                         ))}
                       </div>
                     ) : null}
                   </div>
 
-                  {/* ACTIONS: Ver | Descargar (memory) | Like (último con contador) */}
+                  {/* ACTIONS */}
                   <div className="d-flex align-items-center gap-2">
-                    {/* 1) Ver */}
-                    <button type="button" className="btn btn-warning btn-sm" title="View">
-                      {EyeFill}
+                    {/* View */}
+                    <button
+                      type="button"
+                      className="btn btn-warning"
+                      title="View"
+                      onClick={() => handleView(t)}
+                    >
+                      {EyeFillIcon}
                     </button>
 
-                    {/* 2) Descargar (memory) */}
-                    <button type="button" className="btn btn-memory btn-sm" title="Download">
+                    {/* Download */}
+                    <button
+                      type="button"
+                      className="btn btn-memory"
+                      title="Download"
+                      onClick={() => handleDownload(t)}
+                    >
                       {CloudArrowDownFill}
                     </button>
 
-                    {/* 3) Like (último) con toggle y contador */}
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-sm d-flex align-items-center gap-1"
-                      title={isLiked ? "Unlike" : "Like"}
-                      onClick={() => toggleLike(t._id)}
-                    >
-                      {isLiked ? HeartFill : HeartOutline}
-                      <span className="fw-semibold">{t.likes ?? 0}</span>
-                    </button>
+                    {/* Like */}
+                    {role !== "INSTITUTION" && (
+        <button
+          type="button"
+          className="btn btn-danger d-flex align-items-center gap-1"
+          title={isLiked ? "Unlike" : "Like"}
+          onClick={() => handleToggleLike(t._id)}
+        >
+          {isLiked ? HeartFill : HeartOutline}
+          <span className="fw-semibold">{t.likes ?? 0}</span>
+        </button>
+      )}
                   </div>
                 </div>
               </div>
             );
           })}
 
-          {pageItems.length === 0 && <div className="text-muted">No theses found.</div>}
+          {pageItems.length === 0 && (
+            <div className="text-muted">No theses found.</div>
+          )}
 
-          {/* Pagination — centered, First | 1..N | Last */}
-          <nav aria-label="Theses pagination" className="mt-3 d-flex justify-content-center">
+          {/* Pagination */}
+          <nav
+            aria-label="Theses pagination"
+            className="mt-3 d-flex justify-content-center"
+          >
             <ul className="pagination mc-pagination">
-              <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                <button className="page-link" onClick={() => go(1)}>First</button>
+              <li
+                className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
+              >
+                <button className="page-link" onClick={() => go(1)}>
+                  First
+                </button>
               </li>
               {pagesArray.map((p) => (
-                <li key={`p-${p}`} className={`page-item ${p === currentPage ? "active" : ""}`}>
-                  <button className="page-link" onClick={() => go(p)}>{p}</button>
+                <li
+                  key={`p-${p}`}
+                  className={`page-item ${p === currentPage ? "active" : ""}`}
+                >
+                  <button className="page-link" onClick={() => go(p)}>
+                    {p}
+                  </button>
                 </li>
               ))}
-              <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                <button className="page-link" onClick={() => go(totalPages)}>Last</button>
+              <li
+                className={`page-item ${
+                  currentPage === totalPages ? "disabled" : ""
+                }`}
+              >
+                <button className="page-link" onClick={() => go(totalPages)}>
+                  Last
+                </button>
               </li>
             </ul>
           </nav>
         </div>
 
-        {/* RIGHT: filters (como lo tenías) */}
+        {/* RIGHT: filters */}
         <div className="col-lg-4 d-none d-lg-block">
           <div className="card mc-filters sticky-top" style={{ top: "1rem" }}>
             <div className="card-header">Filters</div>
             <div className="card-body">
+              {/* Year range */}
               <div className="mb-3">
                 <div className="d-flex justify-content-between align-items-center">
-                  <label className="form-label m-0">From year: <strong>{minYear}</strong></label>
-                  <span className="small text-muted">To: <strong>{maxYear}</strong></span>
+                  <label className="form-label m-0">
+                    From year: <strong>{minYear}</strong>
+                  </label>
+                  <span className="small text-muted">
+                    To: <strong>{maxYear}</strong>
+                  </span>
                 </div>
-                <div className="mc-dualrange position-relative" style={{ height: 36 }}>
+                <div
+                  className="mc-dualrange position-relative"
+                  style={{ height: 36 }}
+                >
                   <input
                     type="range"
                     className="form-range position-absolute top-50 start-0 translate-middle-y w-100 mc-dualrange-input mc-dualrange-min"
@@ -322,7 +566,11 @@ const ThesisSearch = () => {
                       setPage(1);
                       setMinYear(Math.min(Number(e.target.value), maxYear));
                     }}
-                    style={{ background: "transparent", pointerEvents: "none", zIndex: 2 }}
+                    style={{
+                      background: "transparent",
+                      pointerEvents: "none",
+                      zIndex: 2,
+                    }}
                   />
                   <input
                     type="range"
@@ -335,11 +583,16 @@ const ThesisSearch = () => {
                       setPage(1);
                       setMaxYear(Math.max(Number(e.target.value), minYear));
                     }}
-                    style={{ background: "transparent", pointerEvents: "none", zIndex: 3 }}
+                    style={{
+                      background: "transparent",
+                      pointerEvents: "none",
+                      zIndex: 3,
+                    }}
                   />
                 </div>
               </div>
 
+              {/* Language */}
               <div className="mb-3">
                 <label className="form-label">Language</label>
                 <div className="d-flex flex-column gap-1">
@@ -364,6 +617,7 @@ const ThesisSearch = () => {
                 </div>
               </div>
 
+              {/* Degree */}
               <div className="mb-3">
                 <label className="form-label">Degree</label>
                 <select
@@ -375,23 +629,28 @@ const ThesisSearch = () => {
                   }}
                 >
                   {["all", "Bachelor", "Master", "PhD"].map((d) => (
-                    <option key={d} value={d}>{d === "all" ? "All" : d}</option>
+                    <option key={d} value={d}>
+                      {d === "all" ? "All" : d}
+                    </option>
                   ))}
                 </select>
               </div>
 
+              {/* Institution */}
               <div className="mb-3">
                 <label className="form-label">Institution</label>
                 <select
                   className="form-select"
-                  value={institution}
+                  value={institutionFilter}
                   onChange={(e) => {
                     setPage(1);
-                    setInstitution(e.target.value);
+                    setInstitutionFilter(e.target.value);
                   }}
                 >
-                  {institutionOptions.map((i) => (
-                    <option key={i} value={i}>{i === "all" ? "All" : i}</option>
+                  {institutionOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name === "all" ? "All" : name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -404,10 +663,9 @@ const ThesisSearch = () => {
                     setQuery("");
                     setLanguage("all");
                     setDegree("all");
-                    const nowYear = new Date().getFullYear();
                     setMinYear(1980);
-                    setMaxYear(nowYear);
-                    setInstitution("all");
+                    setMaxYear(now);
+                    setInstitutionFilter("all");
                     setSortBy("recent");
                     setPage(1);
                   }}
@@ -418,7 +676,7 @@ const ThesisSearch = () => {
             </div>
           </div>
         </div>
-      </div>      
+      </div>
     </div>
   );
 };
