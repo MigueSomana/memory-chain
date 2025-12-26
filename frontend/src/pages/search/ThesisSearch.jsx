@@ -1,9 +1,15 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { getAuthRole, getAuthToken } from "../../utils/authSession";
 import axios from "axios";
-import { EyeFillIcon, HeartFill, HeartOutline, CloudArrowDownFill } from "../../utils/icons";
+import {
+  EyeFillIcon,
+  HeartFill,
+  HeartOutline,
+  QuoteFill,
+} from "../../utils/icons";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
 const role = getAuthRole();
 const token = getAuthToken();
 
@@ -67,6 +73,7 @@ const ThesisSearch = () => {
 
   // ---------- CARGA DE THESES ----------
   useEffect(() => {
+    console.log(gateway);
     const fetchTheses = async () => {
       try {
         setLoading(true);
@@ -83,49 +90,49 @@ const ThesisSearch = () => {
 
         const data = Array.isArray(res.data) ? res.data : [];
         // sacar id del usuario actual desde localStorage
-      let currentUserId = null;
-      try {
-        const rawUser = localStorage.getItem("memorychain_user");
-        if (rawUser) {
-          const parsed = JSON.parse(rawUser);
-          currentUserId = parsed?._id || parsed?.id || null;
+        let currentUserId = null;
+        try {
+          const rawUser = localStorage.getItem("memorychain_user");
+          if (rawUser) {
+            const parsed = JSON.parse(rawUser);
+            currentUserId = parsed?._id || parsed?.id || null;
+          }
+        } catch (e) {
+          console.warn("No se pudo parsear memorychain_user", e);
         }
-      } catch (e) {
-        console.warn("No se pudo parsear memorychain_user", e);
-      }
 
-      // normalizar y marcar si el usuario ya dio like
-      const mapped = data.map((t) => {
-        const likes = t.likes ?? 0;
-        const ratingCount = t.ratingCount ?? 0;
+        // normalizar y marcar si el usuario ya dio like
+        const mapped = data.map((t) => {
+          const likes = t.likes ?? 0;
 
-        const userLiked =
-          Array.isArray(t.likedBy) && currentUserId
-            ? t.likedBy.some((u) => String(u._id ?? u) === String(currentUserId))
-            : false;
+          const userLiked =
+            Array.isArray(t.likedBy) && currentUserId
+              ? t.likedBy.some(
+                  (u) => String(u._id ?? u) === String(currentUserId)
+                )
+              : false;
 
-        return {
-          ...t,
-          likes,
-          ratingCount,
-          userLiked,
-        };
-      });
+          return {
+            ...t,
+            likes,
+            userLiked,
+          };
+        });
 
         setTheses(mapped);
 
-       // mapa inicial de liked basado en userLiked
-      const likedMap = {};
-      mapped.forEach((t) => {
-        likedMap[t._id] = !!t.userLiked;
-      });
-      setLiked(likedMap);
-    } catch (err) {
-      console.error("Error loading theses:", err);
-      setLoadError("Error loading theses. Please try again later.");
-      setTheses([]);
-    } finally {
-      setLoading(false);
+        // mapa inicial de liked basado en userLiked
+        const likedMap = {};
+        mapped.forEach((t) => {
+          likedMap[t._id] = !!t.userLiked;
+        });
+        setLiked(likedMap);
+      } catch (err) {
+        console.error("Error loading theses:", err);
+        setLoadError("Error loading theses. Please try again later.");
+        setTheses([]);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -214,8 +221,8 @@ const ThesisSearch = () => {
       const byId = String(a._id ?? "").localeCompare(String(b._id ?? ""));
       const ya = Number(a.year);
       const yb = Number(b.year);
-      const ra = a.ratingCount ?? 0;
-      const rb = b.ratingCount ?? 0;
+      const ra = Number(a.likes ?? 0);
+      const rb = Number(b.likes ?? 0);
 
       switch (sortBy) {
         case "recent":
@@ -265,15 +272,131 @@ const ThesisSearch = () => {
 
   const go = (p) => setPage(p);
 
-  // ---------- HANDLERS VIEW / DOWNLOAD ----------
+  // ---------- HANDLERS VIEW VENTANA ----------
   const handleView = (thesis) => {
-    console.log("hola soy view", thesis._id, thesis.title);
-    // aquí luego puedes abrir modal, navegar a detalle, etc.
+    const cid = thesis.ipfsCid;
+    if (!cid) {
+      alert("This thesis does not have a downloadable file.");
+      return;
+    }
+    const url = `https://${gateway}/ipfs/${cid}#toolbar=0&navpanes=0&scrollbar=0`;
+    window.open(url, "_blank");
   };
 
-  const handleDownload = (thesis) => {
-    console.log("hola soy download", thesis._id, thesis.title);
-    // aquí luego puedes hacer window.open a la URL IPFS, etc.
+  // ---------- HANDLERS CITA ----------
+  async function copyToClipboard(text) {
+    // método moderno
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  }
+  function toTitleCaseSentenceCase(title = "") {
+    // APA: título en "sentence case" (muy simplificado).
+    // Mantiene el texto pero fuerza solo la primera letra en mayúscula.
+    const t = String(title).trim();
+    if (!t) return "";
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
+  function initialFromWord(word) {
+    const w = String(word || "").trim();
+    if (!w) return "";
+    return w[0].toUpperCase() + ".";
+  }
+
+  function formatPersonAPA(person) {
+    // person puede ser {name, lastname} o string
+    if (!person) return "";
+    if (typeof person === "string") return person.trim();
+
+    const lastname = String(person.lastname || "").trim();
+    const name = String(person.name || person.firstName || "").trim();
+
+    const initials = name
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(initialFromWord)
+      .join(" ");
+
+    // Si no hay apellido, devuelve lo que haya
+    if (!lastname && !initials) return "";
+    if (!lastname) return initials;
+    if (!initials) return lastname;
+
+    return `${lastname}, ${initials}`;
+  }
+
+  function formatAuthorsAPA(authors = []) {
+    const list = Array.isArray(authors) ? authors : [];
+    const formatted = list.map(formatPersonAPA).filter(Boolean);
+
+    if (formatted.length === 0) return "Author, A. A."; // fallback para que no quede vacío
+
+    if (formatted.length === 1) return formatted[0];
+
+    if (formatted.length <= 20) {
+      const last = formatted[formatted.length - 1];
+      const firsts = formatted.slice(0, -1);
+      return `${firsts.join(", ")}, & ${last}`;
+    }
+
+    // 21+
+    const first19 = formatted.slice(0, 19).join(", ");
+    const last = formatted[formatted.length - 1];
+    return `${first19}, … ${last}`;
+  }
+
+  function buildThesisApa7Citation(thesis, gateway) {
+    const authors = formatAuthorsAPA(thesis?.authors);
+
+    const year = thesis?.year ? String(thesis.year) : "n.d.";
+
+    const title = toTitleCaseSentenceCase(thesis?.title || "Untitled thesis");
+
+    // Usa degree para inferir tipo; ajusta a tus valores reales
+    const degreeRaw = String(thesis?.degree || "").toLowerCase();
+    const thesisType =
+      degreeRaw.includes("phd") || degreeRaw.includes("doctor")
+        ? "Doctoral dissertation"
+        : degreeRaw.includes("master")
+        ? "Master’s thesis"
+        : "Bachelor’s thesis";
+
+    // institution puede venir populate (obj) o string/ID
+    const instName =
+      typeof thesis?.institution === "object" && thesis?.institution
+        ? thesis.institution.name || ""
+        : ""; // si solo tienes ObjectId, aquí no hay nombre
+
+    // URL
+    const cid = thesis?.ipfsCid;
+    const url = cid && gateway ? `https://${gateway}/ipfs/${cid}` : "";
+
+    // Si no tienes nombre de institución, omite ese bloque para no inventar.
+    const bracket = instName
+      ? `[${thesisType}, ${instName}]`
+      : `[${thesisType}]`;
+
+    // APA: termina con punto. Si hay URL, no pongas punto final después del URL (APA sugiere no ponerlo)
+    const base = `${authors} (${year}). ${title} ${bracket}`;
+    if (url) return `${base}. ${url}`;
+    return `${base}.`;
+  }
+
+  const handleQuote = async (thesis) => {
+    try {
+      const citation = buildThesisApa7Citation(thesis, gateway); // gateway lo tienes en tu componente
+      const ok = await copyToClipboard(citation);
+
+      if (ok) {
+        alert("Bibliographic Citation Copied ✅");
+      } else {
+        alert("Failed Copied ❌");
+      }
+    } catch (e) {
+      alert("Failed Copied ❌", e);
+    }
   };
 
   // ---------- LIKE: sincronizado con backend ----------
@@ -300,7 +423,13 @@ const ThesisSearch = () => {
       if (thesis && thesis._id) {
         setTheses((prev) =>
           prev.map((t) =>
-            t._id === thesis._id ? { ...t, likes: thesis.likes ?? 0 } : t
+            t._id === thesis._id
+              ? {
+                  ...t,
+                  likes: thesis.likes ?? 0,
+                  userLiked: !!isLiked,
+                }
+              : t
           )
         );
       }
@@ -315,7 +444,7 @@ const ThesisSearch = () => {
   // ---------- RENDER ----------
   if (loading) {
     return (
-      <div className="container py-4">
+      <div className="container py-2">
         <div className="text-muted">Loading theses…</div>
       </div>
     );
@@ -323,7 +452,7 @@ const ThesisSearch = () => {
 
   if (loadError) {
     return (
-      <div className="container py-4">
+      <div className="container py-2">
         <div className="alert alert-danger" role="alert">
           {loadError}
         </div>
@@ -332,7 +461,7 @@ const ThesisSearch = () => {
   }
 
   return (
-    <div className="container py-4">
+    <div className="container py-2">
       {/* Search + Sort */}
       <div className="row g-3 align-items-center mb-3">
         <div className="col-lg-8">
@@ -417,10 +546,12 @@ const ThesisSearch = () => {
                   <div className="flex-grow-1">
                     <h5 className="m-0">{t.title}</h5>
                     <div className="text-muted small">
+                      Institution:&nbsp;
                       {instName}
-                      {t.department ? ` · ${t.department}` : ""}
+                      {t.department ? ` · ${t.department}` : ""}{" "}
                     </div>
                     <div className="text-muted small">
+                      Autors:&nbsp;
                       {Array.isArray(t.authors)
                         ? t.authors
                             .map((a) =>
@@ -434,13 +565,10 @@ const ThesisSearch = () => {
                             t.authors.name ?? ""
                           }`.trim()
                         : ""}
-
                       {" · "}
                     </div>
                     <div className="text-muted small">
-                      {t.department ? ` ${t.department}` : ""} ·{" "}
-                      {(t.language || "").toUpperCase()} · {t.degree} ·{" "}
-                      {t.ratingCount ?? 0} ratings
+                      CID: {t.ipfsCid ?? 0}
                     </div>
                     {t.keywords?.length ? (
                       <div className="mt-1 d-flex flex-wrap gap-2">
@@ -458,38 +586,36 @@ const ThesisSearch = () => {
 
                   {/* ACTIONS */}
                   <div className="d-flex align-items-center gap-2">
-                    {/* View */}
-                    <button
-                      type="button"
-                      className="btn btn-warning"
-                      title="View"
-                      onClick={() => handleView(t)}
-                    >
-                      {EyeFillIcon}
-                    </button>
-
-                    {/* Download */}
+                    {/* View Ventana */}
                     <button
                       type="button"
                       className="btn btn-memory"
                       title="Download"
-                      onClick={() => handleDownload(t)}
+                      onClick={() => handleView(t)}
                     >
-                      {CloudArrowDownFill}
+                      {EyeFillIcon}
                     </button>
-
+                    {/* Citar */}
+                    <button
+                      type="button"
+                      className="btn btn-warning"
+                      title="Download"
+                      onClick={() => handleQuote(t)}
+                    >
+                      {QuoteFill}
+                    </button>
                     {/* Like */}
                     {role !== "INSTITUTION" && (
-        <button
-          type="button"
-          className="btn btn-danger d-flex align-items-center gap-1"
-          title={isLiked ? "Unlike" : "Like"}
-          onClick={() => handleToggleLike(t._id)}
-        >
-          {isLiked ? HeartFill : HeartOutline}
-          <span className="fw-semibold">{t.likes ?? 0}</span>
-        </button>
-      )}
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-fix-like d-flex align-items-center gap-1"
+                        title={isLiked ? "Unlike" : "Like"}
+                        onClick={() => handleToggleLike(t._id)}
+                      >
+                        {isLiked ? HeartFill : HeartOutline}
+                        <span className="fw-semibold">{t.likes ?? 0}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -595,25 +721,30 @@ const ThesisSearch = () => {
               {/* Language */}
               <div className="mb-3">
                 <label className="form-label">Language</label>
-                <div className="d-flex flex-column gap-1">
-                  {["all", "en", "es"].map((l) => (
-                    <label key={l} className="form-check">
-                      <input
-                        className="form-check-input"
-                        type="radio"
-                        name="lang"
-                        value={l}
-                        checked={language === l}
-                        onChange={(e) => {
-                          setPage(1);
-                          setLanguage(e.target.value);
-                        }}
-                      />
-                      <span className="form-check-label text-uppercase ms-1">
-                        {l === "all" ? "All" : l}
-                      </span>
-                    </label>
-                  ))}
+
+                <div className="row">
+                  {["all", "en", "es", "fr", "pt", "ch", "ko", "ru"].map(
+                    (l) => (
+                      <div key={l} className="col-6 col-md-3">
+                        <label className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="radio"
+                            name="lang"
+                            value={l}
+                            checked={language === l}
+                            onChange={(e) => {
+                              setPage(1);
+                              setLanguage(e.target.value);
+                            }}
+                          />
+                          <span className="form-check-label text-uppercase ms-1">
+                            {l === "all" ? "All" : l}
+                          </span>
+                        </label>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
 

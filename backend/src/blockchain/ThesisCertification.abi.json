@@ -1,0 +1,169 @@
+[
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "thesisId",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "userId",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "institutionId",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "ipfsCid",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "fileHash",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "hashAlgorithm",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "issuedAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "Certified",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "thesisId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "userId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "institutionId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "ipfsCid",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "fileHash",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "hashAlgorithm",
+          "type": "string"
+        }
+      ],
+      "name": "certify",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "thesisId",
+          "type": "string"
+        }
+      ],
+      "name": "getCertificate",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "string",
+              "name": "thesisId",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "userId",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "institutionId",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "ipfsCid",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "fileHash",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "hashAlgorithm",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "issuedAt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "exists",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ThesisCertification.Certificate",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "thesisId",
+          "type": "string"
+        }
+      ],
+      "name": "isCertified",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ]

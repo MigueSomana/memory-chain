@@ -21,7 +21,10 @@ export interface IInstitution extends Document {
   isMember: boolean; // membresía activa
   canVerify: boolean; // puede certificar tesis
 
-  logo?: string; // URL/base64 (igual estilo que imgUrl de usuario)
+  logo?: {
+    data: Buffer; // binario de la imagen
+    contentType: string; // tipo MIME (image/png, image/jpeg, etc.)
+  };
 
   createdAt: Date;
   updatedAt: Date;
@@ -73,8 +76,8 @@ const InstitutionSchema = new Schema<IInstitution>(
     },
 
     logo: {
-      type: String,
-      default: "",
+      data: Buffer,
+      contentType: String,
     },
   },
   {
@@ -89,7 +92,4 @@ InstitutionSchema.methods.toJSON = function () {
   return obj;
 };
 
-export const Institution = mongoose.model<IInstitution>(
-  "Institution",
-  InstitutionSchema
-);
+export const Institution = mongoose.model<IInstitution>("Institution",InstitutionSchema);

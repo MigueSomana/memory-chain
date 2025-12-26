@@ -1,4 +1,3 @@
-
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap");
 
 /* General Styles */
@@ -138,9 +137,14 @@ body {
 
 /* Botón de toggle de password: color de icono por defecto y en hover */
 .password-toggle-btn {
-  color: #495057 !important;            /* gris texto */
-  border-color: #6c757d !important;     /* borde gris secondary */
+  color: #495057 !important; /* gris texto */
+  border-color: #6c757d80 !important; /* borde gris secondary */
   background-color: transparent !important;
+  transition: all 0.15s ease-in-out;
+}
+.password-toggle-btn-login {
+  color: #dcdcdc80 !important;
+  border-color: #dcdcdc80 !important;
   transition: all 0.15s ease-in-out;
 }
 
@@ -148,19 +152,24 @@ body {
 .password-toggle-btn svg {
   fill: currentColor;
 }
-
+.password-toggle-btn-login svg {
+  fill: #dcdcdc80;
+}
 /* Hover / focus cuando está apagado → estilo outline secondary */
 .password-toggle-btn:hover,
 .password-toggle-btn:focus {
   background-color: rgba(108, 117, 125, 0.12) !important;
-  border-color: #6c757d !important;
+  border-color: #dee2e6 !important;
   color: #343a40 !important;
 }
 
+.password-toggle-btn-login:hover {
+  color: #fff !important;
+}
 /* Estado ON (showPass / showConfirm true) → como btn-secondary sólido */
 .password-toggle-btn--on {
   background-color: #6c757d !important; /* bg secondary */
-  border-color: #6c757d !important;
+  border-color: #dee2e6 !important;
   color: #ffffff !important;
 }
 
@@ -172,7 +181,6 @@ body {
 .password-toggle-btn--on:hover,
 .password-toggle-btn--on:focus {
   background-color: #5c636a !important;
-  border-color: #565e64 !important;
 }
 
 /* Botones secundarios neutrales dentro del perfil (por coherencia) */
@@ -195,7 +203,6 @@ body {
 .btn.btn-outline-memory:focus {
   box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.3) !important;
 }
-
 
 /* ====== MemoryChain form theming for filter panel ====== */
 .mc-filters .form-check-input {
@@ -345,4 +352,35 @@ body {
 }
 .btn-extend {
   width: 100%;
+}
+.t-white {
+  color: #fff;
+}
+/* ===== MemoryChain checkbox/radio GLOBAL ===== */
+.mc-check.form-check-input {
+  accent-color: #20c997;
+}
+
+.mc-check.form-check-input:checked {
+  background-color: #20c997 !important;
+  border-color: #20c997 !important;
+}
+
+.mc-check.form-check-input:focus {
+  border-color: #20c997 !important;
+  box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.25) !important;
+}
+
+.mc-check.form-check-input:hover {
+  cursor: pointer;
+  box-shadow: 0 0 0 0.15rem rgba(32, 201, 151, 0.15);
+}
+
+.btn-fix-like {
+  width: 5rem;
+  display: flex;
+  justify-content: center;
+}
+.droptoogle-fix::after {
+  color: #fff !important;
 }

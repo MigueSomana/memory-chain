@@ -4,21 +4,18 @@ import {
   getAllUsers,
   getMe,
   updateMe,
-  getMyLikedTheses
+  getMyLikedTheses,
 } from "../controllers/user.controller";
+import { uploadImage } from "../config/multer";
 
 const router = Router();
 
-// ver todos los usuarios (sin password)
 router.get("/", authMiddleware, getAllUsers);
-
-// info del usuario logueado
 router.get("/me", authMiddleware, getMe);
 
-// editar usuario logueado
-router.put("/me", authMiddleware, updateMe);
+// ✅ multipart: img + fields
+router.put("/me", authMiddleware, uploadImage.single("img"), updateMe);
 
-// tesis que le ha dado like
 router.get("/me/likes", authMiddleware, getMyLikedTheses);
 
 export default router;

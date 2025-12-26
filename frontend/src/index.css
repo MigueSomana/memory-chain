@@ -153,14 +153,14 @@ body {
 .password-toggle-btn:hover,
 .password-toggle-btn:focus {
   background-color: rgba(108, 117, 125, 0.12) !important;
-  border-color: #6c757d !important;
+  border-color: #dee2e6 !important;
   color: #343a40 !important;
 }
 
 /* Estado ON (showPass / showConfirm true) → como btn-secondary sólido */
 .password-toggle-btn--on {
   background-color: #6c757d !important; /* bg secondary */
-  border-color: #6c757d !important;
+  border-color: #dee2e6 !important;
   color: #ffffff !important;
 }
 
@@ -172,7 +172,7 @@ body {
 .password-toggle-btn--on:hover,
 .password-toggle-btn--on:focus {
   background-color: #5c636a !important;
-  border-color: #565e64 !important;
+  border-color: #dee2e6 !important;
 }
 
 /* Botones secundarios neutrales dentro del perfil (por coherencia) */
@@ -342,4 +342,26 @@ body {
 }
 .w-66 {
   width: 66% !important;
+}
+.btn-extend {
+  width: 100%;
+}
+/* ===== MemoryChain checkbox/radio GLOBAL ===== */
+.mc-check.form-check-input {
+  accent-color: #20c997;
+}
+
+.mc-check.form-check-input:checked {
+  background-color: #20c997 !important;
+  border-color: #20c997 !important;
+}
+
+.mc-check.form-check-input:focus {
+  border-color: #20c997 !important;
+  box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.25) !important;
+}
+
+.mc-check.form-check-input:hover {
+  cursor: pointer;
+  box-shadow: 0 0 0 0.15rem rgba(32, 201, 151, 0.15);
 }

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import isologo from "../../assets/isologo.png";
 import { EyeIcon, EyeSlashIcon } from "../../utils/icons";
-import { saveAuthSession } from "../../utils/authSession"; // ⬅️ importa el helper TS compilado
+import { saveAuthSession } from "../../utils/authSession";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -140,7 +140,7 @@ const FormLogin = () => {
               />
               <button
                 type="button"
-                className="btn password-toggle-btn d-flex align-items-center"
+                className="btn password-toggle-btn-login d-flex align-items-center"
                 onClick={() => setShowPass((v) => !v)}
                 tabIndex={-1}
                 aria-label={showPass ? "Hide password" : "Show password"}
@@ -150,10 +150,14 @@ const FormLogin = () => {
               </button>
             </div>
           </div>
-
-          <div className="checkbox mb-3 mt-3" bis_skin_checked="1">
-            <label>
-              <input type="checkbox" value="remember-me" /> Remember me
+          <div className="mb-3 mt-3 form-check">
+            <input
+              id="rememberMe"
+              className="form-check-input mc-check"
+              type="checkbox"
+            />
+            <label htmlFor="rememberMe" className="form-check-label">
+              Remember me
             </label>
           </div>
 

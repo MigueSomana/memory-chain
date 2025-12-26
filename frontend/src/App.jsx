@@ -14,6 +14,7 @@ import SearchP from './pages/search/LibraryPSearch'
 import LibraryP from './pages/library/PersonalLibrary'
 import ProfileP from './pages/config/ProfilePersonal'
 import UploadThesis from './pages/config/UploadThesis'
+import UpdateThesis from './pages/config/UpdateThesis'
 
 // University Import
 import DashboardU from './pages/dashboard/DashboardUniversity'
@@ -37,6 +38,7 @@ function App() {
         <Route path="/libraryP" element={<LibraryP />} />
         <Route path="/profileP" element={<ProfileP />} />
         <Route path="/upload" element={<UploadThesis />} />
+        <Route path="/update/:id" element={<UpdateThesis />} />
 
         
         <Route path="/dashboardU" element={<DashboardU />} />

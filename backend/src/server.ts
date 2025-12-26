@@ -7,6 +7,7 @@ import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import institutionRoutes from "./routes/institution.routes";
 import thesisRoutes from "./routes/thesis.routes";
+import certificateRoutes from "./routes/certificate.routes";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -19,6 +20,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/institutions", institutionRoutes);
 app.use("/api/theses", thesisRoutes);
+app.use("/api", certificateRoutes);
 
 app.get("/", (_req, res) => {
   res.json({ message: "MemoryChain API running" });

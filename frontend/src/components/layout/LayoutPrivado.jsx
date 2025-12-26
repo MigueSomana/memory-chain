@@ -66,22 +66,28 @@ const LayoutPrivado = ({
             </div>
           )}
           {showButton && (
-            <div style={{ marginLeft: "auto" }}>
-              <a href="/upload" type="button" className="btn btn-memory">
-                {PlusIcon} Add Thesis
+            <div className="d-flex" style={{ marginLeft: "auto" }}>
+              <a
+                href={"/upload"}
+                type="button"
+                className="btn btn-memory d-flex align-items-center justify-content-center gap-2"
+              >
+                {PlusIcon}
+                <span className="t-white"> Add Thesis</span>
               </a>
             </div>
           )}
           {showBack && (
-            <div style={{ marginLeft: "auto" }}>
+            <div className="d-flex" style={{ marginLeft: "auto" }}>
               <a
                 href={
                   getAuthActor() === "institution" ? "/libraryU" : "/libraryP"
                 }
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary d-flex align-items-center justify-content-center gap-2"
               >
-                {BackIcon} Back
+                {BackIcon} 
+                <span className="t-white"> Back</span>
               </a>
             </div>
           )}

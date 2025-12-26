@@ -1,12 +1,13 @@
-import React, {
-  useMemo,
-  useRef,
-  useState,
-  useEffect,
-} from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import { getAuthToken } from "../../utils/authSession";
 import axios from "axios";
-import { EyeIcon, EyeSlashIcon, EditIcon, DiscardIcon, CloseIcon } from "../../utils/icons";
+import {
+  EyeIcon,
+  EyeSlashIcon,
+  EditIcon,
+  DiscardIcon,
+  CloseIcon,
+} from "../../utils/icons";
 
 // Cambia esto si tu backend corre en otro puerto o ruta
 const API_BASE_URL = "http://localhost:4000/api";
@@ -26,9 +27,12 @@ const FormProfile = () => {
   const fileInputRef = useRef(null);
 
   const pickImage = () => fileInputRef.current?.click();
+  const [removeImgFlag, setRemoveImgFlag] = useState(false);
+
   const removeImage = () => {
     setImgPreview("");
     setImgFile(null);
+    setRemoveImgFlag(true); // 👈 marca para backend
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
   const onImageChange = (e) => {
@@ -287,9 +291,9 @@ const FormProfile = () => {
 
       if (!allowedDomains.includes(domain)) {
         alert(
-          `The email "${eduEmail}" does not match any allowed domain for "${institution.name}" (${allowedDomains.join(
-            ", "
-          )}).`
+          `The email "${eduEmail}" does not match any allowed domain for "${
+            institution.name
+          }" (${allowedDomains.join(", ")}).`
         );
         return false;
       }
@@ -308,74 +312,75 @@ const FormProfile = () => {
       return;
     }
 
-    const payload = {};
-
-    // imgUrl: solo si cambió
-    const initialImgUrl = initialData.imgUrl || "";
-    if (imgPreview !== initialImgUrl) {
-      payload.imgUrl = imgPreview || "";
-    }
-
-    // Name
-    const initialName = initialData.name || "";
-    if (name.trim() !== initialName) {
-      payload.name = name.trim();
-    }
-
-    // Lastname
-    const initialLastname = initialData.lastname || "";
-    if (lastname.trim() !== initialLastname) {
-      payload.lastname = lastname.trim();
-    }
-
-    // Email
-    const initialEmail = (initialData.email || "").toLowerCase();
-    const currentEmail = email.trim().toLowerCase();
-    if (currentEmail !== initialEmail) {
-      payload.email = currentEmail;
-    }
-
-    // Password: solo si se escribió algo (y ya pasó validación)
-    if (password) {
-      payload.password = password;
-    }
-
-    // Instituciones: siempre enviamos el arreglo de IDs
-    const currentInstIds = institutions.map((i) => i._id);
-    payload.institutions = currentInstIds;
-
-    // educationalEmails: { institution, email }
-    const educationalEmailsPayload = Object.entries(institutionEmails)
-      .map(([instId, eduEmailRaw]) => ({
-        institution: instId,
-        email: eduEmailRaw.trim(),
-      }))
-      .filter((entry) => entry.email.length > 0);
-    payload.educationalEmails = educationalEmailsPayload;
-
-    console.log(payload);
-
     try {
       if (!token) {
         alert("No auth token found. Please log in again.");
         return;
       }
 
-      await axios.put(`${API_BASE_URL}/users/me`, payload, {
+      // ✅ multipart/form-data
+      const form = new FormData();
+
+      // Imagen (solo si el usuario seleccionó una nueva)
+      if (imgFile) {
+        form.append("img", imgFile);
+        // si subes una nueva, asegúrate de no remover
+        form.append("removeImg", "0");
+      } else {
+        // si el usuario clickeó remove, lo mandas
+        if (removeImgFlag) form.append("removeImg", "1");
+      }
+
+      // Campos
+      form.append("name", name.trim());
+      form.append("lastname", lastname.trim());
+      form.append("email", email.trim().toLowerCase());
+
+      if (password) form.append("password", password);
+
+      // Arrays como JSON
+      const currentInstIds = institutions.map((i) => i._id);
+      form.append("institutions", JSON.stringify(currentInstIds));
+
+      const educationalEmailsPayload = Object.entries(institutionEmails)
+        .map(([instId, eduEmailRaw]) => ({
+          institution: instId,
+          email: eduEmailRaw.trim(),
+        }))
+        .filter((entry) => entry.email.length > 0);
+
+      form.append(
+        "educationalEmails",
+        JSON.stringify(educationalEmailsPayload)
+      );
+
+      const res = await axios.put(`${API_BASE_URL}/users/me`, form, {
         headers: {
           Authorization: `Bearer ${token}`,
+          // ❌ NO pongas Content-Type manual; axios lo setea con boundary
         },
       });
 
       alert("Profile updated successfully.");
+      if (imgFile) {
+        form.append("img", imgFile);
+        // si subes una nueva, asegúrate de no remover
+        form.append("removeImg", "0");
+      } else {
+        // si el usuario clickeó remove, lo mandas
+        if (removeImgFlag) form.append("removeImg", "1");
+      }
+      // ✅ refresca datos locales
+      const updatedUser = res.data;
+      setInitialData(updatedUser);
 
-      // Actualizamos initialData en memoria
-      setInitialData((prev) => ({
-        ...(prev || {}),
-        ...payload,
-      }));
+      // si backend devuelve imgUrl, úsalo
+      if (updatedUser.imgUrl) {
+        setImgPreview(updatedUser.imgUrl);
+        setImgFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
 
-      // Al guardar, ocultamos cualquier panel de edición
       setEditingInstitutionId("");
     } catch (err) {
       console.error(err);
@@ -385,18 +390,18 @@ const FormProfile = () => {
 
   // ------------------ RENDER ------------------
   if (loading) {
-    return <div className="container mt-4">Loading profile...</div>;
+    return <div className="container py-2">Loading profile...</div>;
   }
 
   if (loadError) {
-    return <div className="container mt-4 text-danger">{loadError}</div>;
+    return <div className="container py-2 text-danger">{loadError}</div>;
   }
 
   return (
-    <form className="container" onSubmit={handleSubmit}>
+    <form className="container mb-3" onSubmit={handleSubmit}>
       {/* BASIC INFORMATION */}
       <section className="mb-4">
-        <h5 className="mb-3 mt-0">Basic information</h5>
+        <h5 className="mb-2 mt-0">Basic information</h5>
 
         <div className="row g-4">
           <div className="col-md-4 basic-info-left">
@@ -523,9 +528,7 @@ const FormProfile = () => {
               </button>
             </div>
             {errors.password && (
-              <div className="invalid-feedback d-block">
-                {errors.password}
-              </div>
+              <div className="invalid-feedback d-block">{errors.password}</div>
             )}
           </div>
 
@@ -533,9 +536,7 @@ const FormProfile = () => {
             <label className="form-label">Confirm password</label>
             <div className="input-group">
               <input
-                className={`form-control ${
-                  errors.confirm ? "is-invalid" : ""
-                }`}
+                className={`form-control ${errors.confirm ? "is-invalid" : ""}`}
                 type={showConfirm ? "text" : "password"}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
@@ -554,9 +555,7 @@ const FormProfile = () => {
               </button>
             </div>
             {errors.confirm && (
-              <div className="invalid-feedback d-block">
-                {errors.confirm}
-              </div>
+              <div className="invalid-feedback d-block">{errors.confirm}</div>
             )}
           </div>
         </div>
@@ -579,7 +578,6 @@ const FormProfile = () => {
               const allowedDomains = inst.emailDomains || [];
               const isEditing = editingInstitutionId === instId;
               const isNew = !initialInstitutionIdSet.has(instId);
-
               return (
                 <React.Fragment key={instId}>
                   <div className="card shadow-sm">
@@ -597,10 +595,9 @@ const FormProfile = () => {
                         }}
                         className="d-flex align-items-center justify-content-center text-muted"
                       >
-                        {inst.logo ? (
+                        {inst.logoUrl ? (
                           <img
-                            src={inst.logo}
-                            alt={inst.name}
+                            src={inst.logoUrl}
                             style={{
                               width: "100%",
                               height: "100%",
@@ -624,7 +621,7 @@ const FormProfile = () => {
                       <div className="d-flex align-items-center gap-2">
                         <button
                           type="button"
-                          className="btn btn-warning btn-sm d-flex align-items-center justify-content-center text-white"
+                          className="btn btn-warning d-flex align-items-center justify-content-center text-white"
                           onClick={() =>
                             setEditingInstitutionId((prev) =>
                               prev === instId ? "" : instId
@@ -658,10 +655,7 @@ const FormProfile = () => {
                           className="form-control form-control-sm"
                           value={institutionEmails[instId] || ""}
                           onChange={(e) =>
-                            handleInstitutionEmailChange(
-                              instId,
-                              e.target.value
-                            )
+                            handleInstitutionEmailChange(instId, e.target.value)
                           }
                           placeholder="john@youruniversity.edu"
                         />
@@ -669,7 +663,7 @@ const FormProfile = () => {
                         {isNew && (
                           <button
                             type="button"
-                            className="btn btn-danger btn-sm d-flex align-items-center justify-content-center text-white"
+                            className="btn btn-danger d-flex align-items-center justify-content-center text-white"
                             onClick={() => removeInstitution(instId)}
                             title="Discard"
                           >

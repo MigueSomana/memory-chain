@@ -7,14 +7,14 @@ export type CertificationStatus =
 
 export interface IAuthor {
   name: string;
-  lastname?: string;
+  lastname: string;
   email?: string;
 }
 
 const AuthorSchema = new Schema<IAuthor>(
   {
     name: { type: String, required: true, trim: true },
-    lastname: { type: String, trim: true },
+    lastname: { type: String, required: true, trim: true },
     email: { type: String, trim: true, lowercase: true },
   },
   { _id: false }
@@ -23,7 +23,7 @@ const AuthorSchema = new Schema<IAuthor>(
 export interface IThesis extends Document {
   title: string;
   authors: IAuthor[];
-  advisors?: IAuthor[];
+  tutors?: IAuthor[];
   summary: string;
   keywords: string[];
   language: string;
@@ -58,7 +58,7 @@ const ThesisSchema = new Schema<IThesis>(
       type: [AuthorSchema],
       validate: [(v: IAuthor[]) => v.length > 0, "At least one author."],
     },
-    advisors: {
+    tutors: {
       type: [AuthorSchema],
       default: [],
     },

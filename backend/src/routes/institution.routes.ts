@@ -5,19 +5,19 @@ import {
   getInstitutionById,
   updateInstitution,
   getInstitutionStudents,
-  getInstitutionTheses
+  getInstitutionTheses,
 } from "../controllers/institution.controller";
+import { uploadImage } from "../config/multer";
 
 const router = Router();
 
 router.get("/", getAllInstitutions);
 router.get("/:id", getInstitutionById);
 
-// ver info completa de institución (usuario debe pertenecer a ella)
 router.get("/:id/students", authMiddleware, getInstitutionStudents);
 router.get("/:id/theses", authMiddleware, getInstitutionTheses);
 
-// editar institución
-router.put("/:id", authMiddleware, updateInstitution);
+// ✅ multipart: logo + fields
+router.put("/:id", authMiddleware, uploadImage.single("logo"), updateInstitution);
 
 export default router;

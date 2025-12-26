@@ -1,5 +1,4 @@
 import { Router } from "express";
-import multer from "multer";
 import { authMiddleware } from "../middleware/auth";
 import {
   getAllTheses,
@@ -10,35 +9,29 @@ import {
   toggleLikeThesis,
   getThesesByInstitutionId,
 } from "../controllers/thesis.controller";
+import { uploadPdf } from "../config/multer"; // sigue disponible, pero el archivo es opcional
 
-const router = Router(); 
+const router = Router();
 
-const upload = multer({ storage: multer.memoryStorage() });
+// CREAR TESIS (PDF opcional por ahora)
+router.post("/", authMiddleware, uploadPdf.single("pdf"), createThesis);
 
-// ✅ CAMBIADO A "file"
-router.post("/", authMiddleware, upload.single("file"), createThesis);
+// EDITAR TESIS
+router.patch("/:id", authMiddleware, uploadPdf.single("pdf"), updateThesis);
 
-// ✅ PATCH (match con frontend)
-router.patch("/:id", authMiddleware, updateThesis);
-
-// ver todas las tesis (ordenable)
+// VER TODAS
 router.get("/", getAllTheses);
 
+// POR INSTITUCIÓN
 router.get("/sub/:idInstitution", getThesesByInstitutionId);
 
-// ver tesis específica
+// VER UNA
 router.get("/:id", getThesisById);
 
-// crear tesis (subida de archivo)
-router.post("/", authMiddleware, upload.single("file"), createThesis);
-
-// editar tesis propia (sin tocar hash ni status)
-router.patch("/:id", authMiddleware, updateThesis);
-
-// institución marca como aprobada / rechazada
+// CAMBIAR STATUS
 router.patch("/:id/status", authMiddleware, setThesisStatus);
 
-// like / unlike
+// LIKE
 router.post("/:id/like", authMiddleware, toggleLikeThesis);
 
 export default router;

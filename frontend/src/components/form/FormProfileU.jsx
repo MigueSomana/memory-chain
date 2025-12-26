@@ -22,11 +22,15 @@ const FormProfileU = ({ initialData: initialDataProp /*, onSubmit*/ }) => {
   const fileInputRef = useRef(null);
 
   const pickLogo = () => fileInputRef.current?.click();
-  const removeLogo = () => {
-    setLogoPreview("");
-    setLogoFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+  const [removeImgFlag, setRemoveImgFlag] = useState(false);
+
+const removeLogo = () => {
+  setLogoPreview("");
+  setLogoFile(null);
+  setRemoveImgFlag(true);   // 👈 marca para backend
+  if (fileInputRef.current) fileInputRef.current.value = "";
+};
+
   const onLogoChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -161,7 +165,7 @@ const FormProfileU = ({ initialData: initialDataProp /*, onSubmit*/ }) => {
   useEffect(() => {
     if (!initialData) return;
 
-    setLogoPreview(initialData.logo || "");
+    setLogoPreview(initialData.logoUrl || "");
     setName(initialData.name || "");
     setDescription(initialData.description || "");
     setCountry(initialData.country || "");
@@ -221,49 +225,10 @@ const handleSubmit = async (e) => {
   e.preventDefault();
   if (!validate()) return;
 
-  if (!initialData || !initialData._id) {
+  if (!initialData?._id) {
     alert("Institution data not loaded yet.");
     return;
   }
-
-  // Tomamos TODOS los campos actuales de la institución como base,
-  // excepto los que no tiene sentido mandar/actualizar directamente.
-  const {
-    _id,
-    __v,
-    // añade aquí cualquier otro campo que NO quieras que se sobreescriba directamente
-    ...base
-  } = initialData;
-
-  // Construimos el payload partiendo de base y sobrescribiendo con el estado del form
-  const payload = {
-    ...base, // resto de campos que el backend espera y que no editas en el form
-
-    // Overrides desde el formulario:
-    logo: logoPreview || initialData.logo || "",
-    name: name.trim(),
-    description: description.trim() || undefined,
-    country: country.trim(),
-    website: website.trim() || undefined,
-    type: type || undefined,
-    departments: departments.map((d) => d.name),
-    email: email.trim().toLowerCase(),
-    emailDomains: emailDomains.map((d) => d.value),
-
-    // Por si tu schema lo espera para validar
-    isMember: initialData.isMember,
-  };
-
-  // Password: solo si se escribió algo (y ya pasó validación)
-  if (password) {
-    payload.password = password;
-  } else {
-    // si en initialData venía un hash o algo y NO lo queremos tocar,
-    // nos aseguramos de no mandar undefined
-    delete payload.password;
-  }
-
-  console.log("Institution UPDATE payload ->", payload);
 
   try {
     if (!token) {
@@ -271,34 +236,65 @@ const handleSubmit = async (e) => {
       return;
     }
 
+    const form = new FormData();
+
+    if (logoFile) {
+  form.append("logo", logoFile);
+  // si subes una nueva, asegúrate de no remover
+  form.append("removeImg", "0");
+} else {
+  // si el usuario clickeó remove, lo mandas
+  if (removeImgFlag) form.append("removeImg", "1");
+}
+    // fields
+    form.append("name", name.trim());
+    form.append("description", description.trim());
+    form.append("country", country.trim());
+    form.append("website", website.trim());
+    form.append("type", type);
+    form.append("email", email.trim().toLowerCase());
+
+    // arrays como JSON
+    form.append("departments", JSON.stringify(departments.map((d) => d.name)));
+    form.append("emailDomains", JSON.stringify(emailDomains.map((d) => d.value)));
+
+    // flags si los necesitas conservar
+    form.append("isMember", String(Boolean(initialData.isMember)));
+    form.append("canVerify", String(Boolean(initialData.canVerify)));
+
+    // password opcional
+    if (password) form.append("password", password);
+
     const res = await axios.put(
       `${API_BASE_URL}/institutions/${initialData._id}`,
-      payload,
+      form,
       {
         headers: {
           Authorization: `Bearer ${token}`,
+          // NO pongas Content-Type
         },
       }
     );
 
     alert("Institution profile updated successfully.");
 
-    // Actualizamos initialData en memoria con lo que devuelva el backend
-    setInitialData(res.data || { ...(initialData || {}), ...payload });
+    const updated = res.data;
+    setInitialData(updated);
 
-    // Limpiamos campos sensibles
+    // ✅ refresca preview con lo que devuelve backend
+    if (updated.logoUrl) {
+      setLogoPreview(updated.logoUrl);
+      setLogoFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+
     setPassword("");
     setConfirm("");
   } catch (err) {
     console.error("Update institution error:", err?.response?.data || err);
-    alert(
-      err?.response?.data?.message ||
-        "Error updating institution profile."
-    );
+    alert(err?.response?.data?.message || "Error updating institution profile.");
   }
 };
-
-
 
   // ------------------ RENDER ------------------
   if (loading) {

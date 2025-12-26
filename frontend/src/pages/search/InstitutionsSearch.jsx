@@ -1,13 +1,23 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { getAuthRole, getAuthToken } from "../../utils/authSession";
-import { OpenBook, WebPage, EyeFillIcon, CloseIcon, CloudArrowDownFill, HeartFill, HeartOutline } from "../../utils/icons";
+import {
+  OpenBook,
+  WebPage,
+  EyeFillIcon,
+  CloseIcon,
+  HeartFill,
+  HeartOutline,
+  QuoteFill,
+} from "../../utils/icons";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
+
 const role = getAuthRole();
 const token = getAuthToken();
-var encabezadoshow = true;
 
-// Opciones de ordenamiento (ya sin ratings ni likes)
+// Opciones de ordenamiento (instituciones)
 const SORT_OPTIONS = [
   { key: "name_az", label: "Name A–Z" },
   { key: "name_za", label: "Name Z–A" },
@@ -19,8 +29,9 @@ const SORT_OPTIONS = [
 const formatType = (t) =>
   t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : "";
 
-/** ========== SUBCOMPONENTE: BUSCADOR DE TESIS POR INSTITUCIÓN ========== */
+// ===================== SUBCOMPONENTE: THESIS LIST POR INSTITUCIÓN (FOCUS) =====================
 
+// Opciones de ordenamiento de tesis
 const THESIS_SORT_OPTIONS = [
   { key: "recent", label: "Most recent" },
   { key: "oldest", label: "Oldest" },
@@ -30,7 +41,7 @@ const THESIS_SORT_OPTIONS = [
   { key: "ratings_least", label: "Least ratings" },
 ];
 
-// helper para autores (igual que en ThesisSearch)
+// helper para convertir authors (strings u objetos) a un string buscable
 const buildAuthorsSearchString = (authors) => {
   if (!Array.isArray(authors)) return "";
   return authors
@@ -48,7 +59,95 @@ const buildAuthorsSearchString = (authors) => {
     .toLowerCase();
 };
 
-// Subvista de tesis limitada a una institución
+// ======= helpers APA (igual que tu ThesisSearch actual) =======
+async function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+  return false;
+}
+
+function toTitleCaseSentenceCase(title = "") {
+  const t = String(title).trim();
+  if (!t) return "";
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function initialFromWord(word) {
+  const w = String(word || "").trim();
+  if (!w) return "";
+  return w[0].toUpperCase() + ".";
+}
+
+function formatPersonAPA(person) {
+  if (!person) return "";
+  if (typeof person === "string") return person.trim();
+
+  const lastname = String(person.lastname || "").trim();
+  const name = String(person.name || person.firstName || "").trim();
+
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(initialFromWord)
+    .join(" ");
+
+  if (!lastname && !initials) return "";
+  if (!lastname) return initials;
+  if (!initials) return lastname;
+
+  return `${lastname}, ${initials}`;
+}
+
+function formatAuthorsAPA(authors = []) {
+  const list = Array.isArray(authors) ? authors : [];
+  const formatted = list.map(formatPersonAPA).filter(Boolean);
+
+  if (formatted.length === 0) return "Author, A. A.";
+
+  if (formatted.length === 1) return formatted[0];
+
+  if (formatted.length <= 20) {
+    const last = formatted[formatted.length - 1];
+    const firsts = formatted.slice(0, -1);
+    return `${firsts.join(", ")}, & ${last}`;
+  }
+
+  const first19 = formatted.slice(0, 19).join(", ");
+  const last = formatted[formatted.length - 1];
+  return `${first19}, … ${last}`;
+}
+
+function buildThesisApa7Citation(thesis, gatewayDomain) {
+  const authors = formatAuthorsAPA(thesis?.authors);
+  const year = thesis?.year ? String(thesis.year) : "n.d.";
+  const title = toTitleCaseSentenceCase(thesis?.title || "Untitled thesis");
+
+  const degreeRaw = String(thesis?.degree || "").toLowerCase();
+  const thesisType =
+    degreeRaw.includes("phd") || degreeRaw.includes("doctor")
+      ? "Doctoral dissertation"
+      : degreeRaw.includes("master")
+      ? "Master’s thesis"
+      : "Bachelor’s thesis";
+
+  const instName =
+    typeof thesis?.institution === "object" && thesis?.institution
+      ? thesis.institution.name || ""
+      : "";
+
+  const cid = thesis?.ipfsCid;
+  const url =
+    cid && gatewayDomain ? `https://${gatewayDomain}/ipfs/${cid}` : "";
+
+  const bracket = instName ? `[${thesisType}, ${instName}]` : `[${thesisType}]`;
+
+  const base = `${authors} (${year}). ${title} ${bracket}`;
+  if (url) return `${base}. ${url}`;
+  return `${base}.`;
+}
+
 const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
   const [theses, setTheses] = useState([]);
   const [liked, setLiked] = useState({});
@@ -82,7 +181,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
         );
         const data = Array.isArray(res.data) ? res.data : [];
 
-        // sacar id del usuario actual desde localStorage
+        // user actual
         let currentUserId = null;
         try {
           const rawUser = localStorage.getItem("memorychain_user");
@@ -94,10 +193,8 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
           console.warn("No se pudo parsear memorychain_user", e);
         }
 
-        // normalizar y marcar si el usuario ya dio like
         const mapped = data.map((t) => {
           const likes = t.likes ?? 0;
-          const ratingCount = t.ratingCount ?? 0;
 
           const userLiked =
             Array.isArray(t.likedBy) && currentUserId
@@ -106,21 +203,13 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                 )
               : false;
 
-          return {
-            ...t,
-            likes,
-            ratingCount,
-            userLiked,
-          };
+          return { ...t, likes, userLiked };
         });
 
         setTheses(mapped);
 
-        // mapa inicial de liked basado en userLiked
         const likedMap = {};
-        mapped.forEach((t) => {
-          likedMap[t._id] = !!t.userLiked;
-        });
+        mapped.forEach((t) => (likedMap[t._id] = !!t.userLiked));
         setLiked(likedMap);
       } catch (err) {
         console.error("Error loading theses for institution:", err);
@@ -131,12 +220,8 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
       }
     };
 
-    if (institutionId) {
-      fetchTheses();
-    }
+    if (institutionId) fetchTheses();
   }, [institutionId]);
-
-  const institutionLabel = institutionName || "Institution";
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -155,6 +240,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
 
       const matchesLang =
         language === "all" || (t.language || "").toLowerCase() === language;
+
       const matchesDegree =
         degree === "all" || String(t.degree || "") === degree;
 
@@ -175,8 +261,8 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
       const byId = String(a._id ?? "").localeCompare(String(b._id ?? ""));
       const ya = Number(a.year);
       const yb = Number(b.year);
-      const ra = a.ratingCount ?? 0;
-      const rb = b.ratingCount ?? 0;
+      const ra = Number(a.likes ?? 0);
+      const rb = Number(b.likes ?? 0);
 
       switch (sortBy) {
         case "recent":
@@ -208,6 +294,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
     return arr;
   }, [filtered, sortBy]);
 
+  // paginación
   const totalPages = Math.max(1, Math.ceil(filteredOrdered.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const start = (currentPage - 1) * pageSize;
@@ -225,18 +312,29 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
 
   const go = (p) => setPage(p);
 
-  // VIEW / DOWNLOAD Handlers (por ahora sólo log)
+  // ===== actions (adaptadas al nuevo ThesisSearch) =====
   const handleView = (thesis) => {
-    console.log("hola soy view (subventana)", thesis._id, thesis.title);
-    // aquí luego puedes abrir modal, navegar a detalle, etc.
+    const cid = thesis.ipfsCid;
+    if (!cid) {
+      alert("This thesis does not have a downloadable file.");
+      return;
+    }
+    const url = `https://${gateway}/ipfs/${cid}#toolbar=0&navpanes=0&scrollbar=0`;
+    window.open(url, "_blank");
   };
 
-  const handleDownload = (thesis) => {
-    console.log("hola soy download (subventana)", thesis._id, thesis.title);
-    // aquí luego puedes hacer window.open a la URL IPFS, etc.
+  const handleQuote = async (thesis) => {
+    try {
+      const citation = buildThesisApa7Citation(thesis, gateway);
+      const ok = await copyToClipboard(citation);
+      if (ok) alert("Bibliographic Citation Copied ✅");
+      else alert("Failed Copied ❌");
+    } catch (e) {
+      alert("Failed Copied ❌");
+      console.error(e);
+    }
   };
 
-  // LIKE sincronizado con backend (igual que ThesisSearch)
   const handleToggleLike = async (id) => {
     if (!token) {
       console.warn("No auth token, no se puede hacer like");
@@ -245,7 +343,6 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
-
       const res = await axios.post(
         `${API_BASE_URL}/api/theses/${id}/like`,
         null,
@@ -254,7 +351,6 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
 
       const { thesis, liked: isLiked } = res.data || {};
 
-      // actualizar likes y userLiked en la lista local
       if (thesis && thesis._id) {
         setTheses((prev) =>
           prev.map((t) =>
@@ -275,23 +371,17 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="mt-3 text-muted">Loading theses for this institution…</div>
-    );
-  }
-
-  if (loadError) {
+  if (loading) return <div className="mt-3 text-muted">Loading theses…</div>;
+  if (loadError)
     return (
       <div className="mt-3 alert alert-danger" role="alert">
         {loadError}
       </div>
     );
-  }
 
   return (
     <div className="mt-4">
-      <h5 className="mb-3">Theses from {institutionLabel}</h5>
+      <h5 className="mb-3">Theses from {institutionName || "Institution"}</h5>
 
       {/* Search + Sort */}
       <div className="row g-3 align-items-center mb-3">
@@ -314,7 +404,8 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                 aria-expanded="false"
               >
                 Sort by:{" "}
-                {THESIS_SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
+                {THESIS_SORT_OPTIONS.find((o) => o.key === sortBy)?.label ??
+                  "—"}
               </button>
               <ul className="dropdown-menu dropdown-menu-end">
                 {THESIS_SORT_OPTIONS.map((opt) => (
@@ -347,7 +438,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
       </div>
 
       <div className="row">
-        {/* LEFT: list */}
+        {/* LEFT list */}
         <div className="col-lg-8 d-flex flex-column gap-3">
           {pageItems.map((t, idx) => {
             const rowKey = `${t._id}-${start + idx}`;
@@ -376,10 +467,11 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                   <div className="flex-grow-1">
                     <h5 className="m-0">{t.title}</h5>
                     <div className="text-muted small">
-                      {institutionLabel}
-                      {t.department ? ` · ${t.department}` : ""}
+                      Institution:&nbsp;{institutionName || "Institution"}
+                      {t.department ? ` · ${t.department}` : ""}{" "}
                     </div>
                     <div className="text-muted small">
+                      Autors:&nbsp;
                       {Array.isArray(t.authors)
                         ? t.authors
                             .map((a) =>
@@ -388,17 +480,13 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                                 : `${a.lastname ?? ""} ${a.name ?? ""}`.trim()
                             )
                             .join(", ")
-                        : typeof t.authors === "object" && t.authors !== null
-                        ? `${t.authors.lastname ?? ""} ${
-                            t.authors.name ?? ""
-                          }`.trim()
                         : ""}
+                      {" · "}
                     </div>
                     <div className="text-muted small">
-                      {t.year ? `${t.year} · ` : ""}
-                      {(t.language || "").toUpperCase()} · {t.degree} ·{" "}
-                      {t.ratingCount ?? 0} ratings
+                      CID: {t.ipfsCid ?? ""}
                     </div>
+
                     {t.keywords?.length ? (
                       <div className="mt-1 d-flex flex-wrap gap-2">
                         {t.keywords.map((k, kidx) => (
@@ -418,28 +506,28 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                     {/* View */}
                     <button
                       type="button"
-                      className="btn btn-warning btn-sm"
+                      className="btn btn-memory"
                       title="View"
                       onClick={() => handleView(t)}
                     >
                       {EyeFillIcon}
                     </button>
 
-                    {/* Download */}
+                    {/* Quote */}
                     <button
                       type="button"
-                      className="btn btn-memory btn-sm"
-                      title="Download"
-                      onClick={() => handleDownload(t)}
+                      className="btn btn-warning"
+                      title="Copy citation"
+                      onClick={() => handleQuote(t)}
                     >
-                      {CloudArrowDownFill}
+                      {QuoteFill}
                     </button>
 
-                    {/* Like (oculto para institutions) */}
+                    {/* Like */}
                     {role !== "INSTITUTION" && (
                       <button
                         type="button"
-                        className="btn btn-danger btn-sm d-flex align-items-center gap-1"
+                        className="btn btn-danger btn-fix-like d-flex align-items-center gap-1"
                         title={isLiked ? "Unlike" : "Like"}
                         onClick={() => handleToggleLike(t._id)}
                       >
@@ -495,7 +583,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
           </nav>
         </div>
 
-        {/* RIGHT: filtros de tesis */}
+        {/* RIGHT filters */}
         <div className="col-lg-4 d-none d-lg-block">
           <div className="card mc-filters sticky-top" style={{ top: "1rem" }}>
             <div className="card-header">Filters</div>
@@ -510,6 +598,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                     To: <strong>{maxYear}</strong>
                   </span>
                 </div>
+
                 <div
                   className="mc-dualrange position-relative"
                   style={{ height: 36 }}
@@ -551,28 +640,32 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                 </div>
               </div>
 
-              {/* Language */}
+              {/* Language (4 por fila) */}
               <div className="mb-3">
                 <label className="form-label">Language</label>
-                <div className="d-flex flex-column gap-1">
-                  {["all", "en", "es"].map((l) => (
-                    <label key={l} className="form-check">
-                      <input
-                        className="form-check-input"
-                        type="radio"
-                        name={`lang-inst-${institutionId}`}
-                        value={l}
-                        checked={language === l}
-                        onChange={(e) => {
-                          setPage(1);
-                          setLanguage(e.target.value);
-                        }}
-                      />
-                      <span className="form-check-label text-uppercase ms-1">
-                        {l === "all" ? "All" : l}
-                      </span>
-                    </label>
-                  ))}
+                <div className="row">
+                  {["all", "en", "es", "fr", "pt", "ch", "ko", "ru"].map(
+                    (l) => (
+                      <div key={l} className="col-6 col-md-3">
+                        <label className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="radio"
+                            name={`lang-inst-${institutionId}`}
+                            value={l}
+                            checked={language === l}
+                            onChange={(e) => {
+                              setPage(1);
+                              setLanguage(e.target.value);
+                            }}
+                          />
+                          <span className="form-check-label text-uppercase ms-1">
+                            {l === "all" ? "All" : l}
+                          </span>
+                        </label>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
 
@@ -595,11 +688,15 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                 </select>
               </div>
 
-              {/* Institution: fijo, solo informativo */}
+              {/* Institution fixed */}
               <div className="mb-3">
                 <label className="form-label">Institution</label>
-                <select className="form-select" value={institutionLabel} disabled>
-                  <option>{institutionLabel}</option>
+                <select
+                  className="form-select"
+                  value={institutionName}
+                  disabled
+                >
+                  <option>{institutionName}</option>
                 </select>
               </div>
 
@@ -628,7 +725,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
   );
 };
 
-/** ========== COMPONENTE PRINCIPAL: INSTITUTIONS SEARCH ========== */
+// ===================== COMPONENTE PRINCIPAL: INSTITUTIONS SEARCH =====================
 
 const InstitutionsSearch = () => {
   const [institutions, setInstitutions] = useState([]);
@@ -646,10 +743,12 @@ const InstitutionsSearch = () => {
   const pageSize = 10;
 
   const [focusedInstitutionId, setFocusedInstitutionId] = useState(null);
+  const headerRef = useRef(true); // reemplazo de "var encabezadoshow"
 
-  // ---------- CARGA INICIAL DESDE API (INSTITUTIONS) ----------
+  // cargar institutions
   useEffect(() => {
-    encabezadoshow = true;
+    headerRef.current = true;
+
     const fetchInstitutions = async () => {
       try {
         setLoading(true);
@@ -679,7 +778,7 @@ const InstitutionsSearch = () => {
     fetchInstitutions();
   }, []);
 
-  // ---------- CARGA DE THESIS Y CÁLCULO DE COUNTS ----------
+  // contar tesis por institución
   useEffect(() => {
     const fetchThesesAndBuildCounts = async () => {
       try {
@@ -694,8 +793,8 @@ const InstitutionsSearch = () => {
         );
 
         const theses = Array.isArray(res.data) ? res.data : [];
-
         const counts = {};
+
         for (const thesis of theses) {
           const instField = thesis.institution;
           const instId =
@@ -719,13 +818,13 @@ const InstitutionsSearch = () => {
     fetchThesesAndBuildCounts();
   }, []);
 
-  // ---------- OPCIONES DE PAÍSES ----------
+  // country options
   const countryOptions = useMemo(() => {
     const set = new Set(institutions.map((i) => i.country).filter(Boolean));
     return ["all", ...Array.from(set)];
   }, [institutions]);
 
-  // ---------- FILTRO ----------
+  // filtrado institutions
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const selectedType = type.toLowerCase();
@@ -755,7 +854,7 @@ const InstitutionsSearch = () => {
     });
   }, [institutions, query, type, country, onlyMembers]);
 
-  // ---------- ORDENAMIENTO ----------
+  // ordenar institutions
   const filteredOrdered = useMemo(() => {
     const arr = [...filtered];
 
@@ -789,13 +888,12 @@ const InstitutionsSearch = () => {
     return arr;
   }, [filtered, sortBy, thesisCounts]);
 
-  // ---------- PAGINACIÓN ----------
+  // paginación institutions
   const totalPages = Math.max(1, Math.ceil(filteredOrdered.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const start = (currentPage - 1) * pageSize;
   const end = start + pageSize;
 
-  // Si hay institución en foco, ignoramos paginación y mostramos solo esa
   const institutionsToRender = useMemo(() => {
     if (focusedInstitutionId) {
       return filteredOrdered.filter(
@@ -813,16 +911,15 @@ const InstitutionsSearch = () => {
   const go = (p) => setPage(p);
 
   const handleToggleFocus = (id) => {
-    encabezadoshow = !encabezadoshow;
     setFocusedInstitutionId((current) =>
-      current && String(current) === String(id) ? null : id
+      current && String(current) === String(id) ? null : String(id)
     );
   };
 
-  // ---------- RENDER ----------
+  // render
   if (loading) {
     return (
-      <div className="container py-4">
+      <div className="container py-2">
         <div className="text-muted">Loading institutions…</div>
       </div>
     );
@@ -830,7 +927,7 @@ const InstitutionsSearch = () => {
 
   if (loadError) {
     return (
-      <div className="container py-4">
+      <div className="container py-2">
         <div className="alert alert-danger" role="alert">
           {loadError}
         </div>
@@ -838,10 +935,12 @@ const InstitutionsSearch = () => {
     );
   }
 
+  const showHeader = !focusedInstitutionId; // reemplaza encabezadoshow
+
   return (
-    <div className="container py-4">
+    <div className="container py-2">
       {/* Search + sort */}
-      {encabezadoshow && (
+      {showHeader && (
         <div className="row g-3 align-items-center mb-3">
           <div className="col-lg-8">
             <div className="d-flex gap-2">
@@ -894,6 +993,7 @@ const InstitutionsSearch = () => {
           </div>
         </div>
       )}
+
       <div className="row">
         {/* LEFT: list */}
         <div
@@ -904,7 +1004,9 @@ const InstitutionsSearch = () => {
           }
         >
           {institutionsToRender.map((i, idx) => {
-            const rowKey = `${i._id}-${focusedInstitutionId ? idx : start + idx}`;
+            const rowKey = `${i._id}-${
+              focusedInstitutionId ? idx : start + idx
+            }`;
             const thesisCount = thesisCounts[i._id] ?? 0;
             const isFocused = focusedInstitutionId === String(i._id);
 
@@ -924,9 +1026,9 @@ const InstitutionsSearch = () => {
                         flex: "0 0 auto",
                       }}
                     >
-                      {i.logo ? (
+                      {i.logoUrl ? (
                         <img
-                          src={i.logo}
+                          src={i.logoUrl}
                           alt={i.name}
                           style={{
                             width: "100%",
@@ -948,16 +1050,12 @@ const InstitutionsSearch = () => {
                         {i.isMember ? (
                           <span className="badge text-bg-success">Active</span>
                         ) : (
-                          <span className="badge text-bg-danger">
-                            Deactive
-                          </span>
+                          <span className="badge text-bg-danger">Deactive</span>
                         )}
                       </div>
                       <div className="text-muted small">
-                        {i.country} · {formatType(i.type)}
-                        {` · ${thesisCount} thesis${
-                          thesisCount === 1 ? "" : ""
-                        }`}
+                        {i.country} · {formatType(i.type)} · {thesisCount}{" "}
+                        thesis
                       </div>
                     </div>
 
@@ -971,6 +1069,7 @@ const InstitutionsSearch = () => {
                       >
                         {isFocused ? CloseIcon : OpenBook}
                       </button>
+
                       {i.website && (
                         <a
                           href={i.website}
@@ -989,7 +1088,7 @@ const InstitutionsSearch = () => {
                 {/* Subvista de tesis debajo de la card cuando está en foco */}
                 {isFocused && (
                   <InstitutionThesisSubsearch
-                    institutionId={i._id}
+                    institutionId={String(i._id)}
                     institutionName={i.name}
                   />
                 )}
@@ -1009,9 +1108,7 @@ const InstitutionsSearch = () => {
             >
               <ul className="pagination mc-pagination">
                 <li
-                  className={`page-item ${
-                    currentPage === 1 ? "disabled" : ""
-                  }`}
+                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
                 >
                   <button className="page-link" onClick={() => go(1)}>
                     First
@@ -1020,9 +1117,7 @@ const InstitutionsSearch = () => {
                 {pagesArray.map((p) => (
                   <li
                     key={`p-${p}`}
-                    className={`page-item ${
-                      p === currentPage ? "active" : ""
-                    }`}
+                    className={`page-item ${p === currentPage ? "active" : ""}`}
                   >
                     <button className="page-link" onClick={() => go(p)}>
                       {p}
@@ -1043,36 +1138,48 @@ const InstitutionsSearch = () => {
           )}
         </div>
 
-        {/* RIGHT: filters de instituciones (OCULTOS en modo foco) */}
+        {/* RIGHT: filtros de instituciones (OCULTOS en modo foco) */}
         {!focusedInstitutionId && (
           <div className="col-lg-4 d-none d-lg-block">
             <div className="card mc-filters sticky-top" style={{ top: "1rem" }}>
               <div className="card-header">Filters</div>
               <div className="card-body">
+                {/* Type */}
                 <div className="mb-3">
-                  <label className="form-label">Type</label>
-                  <div className="d-flex flex-column gap-1">
-                    {["all", "university", "institute", "other"].map((t) => (
-                      <label key={t} className="form-check">
-                        <input
-                          className="form-check-input"
-                          type="radio"
-                          name="type"
-                          value={t}
-                          checked={type === t}
-                          onChange={(e) => {
-                            setType(e.target.value);
-                            setPage(1);
-                          }}
-                        />
-                        <span className="form-check-label text-capitalize ms-1">
-                          {t}
-                        </span>
-                      </label>
+                  <label className="form-label">Institution type</label>
+
+                  <div className="row">
+                    {[
+                      "all",
+                      "university",
+                      "institute",
+                      "college",
+                      "academic",
+                      "other",
+                    ].map((t) => (
+                      <div key={t} className="col-6 col-md-4">
+                        <label className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="radio"
+                            name="type"
+                            value={t}
+                            checked={type === t}
+                            onChange={(e) => {
+                              setType(e.target.value);
+                              setPage(1);
+                            }}
+                          />
+                          <span className="form-check-label text-capitalize ms-1">
+                            {t}
+                          </span>
+                        </label>
+                      </div>
                     ))}
                   </div>
                 </div>
 
+                {/* Country */}
                 <div className="mb-3">
                   <label className="form-label">Country</label>
                   <select
@@ -1091,6 +1198,7 @@ const InstitutionsSearch = () => {
                   </select>
                 </div>
 
+                {/* Only members */}
                 <div className="mb-2 form-check">
                   <input
                     id="onlyMembers"

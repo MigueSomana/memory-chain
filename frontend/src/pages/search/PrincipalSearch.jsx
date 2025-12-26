@@ -16,7 +16,7 @@ const InstitutionSearch = lazy(() =>
 const PrincipalSearch = () => {
   return (
     <div
-      className="d-flex"
+      className="d-flex justify-content-between"
       style={{ minHeight: "100vh", background: "#f6f7f9" }}
     >
       <NavbarReal />

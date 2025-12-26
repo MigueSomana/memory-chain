@@ -1,11 +1,24 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { HeartFill } from "../../utils/icons";
+import { HeartFill, CheckCircle, TimeCircle, CrossCircle } from "../../utils/icons";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const MAX_PDF_MB = 25;
 const MAX_PDF_BYTES = MAX_PDF_MB * 1024 * 1024;
 
+/**
+ * @typedef {{ _id: string, name: string, emailDomains?: string[], departments?: Array<string | {name: string}>, logo?: string }} Institution
+ * @typedef {{ firstName: string, lastName: string, email?: string }} Person
+ * @typedef {{
+ *  institutionOptions?: Institution[],
+ *  onSubmit?: (args: { payload: Record<string, unknown>, pdfFile: File|null, idThesis?: string, mode: "create"|"update" }) => Promise<void>,
+ *  idUser?: string,
+ *  idThesis?: string,
+ *  idInstitution?: string
+ * }} Props
+ */
+
+/** @param {Props} props */
 const FormThesis = ({
   institutionOptions = [],
   onSubmit,
@@ -18,63 +31,89 @@ const FormThesis = ({
   const [isInitializing, setIsInitializing] = useState(false);
   const hasInitializedRef = useRef(false);
 
-  // instituciones disponibles (pueden filtrarse en base al user / institution)
-  const [availableInstitutions, setAvailableInstitutions] =
-    useState(institutionOptions);
+  // instituciones disponibles (filtradas según modo)
+  const [availableInstitutions, setAvailableInstitutions] = useState(
+    institutionOptions
+  );
 
   // control de bloqueo
   const [disableAuthor1, setDisableAuthor1] = useState(false);
   const [disableInstitutionSelect, setDisableInstitutionSelect] =
     useState(false);
 
+  // alert bootstrap
+  const [formAlert, setFormAlert] = useState({
+    type: /** @type {"danger"|"warning"|"info"|"success"|""} */ (""),
+    messages: /** @type {string[]} */ ([]),
+  });
+
+  const showAlert = (type, messages) => {
+    setFormAlert({
+      type,
+      messages: Array.isArray(messages) ? messages : [String(messages)],
+    });
+  };
+
+  const clearAlert = () => setFormAlert({ type: "", messages: [] });
+
   // ---------- FILE (PDF) ----------
-  const [pdfFile, setPdfFile] = useState(null);
+  const [pdfFile, setPdfFile] = useState(/** @type {File|null} */ (null));
   const [pdfName, setPdfName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
-  const pdfInputRef = useRef(null);
+  const pdfInputRef = useRef(/** @type {HTMLInputElement|null} */ (null));
 
   const acceptPdf = (f) => {
     if (!f) return false;
     if (f.type !== "application/pdf") {
-      alert("Only PDF files are allowed.");
+      showAlert("warning", "Only PDF files are allowed.");
       return false;
     }
     if (f.size > MAX_PDF_BYTES) {
-      alert(`PDF must be less than ${MAX_PDF_MB}MB.`);
+      showAlert("warning", `PDF must be less than ${MAX_PDF_MB}MB.`);
       return false;
     }
     return true;
   };
+
   const loadPdf = (f) => {
     if (!acceptPdf(f)) return;
     setPdfFile(f);
     setPdfName(f.name);
   };
+
   const onPickPdf = () => pdfInputRef.current?.click();
+
   const onPdfChange = (e) => {
-    const f = e.target.files?.[0];
+    const f = e.target.files && e.target.files[0] ? e.target.files[0] : null;
     if (!f) return;
     loadPdf(f);
   };
+
   const onDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
     if (isSubmitting || isInitializing) return;
-    const f = e.dataTransfer.files?.[0];
+    const f =
+      e.dataTransfer.files && e.dataTransfer.files[0]
+        ? e.dataTransfer.files[0]
+        : null;
     if (!f) return;
     loadPdf(f);
   };
+
   const onDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (!isSubmitting && !isInitializing) setIsDragging(true);
   };
+
   const onDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
   };
+
   const removePdf = () => {
     setPdfFile(null);
     setPdfName("");
@@ -83,13 +122,17 @@ const FormThesis = ({
 
   // ---------- FIELDS ----------
   const [title, setTitle] = useState("");
+  /** @type {[Person[], Function]} */
   const [authors, setAuthors] = useState([
     { firstName: "", lastName: "", email: "" },
   ]);
-  const [tutors, setTutors] = useState([{ name: "" }]);
+  /** @type {[Person[], Function]} */
+  const [tutors, setTutors] = useState([
+    { firstName: "", lastName: "", email: "" },
+  ]);
 
   const [summary, setSummary] = useState("");
-  const [keywords, setKeywords] = useState([]);
+  const [keywords, setKeywords] = useState(/** @type {string[]} */ ([]));
   const [keywordInput, setKeywordInput] = useState("");
 
   const [language, setLanguage] = useState("");
@@ -98,13 +141,53 @@ const FormThesis = ({
   const [year, setYear] = useState("");
   const [institutionId, setInstitutionId] = useState("");
   const [department, setDepartment] = useState("");
-  const [doi, setDoi] = useState(""); // ← opcional
+  const [doi, setDoi] = useState("");
 
-  const status = "pending";
+  // status + likes
+  const [status, setStatus] = useState("PENDING");
+  const [likesCount, setLikesCount] = useState(0);
+
+  // ---------- HELPERS ----------
+  const splitFullName = (fullName = "") => {
+    const parts = String(fullName).trim().split(/\s+/);
+    if (parts.length === 0) return { firstName: "", lastName: "" };
+    if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+    return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+  };
+
+  const normalizeInstId = (val) => {
+    if (!val) return "";
+    if (typeof val === "string") return val;
+    if (typeof val === "object" && val._id) return String(val._id);
+    return "";
+  };
+
+  const extractUserInstitutionIds = (u) => {
+    /** @type {Set<string>} */
+    const ids = new Set();
+
+    const instArr = Array.isArray(u?.institutions) ? u.institutions : [];
+    instArr.forEach((ii) => {
+      if (typeof ii === "string") ids.add(ii);
+      else if (ii && typeof ii === "object" && ii._id) ids.add(String(ii._id));
+    });
+
+    const edu = Array.isArray(u?.educationalEmails) ? u.educationalEmails : [];
+    edu.forEach((entry) => {
+      const inst = entry?.institution;
+      if (!inst) return;
+      if (typeof inst === "string") ids.add(inst);
+      else if (inst && typeof inst === "object" && inst._id) ids.add(String(inst._id));
+    });
+
+    return Array.from(ids);
+  };
 
   // ---------- DEPARTMENT OPTIONS ----------
   const departmentOptions = useMemo(() => {
-    const inst = availableInstitutions.find((i) => i._id === institutionId);
+    const inst = availableInstitutions.find(
+      (i) => String(i._id) === String(institutionId)
+    );
     const deps = inst?.departments || [];
     return deps.map((d) => (typeof d === "string" ? { name: d } : d));
   }, [institutionId, availableInstitutions]);
@@ -112,9 +195,11 @@ const FormThesis = ({
   // ---------- AUTHORS ----------
   const addAuthor = () =>
     setAuthors((prev) => [...prev, { firstName: "", lastName: "", email: "" }]);
+
   const removeAuthor = (index) => {
     setAuthors((prev) => prev.filter((_, i) => i !== index));
   };
+
   const updateAuthor = (index, key, value) => {
     setAuthors((prev) =>
       prev.map((a, i) => (i === index ? { ...a, [key]: value } : a))
@@ -122,25 +207,32 @@ const FormThesis = ({
   };
 
   // ---------- TUTORS ----------
-  const addTutor = () => setTutors((prev) => [...prev, { name: "" }]);
+  const addTutor = () =>
+    setTutors((prev) => [...prev, { firstName: "", lastName: "", email: "" }]);
+
   const removeTutor = (index) =>
     setTutors((prev) => prev.filter((_, i) => i !== index));
-  const updateTutor = (index, value) =>
+
+  const updateTutor = (index, key, value) =>
     setTutors((prev) =>
-      prev.map((t, i) => (i === index ? { name: value } : t))
+      prev.map((t, i) => (i === index ? { ...t, [key]: value } : t))
     );
 
   // ---------- KEYWORDS ----------
   const addKeyword = () => {
     const v = keywordInput.trim();
     if (!v) return;
-    const exists = keywords.some((k) => k.toLowerCase() === v.toLowerCase());
+    const exists = keywords.some(
+      (k) => String(k).toLowerCase() === v.toLowerCase()
+    );
     if (!exists) setKeywords((prev) => [...prev, v]);
     setKeywordInput("");
   };
+
   const removeKeyword = (k) => {
     setKeywords((prev) => prev.filter((x) => x !== k));
   };
+
   const onKeywordKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -149,99 +241,126 @@ const FormThesis = ({
   };
 
   // ---------- VALIDATION ----------
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState(/** @type {Record<string, string>} */ ({}));
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const DOI_RE = /^10\.\S+$/; // chequeo mínimo si el usuario rellena DOI
+  const DOI_RE = /^10\.\S+$/;
 
   const validate = () => {
+    /** @type {Record<string, string>} */
     const e = {};
+    /** @type {string[]} */
+    const alertMsgs = [];
 
-    // BASIC INFO (obligatorios excepto DOI)
+    if (!idThesis && !idUser && !idInstitution) {
+      alertMsgs.push(
+        "Missing context: provide idUser or idInstitution to create a thesis."
+      );
+    }
+
     if (!title.trim()) e.title = "Title is required.";
     if (!language) e.language = "Language is required.";
     if (!degree) e.degree = "Degree is required.";
     if (!field.trim()) e.field = "Field/Area is required.";
+
     if (!year) {
       e.year = "Year is required.";
     } else {
       const n = Number(year);
       const current = new Date().getFullYear() + 2;
-      if (Number.isNaN(n) || n < 1900 || n > current) {
+      if (Number.isNaN(n) || n < 1900 || n > current)
         e.year = "Enter a valid year.";
-      }
-    }
-    // DOI opcional → validar sólo si se completa
-    if (doi.trim() && !DOI_RE.test(doi.trim())) {
-      e.doi = "Enter a valid DOI (e.g., 10.xxxx/xxxxx).";
     }
 
-    // AUTHORS (≥1 con first+last)
+    if (doi.trim() && !DOI_RE.test(doi.trim()))
+      e.doi = "Enter a valid DOI (e.g., 10.xxxx/xxxxx).";
+
     const validAuthors = authors.filter(
       (a) => a.firstName.trim() && a.lastName.trim()
     );
     if (validAuthors.length === 0)
       e.authors = "At least one author (first and last name) is required.";
+
     authors.forEach((a, idx) => {
       if (a.email && !EMAIL_RE.test(a.email))
         e[`author_email_${idx}`] = "Invalid author email.";
     });
 
-    // AFFILIATION
-    if (!institutionId) e.institutionId = "Institution is required.";
+    if (!institutionId) {
+      e.institutionId = "Institution is required.";
+    } else {
+      const exists = availableInstitutions.some(
+        (i) => String(i._id) === String(institutionId)
+      );
+      if (!exists && availableInstitutions.length > 0) {
+        e.institutionId =
+          "Selected institution is not available for this user/context.";
+      }
+    }
 
-    // SUMMARY obligatorio
     if (!summary.trim()) e.summary = "Summary is required.";
-
-    // KEYWORDS obligatorias (≥3)
     if (keywords.length < 3)
       e.keywords = "At least three keywords are required.";
 
-    // TUTORS (≥1 con nombre)
-    const validTutors = tutors.filter((t) => t.name.trim());
-    if (validTutors.length === 0) e.tutors = "At least one tutor is required.";
+    const validTutors = tutors.filter(
+      (t) => t.firstName.trim() && t.lastName.trim()
+    );
+    if (validTutors.length === 0)
+      e.tutors = "At least one tutor (first and last name) is required.";
 
-    // PDF: requerido solo al crear (no al editar)
-    if (!idThesis && !pdfFile) e.pdf = "PDF file is required.";
+    // create requiere pdf
+    if (!idThesis && !pdfFile) {
+      e.pdf = "PDF file is required.";
+    }
 
     setErrors(e);
-    return Object.keys(e).length === 0;
+
+    const fieldMsgs = Object.values(e);
+    const merged = [...alertMsgs, ...fieldMsgs];
+    if (merged.length > 0) {
+      showAlert("danger", merged);
+      return false;
+    }
+
+    clearAlert();
+    return true;
   };
 
-  // ---------- HELPERS PARA MAPEAR MODELS ----------
-  const splitFullName = (fullName = "") => {
-    const parts = fullName.trim().split(/\s+/);
-    if (parts.length === 0) return { firstName: "", lastName: "" };
-    if (parts.length === 1) return { firstName: parts[0], lastName: "" };
-    return {
-      firstName: parts[0],
-      lastName: parts.slice(1).join(" "),
-    };
-  };
+  // ---------- STATUS UI HELPERS ----------
+  const statusUi = useMemo(() => {
+    const s = String(status || "PENDING").toUpperCase();
+    if (s === "APPROVED") {
+      return { label: "Approved", className: "btn btn-memory", icon: CheckCircle };
+    }
+    if (s === "REJECTED") {
+      return { label: "Rejected", className: "btn btn-danger", icon: CrossCircle };
+    }
+    return { label: "Pending", className: "btn btn-warning", icon: TimeCircle };
+  }, [status]);
 
-  // ---------- INIT: precarga según idUser / idThesis / idInstitution ----------
+  // ---------- INIT ----------
   useEffect(() => {
-    // si ya inicializamos, no volvemos a hacerlo
     if (hasInitializedRef.current) return;
 
-    // si no hay contexto, no hacemos nada
-    if (!idUser && !idThesis && !idInstitution) return;
+    if (!idUser && !idThesis && !idInstitution) {
+      showAlert("warning", [
+        "Missing context: provide idUser or idInstitution to create a thesis, or idThesis to edit one.",
+      ]);
+      return;
+    }
 
-    // si aún no tenemos institutions del padre, esperamos
     if (!institutionOptions || institutionOptions.length === 0) return;
 
     const init = async () => {
       setIsInitializing(true);
+      clearAlert();
 
       try {
         const token = localStorage.getItem("memorychain_token");
-        const headers = token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-        // Partimos de las institutions que llegan del padre la primera vez
         setAvailableInstitutions(institutionOptions);
 
-        // ---------- MODO EDICIÓN (idThesis) ----------
+        // ---------- EDICIÓN ----------
         if (idThesis) {
           const thesisRes = await axios.get(
             `${API_BASE_URL}/api/theses/${idThesis}`,
@@ -258,12 +377,10 @@ const FormThesis = ({
           setDoi(t.doi || "");
           setKeywords(Array.isArray(t.keywords) ? t.keywords : []);
 
-          let instIdVal = "";
-          if (typeof t.institution === "string") {
-            instIdVal = t.institution;
-          } else if (t.institution && t.institution._id) {
-            instIdVal = String(t.institution._id);
-          }
+          setStatus(String(t.status || "PENDING").toUpperCase());
+          setLikesCount(Number(t.likes ?? 0));
+
+          const instIdVal = normalizeInstId(t.institution);
           setInstitutionId(instIdVal);
           setDepartment(t.department || "");
 
@@ -271,88 +388,124 @@ const FormThesis = ({
           if (Array.isArray(t.authors) && t.authors.length > 0) {
             mappedAuthors = t.authors.map((a) => {
               if (typeof a === "string") {
-                const { firstName, lastName } = splitFullName(a);
-                return { firstName, lastName, email: "" };
+                const sp = splitFullName(a);
+                return { firstName: sp.firstName, lastName: sp.lastName, email: "" };
               }
-              const fullFromName = a.name || a.fullName || "";
-              let firstName = a.firstName || a.firstname || "";
-              let lastName = a.lastName || a.lastname || "";
-
-              if (!firstName && !lastName && fullFromName) {
-                const split = splitFullName(fullFromName);
-                firstName = split.firstName;
-                lastName = split.lastName;
-              }
-
-              return {
-                firstName,
-                lastName,
-                email: a.email || "",
-              };
+              const firstName = a.name || a.firstName || a.firstname || "";
+              const lastName = a.lastname || a.lastName || "";
+              return { firstName, lastName, email: a.email || "" };
             });
           }
           setAuthors(mappedAuthors);
 
-          let mappedTutors = [{ name: "" }];
+          let mappedTutors = [{ firstName: "", lastName: "", email: "" }];
           if (Array.isArray(t.tutors) && t.tutors.length > 0) {
-            mappedTutors = t.tutors.map((tu) =>
-              typeof tu === "string" ? { name: tu } : { name: tu.name || "" }
-            );
+            mappedTutors = t.tutors.map((tu) => {
+              if (typeof tu === "string") {
+                const sp = splitFullName(tu);
+                return { firstName: sp.firstName, lastName: sp.lastName, email: "" };
+              }
+              const firstName = tu.name || tu.firstName || tu.firstname || "";
+              const lastName = tu.lastname || tu.lastName || "";
+              return { firstName, lastName, email: tu.email || "" };
+            });
           }
           setTutors(mappedTutors);
 
-          if (idUser) setDisableAuthor1(true);
-          if (idInstitution) setDisableInstitutionSelect(true);
-        } else {
-          // ---------- MODO CREACIÓN (sin idThesis) ----------
+          // ✅ update: NO precargamos PDF
+          removePdf();
 
-          // creación por usuario
-          if (idUser && !idInstitution) {
-            const userRes = await axios.get(
+          // ✅ TU CAMBIO: en UPDATE también bloqueamos author 1
+          setDisableAuthor1(true);
+
+          if (idInstitution) {
+            const only = institutionOptions.filter(
+              (i) => String(i._id) === String(idInstitution)
+            );
+            setAvailableInstitutions(only);
+            setInstitutionId(String(idInstitution));
+            setDisableInstitutionSelect(true);
+          } else if (idUser) {
+            const uRes = await axios.get(
               `${API_BASE_URL}/api/users/${idUser}`,
               headers ? { headers } : undefined
             );
-            const u = userRes.data;
-
-            const firstName = u.name || "";
-            const lastName = u.lastname || "";
-            const email = u.email || "";
-
-            setAuthors([{ firstName, lastName, email }]);
-            setDisableAuthor1(true);
-
-            if (Array.isArray(u.institutions) && u.institutions.length > 0) {
-              const instIds = u.institutions.map((ii) => String(ii._id ?? ii));
-
-              const userInstitutions = institutionOptions.filter((i) =>
-                instIds.includes(String(i._id))
-              );
-
-              setAvailableInstitutions(userInstitutions);
-
-              if (userInstitutions.length === 1) {
-                setInstitutionId(userInstitutions[0]._id);
-              }
-             else {
-              setAvailableInstitutions([]); // 🔒 si no pertenece a ninguna
-            }
-          }}
-
-          // creación por institución
-          if (idInstitution && !idUser) {
-            const newInstOptions = institutionOptions.filter(
-              (i) => String(i._id) === String(idInstitution)
+            const u = uRes.data;
+            const ids = extractUserInstitutionIds(u);
+            const userInstitutions = institutionOptions.filter((i) =>
+              ids.includes(String(i._id))
             );
-            setAvailableInstitutions(newInstOptions);
-            setInstitutionId(idInstitution);
-            setDisableInstitutionSelect(true);
+
+            const thesisInstExists = userInstitutions.some(
+              (i) => String(i._id) === String(instIdVal)
+            );
+            const finalList = thesisInstExists
+              ? userInstitutions
+              : [
+                  ...userInstitutions,
+                  ...institutionOptions.filter(
+                    (i) => String(i._id) === String(instIdVal)
+                  ),
+                ];
+
+            setAvailableInstitutions(finalList);
           }
+
+          hasInitializedRef.current = true;
+          return;
         }
 
-        // solo marcamos como inicializado si todo el init se ejecutó con institutions
-        hasInitializedRef.current = true;
+        // ---------- CREACIÓN ----------
+        if (idInstitution && !idUser) {
+          const only = institutionOptions.filter(
+            (i) => String(i._id) === String(idInstitution)
+          );
+          setAvailableInstitutions(only);
+          setInstitutionId(String(idInstitution));
+          setDisableInstitutionSelect(true);
+          setDisableAuthor1(false);
+          hasInitializedRef.current = true;
+          return;
+        }
+
+        if (idUser && !idInstitution) {
+          const uRes = await axios.get(
+            `${API_BASE_URL}/api/users/${idUser}`,
+            headers ? { headers } : undefined
+          );
+          const u = uRes.data;
+
+          setAuthors([
+            { firstName: u.name || "", lastName: u.lastname || "", email: u.email || "" },
+          ]);
+          setDisableAuthor1(true);
+
+          const ids = extractUserInstitutionIds(u);
+          const userInstitutions = institutionOptions.filter((i) =>
+            ids.includes(String(i._id))
+          );
+
+          setAvailableInstitutions(userInstitutions);
+
+          if (userInstitutions.length === 1) {
+            setInstitutionId(String(userInstitutions[0]._id));
+          } else {
+            setInstitutionId("");
+          }
+
+          setStatus("PENDING");
+          setLikesCount(0);
+
+          hasInitializedRef.current = true;
+          return;
+        }
+
+        showAlert("warning", [
+          "Invalid context: provide idThesis, or (idUser XOR idInstitution).",
+        ]);
       } catch (err) {
         console.error("Error initializing FormThesis:", err);
+        showAlert("danger", "Error initializing the thesis form. Check console.");
       } finally {
         setIsInitializing(false);
       }
@@ -371,10 +524,17 @@ const FormThesis = ({
       authors: authors
         .filter((a) => a.firstName.trim() && a.lastName.trim())
         .map((a) => ({
-          name: `${a.firstName.trim()} ${a.lastName.trim()}`.trim(),
+          name: a.firstName.trim(),
+          lastname: a.lastName.trim(),
           email: a.email?.trim() || undefined,
         })),
-      tutors: tutors.map((t) => t.name.trim()).filter(Boolean),
+      tutors: tutors
+        .filter((t) => t.firstName.trim() && t.lastName.trim())
+        .map((t) => ({
+          name: t.firstName.trim(),
+          lastname: t.lastName.trim(),
+          email: t.email?.trim() || undefined,
+        })),
       summary: summary.trim(),
       keywords,
       language,
@@ -383,47 +543,90 @@ const FormThesis = ({
       year: Number(year),
       institution: institutionId,
       department: department || undefined,
-      doi: doi.trim() || undefined, // opcional si viene vacío
-      status, // 'pending'
+      doi: doi.trim() || undefined,
+      status: "PENDING",
     };
-
-    const mode = idThesis ? "update" : "create";
 
     try {
       setIsSubmitting(true);
-      // si el padre nos pasa onSubmit, delegamos allí la lógica POST/PUT
+      clearAlert();
+
       if (typeof onSubmit === "function") {
-        await onSubmit({ payload, pdfFile, idThesis, mode });
+        await onSubmit({ payload, pdfFile, idThesis, mode: idThesis ? "update" : "create" });
         return;
       }
-      // fallback: POST/PUT básico desde el componente
-      const token = localStorage.getItem("memorychain_token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      const formData = new FormData();
-      if (pdfFile) {
-        formData.append("pdf", pdfFile);
-      }
-      formData.append("data", JSON.stringify(payload));
+      const token = localStorage.getItem("memorychain_token");
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
       if (idThesis) {
-        await axios.put(
-          `${API_BASE_URL}/api/theses/${idThesis}`,
-          formData,
-          headers ? { headers } : undefined
-        );
-        alert("Thesis updated successfully.");
+        if (pdfFile) {
+          const formData = new FormData();
+          formData.append("pdf", pdfFile);
+          formData.append("data", JSON.stringify(payload));
+
+          const res = await axios.patch(
+            `${API_BASE_URL}/api/theses/${idThesis}`,
+            formData,
+            { headers: { ...authHeaders } }
+          );
+
+          const updated = res?.data;
+          if (updated) {
+            setStatus(String(updated.status || "PENDING").toUpperCase());
+            setLikesCount(Number(updated.likes ?? likesCount));
+          }
+
+          showAlert("success", "Thesis updated successfully (PDF updated).");
+          removePdf();
+        } else {
+          const res = await axios.patch(
+            `${API_BASE_URL}/api/theses/${idThesis}`,
+            payload,
+            { headers: { ...authHeaders, "Content-Type": "application/json" } }
+          );
+
+          const updated = res?.data;
+          if (updated) {
+            setStatus(String(updated.status || "PENDING").toUpperCase());
+            setLikesCount(Number(updated.likes ?? likesCount));
+          }
+
+          showAlert("success", "Thesis updated successfully.");
+        }
       } else {
-        await axios.post(
-          `${API_BASE_URL}/api/theses`,
-          formData,
-          headers ? { headers } : undefined
-        );
-        alert("Thesis created successfully.");
+        const formData = new FormData();
+        formData.append("pdf", pdfFile);
+        formData.append("data", JSON.stringify(payload));
+
+        const res = await axios.post(`${API_BASE_URL}/api/theses`, formData, {
+          headers: { ...authHeaders },
+        });
+
+        setStatus("PENDING");
+        setLikesCount(0);
+
+        const gw = res?.data?.gatewayUrl;
+        const ipfsUrl = res?.data?.ipfsUrl;
+        if (gw || ipfsUrl) {
+          showAlert("success", [
+            "Thesis created successfully.",
+            gw ? `Gateway: ${gw}` : "",
+            ipfsUrl ? `IPFS: ${ipfsUrl}` : "",
+          ].filter(Boolean));
+        } else {
+          showAlert("success", "Thesis created successfully.");
+        }
+
+        removePdf();
       }
     } catch (err) {
       console.error("Error submitting thesis:", err);
-      alert("There was an error submitting the thesis.");
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "There was an error submitting the thesis.";
+      showAlert("danger", msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -433,6 +636,23 @@ const FormThesis = ({
 
   return (
     <form className="container" onSubmit={handleSubmit}>
+      {formAlert.type && formAlert.messages.length > 0 && (
+        <div className={`alert alert-${formAlert.type} mt-3`} role="alert">
+          <div className="fw-semibold mb-1">
+            {formAlert.type === "danger"
+              ? "Please fix the following:"
+              : formAlert.type === "success"
+              ? "Done"
+              : "Notice"}
+          </div>
+          <ul className="m-0 ps-3">
+            {formAlert.messages.map((m, idx) => (
+              <li key={`alert-${idx}`}>{m}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <section className="mb-4">
         <h5 className="mb-3">Basic information</h5>
 
@@ -445,9 +665,7 @@ const FormThesis = ({
             placeholder="Thesis title"
             disabled={disabledGlobal}
           />
-          {errors.title && (
-            <div className="invalid-feedback">{errors.title}</div>
-          )}
+          {errors.title && <div className="invalid-feedback">{errors.title}</div>}
         </div>
 
         <div className="row g-3">
@@ -463,9 +681,7 @@ const FormThesis = ({
               <option value="en">English</option>
               <option value="es">Spanish</option>
             </select>
-            {errors.language && (
-              <div className="invalid-feedback">{errors.language}</div>
-            )}
+            {errors.language && <div className="invalid-feedback">{errors.language}</div>}
           </div>
           <div className="col-md-6">
             <label className="form-label">Degree </label>
@@ -480,9 +696,7 @@ const FormThesis = ({
               <option value="Master">Master</option>
               <option value="PhD">PhD / Doctorate</option>
             </select>
-            {errors.degree && (
-              <div className="invalid-feedback">{errors.degree}</div>
-            )}
+            {errors.degree && <div className="invalid-feedback">{errors.degree}</div>}
           </div>
         </div>
 
@@ -496,9 +710,7 @@ const FormThesis = ({
               placeholder="e.g., Computer Science"
               disabled={disabledGlobal}
             />
-            {errors.field && (
-              <div className="invalid-feedback">{errors.field}</div>
-            )}
+            {errors.field && <div className="invalid-feedback">{errors.field}</div>}
           </div>
           <div className="col-md-3">
             <label className="form-label">Year </label>
@@ -512,9 +724,7 @@ const FormThesis = ({
               placeholder="YYYY"
               disabled={disabledGlobal}
             />
-            {errors.year && (
-              <div className="invalid-feedback">{errors.year}</div>
-            )}
+            {errors.year && <div className="invalid-feedback">{errors.year}</div>}
           </div>
           <div className="col-md-3">
             <label className="form-label">DOI (optional)</label>
@@ -547,9 +757,7 @@ const FormThesis = ({
           </button>
         </div>
 
-        {errors.authors && (
-          <div className="text-danger small mb-2">{errors.authors}</div>
-        )}
+        {errors.authors && <div className="text-danger small mb-2">{errors.authors}</div>}
 
         <div className="d-flex flex-column gap-3">
           {authors.map((a, idx) => {
@@ -560,49 +768,33 @@ const FormThesis = ({
               <div className="row g-2" key={`author-${idx}`}>
                 <div className="col-md-3">
                   <input
-                    className={`form-control ${
-                      a.firstName.trim() === "" && idx === 0 && errors.authors
-                        ? "is-invalid"
-                        : ""
-                    }`}
+                    className="form-control"
                     value={a.firstName}
-                    onChange={(e) =>
-                      updateAuthor(idx, "firstName", e.target.value)
-                    }
-                    placeholder={`Author ${idx + 1} - First name `}
+                    onChange={(e) => updateAuthor(idx, "firstName", e.target.value)}
+                    placeholder={`Author ${idx + 1} - First name`}
                     disabled={disabledAuthor}
                   />
                 </div>
                 <div className="col-md-3">
                   <input
-                    className={`form-control ${
-                      a.lastName.trim() === "" && idx === 0 && errors.authors
-                        ? "is-invalid"
-                        : ""
-                    }`}
+                    className="form-control"
                     value={a.lastName}
-                    onChange={(e) =>
-                      updateAuthor(idx, "lastName", e.target.value)
-                    }
-                    placeholder={`Author ${idx + 1} - Last name `}
+                    onChange={(e) => updateAuthor(idx, "lastName", e.target.value)}
+                    placeholder={`Author ${idx + 1} - Last name`}
                     disabled={disabledAuthor}
                   />
                 </div>
                 <div className="col-md-4">
                   <input
-                    className={`form-control ${
-                      errors[`author_email_${idx}`] ? "is-invalid" : ""
-                    }`}
+                    className={`form-control ${errors[`author_email_${idx}`] ? "is-invalid" : ""}`}
                     type="email"
-                    value={a.email}
+                    value={a.email || ""}
                     onChange={(e) => updateAuthor(idx, "email", e.target.value)}
-                    placeholder={`Author ${idx + 1} - Email `}
+                    placeholder={`Author ${idx + 1} - Email`}
                     disabled={disabledAuthor}
                   />
                   {errors[`author_email_${idx}`] && (
-                    <div className="invalid-feedback">
-                      {errors[`author_email_${idx}`]}
-                    </div>
+                    <div className="invalid-feedback">{errors[`author_email_${idx}`]}</div>
                   )}
                 </div>
                 <div className="col-md-2 d-grid">
@@ -610,9 +802,7 @@ const FormThesis = ({
                     type="button"
                     className="btn btn-outline-danger"
                     onClick={() => removeAuthor(idx)}
-                    disabled={
-                      authors.length === 1 || disabledGlobal || lockThisAuthor
-                    }
+                    disabled={authors.length === 1 || disabledGlobal || lockThisAuthor}
                     title="Remove author"
                   >
                     ×
@@ -636,19 +826,36 @@ const FormThesis = ({
             </button>
           </div>
 
-          {errors.tutors && (
-            <div className="text-danger small mb-2">{errors.tutors}</div>
-          )}
+          {errors.tutors && <div className="text-danger small mb-2">{errors.tutors}</div>}
 
           <div className="d-flex flex-column gap-3">
             {tutors.map((t, idx) => (
               <div className="row g-2" key={`tutor-${idx}`}>
-                <div className="col-md-10">
+                <div className="col-md-4">
                   <input
                     className="form-control"
-                    value={t.name}
-                    onChange={(e) => updateTutor(idx, e.target.value)}
-                    placeholder={`Tutor ${idx + 1} Full name`}
+                    value={t.firstName}
+                    onChange={(e) => updateTutor(idx, "firstName", e.target.value)}
+                    placeholder={`Tutor ${idx + 1} - First name`}
+                    disabled={disabledGlobal}
+                  />
+                </div>
+                <div className="col-md-4">
+                  <input
+                    className="form-control"
+                    value={t.lastName}
+                    onChange={(e) => updateTutor(idx, "lastName", e.target.value)}
+                    placeholder={`Tutor ${idx + 1} - Last name`}
+                    disabled={disabledGlobal}
+                  />
+                </div>
+                <div className="col-md-2">
+                  <input
+                    className="form-control"
+                    type="email"
+                    value={t.email || ""}
+                    onChange={(e) => updateTutor(idx, "email", e.target.value)}
+                    placeholder="Email (optional)"
                     disabled={disabledGlobal}
                   />
                 </div>
@@ -657,10 +864,7 @@ const FormThesis = ({
                     type="button"
                     className="btn btn-outline-danger"
                     onClick={() => removeTutor(idx)}
-                    disabled={
-                      disabledGlobal ||
-                      (tutors.length === 1 && !tutors[0].name.trim())
-                    }
+                    disabled={disabledGlobal || tutors.length === 1}
                     title="Remove tutor"
                   >
                     ×
@@ -680,9 +884,7 @@ const FormThesis = ({
           <div className="col-md-6">
             <label className="form-label">Institution </label>
             <select
-              className={`form-select ${
-                errors.institutionId ? "is-invalid" : ""
-              }`}
+              className={`form-select ${errors.institutionId ? "is-invalid" : ""}`}
               value={institutionId}
               onChange={(e) => {
                 setInstitutionId(e.target.value);
@@ -697,8 +899,15 @@ const FormThesis = ({
                 </option>
               ))}
             </select>
+
             {errors.institutionId && (
               <div className="invalid-feedback">{errors.institutionId}</div>
+            )}
+
+            {!disabledGlobal && availableInstitutions.length === 0 && (
+              <div className="alert alert-warning mt-2 py-2" role="alert">
+                You don&apos;t belong to any institution yet. Add one in your profile first.
+              </div>
             )}
           </div>
 
@@ -711,9 +920,7 @@ const FormThesis = ({
               disabled={departmentOptions.length === 0 || disabledGlobal}
             >
               <option value="">
-                {departmentOptions.length
-                  ? "— Select —"
-                  : "No departments available"}
+                {departmentOptions.length ? "— Select —" : "No departments available"}
               </option>
               {departmentOptions.map((d, idx) => (
                 <option key={`${d.name}-${idx}`} value={d.name}>
@@ -729,6 +936,7 @@ const FormThesis = ({
 
       <section className="mb-4">
         <h5 className="mb-3">Summary and Keywords</h5>
+
         <textarea
           className={`form-control ${errors.summary ? "is-invalid" : ""}`}
           rows={4}
@@ -737,9 +945,8 @@ const FormThesis = ({
           placeholder="Summary of the thesis"
           disabled={disabledGlobal}
         />
-        {errors.summary && (
-          <div className="invalid-feedback d-block">{errors.summary}</div>
-        )}
+        {errors.summary && <div className="invalid-feedback d-block">{errors.summary}</div>}
+
         <div className="row g-2 align-items-end mt-2">
           <div className="col-md-8">
             <label className="form-label">Add keyword</label>
@@ -751,9 +958,7 @@ const FormThesis = ({
               placeholder="Press Enter to add"
               disabled={disabledGlobal}
             />
-            {errors.keywords && (
-              <div className="invalid-feedback d-block">{errors.keywords}</div>
-            )}
+            {errors.keywords && <div className="invalid-feedback d-block">{errors.keywords}</div>}
           </div>
           <div className="col-md-4 d-grid">
             <button
@@ -766,15 +971,13 @@ const FormThesis = ({
             </button>
           </div>
         </div>
+
         <div className="mt-3 d-flex flex-wrap gap-2">
           {keywords.length === 0 ? (
             <span className="text-muted">No keywords added.</span>
           ) : (
             keywords.map((k) => (
-              <span
-                key={k}
-                className="badge text-bg-light d-flex align-items-center gap-2"
-              >
+              <span key={k} className="badge text-bg-light d-flex align-items-center gap-2">
                 {k}
                 <button
                   type="button"
@@ -796,12 +999,16 @@ const FormThesis = ({
         <h5 className="mb-3">Submission</h5>
         <div className="row g-3 align-items-start">
           <div className="col-lg-8">
-            <label className="form-label d-block">PDF File </label>
+            <label className="form-label d-block">
+              PDF File {!idThesis && <span className="text-danger">*</span>}
+              {idThesis && <span className="text-muted"> (optional)</span>}
+            </label>
+
             <div
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") onPickPdf();
+              onKeyDown={(ev) => {
+                if (ev.key === "Enter" || ev.key === " ") onPickPdf();
               }}
               onDrop={onDrop}
               onDragOver={onDragOver}
@@ -810,9 +1017,7 @@ const FormThesis = ({
               onClick={onPickPdf}
               style={{
                 border: `2px dashed ${isDragging ? "#20c997" : "#ced4da"}`,
-                background: isDragging
-                  ? "rgba(32, 201, 151, 0.06)"
-                  : "transparent",
+                background: isDragging ? "rgba(32, 201, 151, 0.06)" : "transparent",
                 borderRadius: 12,
                 padding: "18px",
                 cursor: disabledGlobal ? "not-allowed" : "pointer",
@@ -829,7 +1034,17 @@ const FormThesis = ({
                   ) : (
                     <span>Drag & drop your PDF here, or click to browse</span>
                   )}
+
+                  {/* ✅ TU CAMBIO: el mensaje va aquí (dentro del drag&drop) */}
+                  {idThesis && !pdfName && (
+                    <div className="small mt-2">
+                      <span className="text-muted">
+                        Do not upload any files if you do not want to modify the PDF.
+                      </span>
+                    </div>
+                  )}
                 </div>
+
                 <div className="d-flex align-items-center gap-2">
                   <button
                     type="button"
@@ -843,8 +1058,8 @@ const FormThesis = ({
                     <button
                       type="button"
                       className="btn btn-outline-danger btn-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={(ev) => {
+                        ev.stopPropagation();
                         removePdf();
                       }}
                       disabled={disabledGlobal}
@@ -865,31 +1080,36 @@ const FormThesis = ({
               disabled={disabledGlobal}
             />
 
-            {errors.pdf && (
-              <div className="text-danger small mt-2">{errors.pdf}</div>
+            {errors.pdf && <div className="text-danger small mt-2">{errors.pdf}</div>}
+
+            {!idThesis && (
+              <div className="alert alert-info mt-2 py-2" role="alert">
+                PDF will be uploaded to Pinata/IPFS when you submit.
+              </div>
             )}
           </div>
 
           <div className="col-lg-4">
-            <div className="row">
+            <div className="row g-3">
               <div className="col-sm-6">
-                <label className="form-label d-block">
-                  Certification status
-                </label>
-                <div className="alert alert-warning py-2 px-3 m-0" role="alert">
-                  <strong>Pending</strong>
-                </div>
+                <label className="form-label d-block">Certification status</label>
+                <button
+                  type="button"
+                  className={`${statusUi.className} d-flex align-items-center justify-content-center gap-2 w-100`}
+                >
+                  {statusUi.icon}
+                  <span className="fw-semibold t-white">{statusUi.label}</span>
+                </button>
               </div>
+
               <div className="col-sm-6">
                 <label className="form-label d-block">Number of Like</label>
                 <button
                   type="button"
-                  className="btn btn-danger btn-extend d-flex align-items-center justify-content-center"
-                  disabled
+                  className="btn btn-danger btn-extend d-flex align-items-center justify-content-center gap-2 w-100"
                 >
                   {HeartFill}
-                  &nbsp; &nbsp;
-                  <span className="fw-semibold"> 0</span>
+                  <span className="fw-semibold">{likesCount}</span>
                 </button>
               </div>
             </div>
@@ -906,19 +1126,21 @@ const FormThesis = ({
         >
           Cancel
         </button>
+
         <button
           type="submit"
           className="btn btn-memory"
-          disabled={disabledGlobal}
+          disabled={disabledGlobal || (!idThesis && !idUser && !idInstitution)}
         >
           {isSubmitting && (
             <span
               className="spinner-border spinner-border-sm me-2"
               role="status"
               aria-hidden="true"
-            ></span>
+            />
           )}
-          Save thesis
+          {/* ✅ TU CAMBIO: texto del botón */}
+          {idThesis ? "Update thesis" : "Save thesis"}
         </button>
       </div>
     </form>

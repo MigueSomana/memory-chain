@@ -1,15 +1,37 @@
-// src/controllers/institution.controller.ts
 import { Request, Response } from "express";
 import { Institution } from "../models/institution.model";
 import { User } from "../models/user.model";
 import { Thesis } from "../models/thesis.model";
 import { AuthRequest } from "../middleware/auth";
 
+function buildLogoUrl(logo?: { data: Buffer; contentType: string }) {
+  if (!logo?.data || !logo.contentType) return "";
+  const b64 = logo.data.toString("base64");
+  return `data:${logo.contentType};base64,${b64}`;
+}
+
+function safeJsonParse<T>(value: unknown): T | undefined {
+  if (typeof value !== "string") return undefined;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return undefined;
+  }
+}
+
 // GET /api/institutions
 export const getAllInstitutions = async (_req: Request, res: Response) => {
   try {
     const institutions = await Institution.find().select("-password");
-    res.json(institutions);
+    const mapped = institutions.map((inst) => {
+      const obj: any = inst.toObject();
+      return {
+        ...obj,
+        logoUrl: buildLogoUrl(obj.logo),
+        logo: undefined, // no mandes buffer crudo
+      };
+    });
+    res.json(mapped);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error fetching institutions" });
@@ -24,14 +46,20 @@ export const getInstitutionById = async (req: Request, res: Response) => {
     if (!institution) {
       return res.status(404).json({ message: "Institution not found" });
     }
-    res.json(institution);
+
+    const obj: any = institution.toObject();
+    return res.json({
+      ...obj,
+      logoUrl: buildLogoUrl(obj.logo),
+      logo: undefined,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error fetching institution" });
   }
 };
 
-// PUT/PATCH /api/institutions/:id
+// PUT /api/institutions/:id  (multipart: logo + fields)
 export const updateInstitution = async (req: AuthRequest, res: Response) => {
   try {
     const { id: institutionId } = req.params;
@@ -40,21 +68,16 @@ export const updateInstitution = async (req: AuthRequest, res: Response) => {
     if (!req.institution && !req.user) {
       return res.status(401).json({ message: "No autenticado" });
     }
-
     if (req.institution) {
       if (req.institution._id.toString() !== institutionId) {
-        return res
-          .status(403)
-          .json({ message: "No puedes modificar esta institución" });
+        return res.status(403).json({ message: "No puedes modificar esta institución" });
       }
     } else if (req.user) {
       const isMember = (req.user.institutions ?? []).some(
         (instId) => instId.toString() === institutionId
       );
       if (!isMember) {
-        return res
-          .status(403)
-          .json({ message: "No puedes modificar esta institución" });
+        return res.status(403).json({ message: "No puedes modificar esta institución" });
       }
     }
 
@@ -68,75 +91,67 @@ export const updateInstitution = async (req: AuthRequest, res: Response) => {
       "password",
       "departments",
       "emailDomains",
-      "logo",
       "type",
       "isMember",
-    ];
+      "canVerify",
+      "removeImg",
+    ] as const;
 
-    const updates: any = {};
-
+    const updates: Record<string, any> = {};
     for (const key of allowedFields) {
       if (req.body[key] !== undefined) {
         updates[key] = req.body[key];
       }
     }
 
-    // Normalizaciones básicas
-    if (updates.name) {
-      updates.name = String(updates.name).trim();
+    // ✅ Parsear arrays si vienen como string (FormData)
+    const parsedDepts = safeJsonParse<string[]>(updates.departments);
+    if (parsedDepts) updates.departments = parsedDepts;
+
+    const parsedDomains = safeJsonParse<string[]>(updates.emailDomains);
+    if (parsedDomains) updates.emailDomains = parsedDomains;
+
+    // Normalizaciones
+    if (updates.name) updates.name = String(updates.name).trim();
+    if (updates.country) updates.country = String(updates.country).trim();
+    if (updates.email) updates.email = String(updates.email).trim().toLowerCase();
+    if (updates.website) updates.website = String(updates.website).trim();
+
+    const removeImg =
+      String(req.body.removeImg || "").toLowerCase() === "1" ||
+      String(req.body.removeImg || "").toLowerCase() === "true";
+
+    if (removeImg) {
+      updates.logo = undefined;              // o null, ver nota abajo
+    }
+    // ✅ Logo binario en Mongo (Institution.logo.data)
+    if (req.file) {
+      updates.logo = {
+        data: req.file.buffer,
+        contentType: req.file.mimetype,
+      };
     }
 
-    if (updates.country) {
-      updates.country = String(updates.country).trim();
-    }
-
-    if (updates.email) {
-      updates.email = String(updates.email).trim().toLowerCase();
-    }
-
-    if (updates.website) {
-      updates.website = String(updates.website).trim();
-    }
-
-    // Departments: aseguramos que sea array de strings
-    if (Array.isArray(updates.departments)) {
-      updates.departments = updates.departments.map((d: any) =>
-        typeof d === "string" ? d : d?.name
-      );
-    }
-
-    // Email domains: array de strings
-    if (Array.isArray(updates.emailDomains)) {
-      updates.emailDomains = updates.emailDomains.map((d: any) =>
-        String(d)
-      );
-    }
-
-    // Logo: normalmente ya viene como string (base64 / URL)
-    if (updates.logo === "") {
-      // si quieres permitir borrar logo, aquí podrías poner null, por ejemplo
-      updates.logo = "";
-    }
-
-    // Si no hay nada que actualizar
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: "No hay campos para actualizar" });
     }
 
     const updated = await Institution.findByIdAndUpdate(
       institutionId,
-      { $set: updates },
-      {
-        new: true,
-        runValidators: true, // muy recomendable para respetar el schema
-      }
+      { $set: updates, ...(removeImg ? { $unset: { logo: 1 } } : {}) },
+      { new: true, runValidators: true }
     ).select("-password");
 
     if (!updated) {
       return res.status(404).json({ message: "Institution not found" });
     }
 
-    return res.json(updated);
+    const obj: any = updated.toObject();
+    return res.json({
+      ...obj,
+      logoUrl: buildLogoUrl(obj.logo),
+      logo: undefined,
+    });
   } catch (err: any) {
     console.error("Error updating institution profile:", err);
     return res.status(500).json({
@@ -146,16 +161,11 @@ export const updateInstitution = async (req: AuthRequest, res: Response) => {
   }
 };
 
-
-// GET /api/institutions/:id/students
+// ... students/theses quedan igual
 export const getInstitutionStudents = async (req: Request, res: Response) => {
   try {
     const { id: institutionId } = req.params;
-
-    const students = await User.find({
-      institutions: institutionId,
-    }).select("-password");
-
+    const students = await User.find({ institutions: institutionId }).select("-password");
     res.json(students);
   } catch (err) {
     console.error(err);
@@ -163,15 +173,13 @@ export const getInstitutionStudents = async (req: Request, res: Response) => {
   }
 };
 
-// GET /api/institutions/:id/theses
 export const getInstitutionTheses = async (req: Request, res: Response) => {
   try {
     const { id: institutionId } = req.params;
-
-    const theses = await Thesis.find({
-      institution: institutionId,
-    }).populate("uploadedBy", "name lastname email");
-
+    const theses = await Thesis.find({ institution: institutionId }).populate(
+      "uploadedBy",
+      "name lastname email"
+    );
     res.json(theses);
   } catch (err) {
     console.error(err);
