@@ -2,9 +2,10 @@ import React from "react";
 import logo from "../../assets/logo.png";
 import { Link } from "react-router-dom";
 
+// Navbar para vistas públicas (no logueado)
 const NavbarInit = () => {
   return (
-    <nav className=" fluid-extended sticky-nav">
+    <nav className=" fluid-extended sticky-nav shadow-sm">
       <header>
         <div className="py-2 border-bottom" bis_skin_checked="1">
           <div className="container-fluid" bis_skin_checked="1">
@@ -12,14 +13,15 @@ const NavbarInit = () => {
               className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start"
               bis_skin_checked="1"
             >
-              <Link to="/"
+              <Link
+                to="/home"
                 className="d-flex align-items-center my-2 my-lg-0 me-lg-auto text-white text-decoration-none"
               >
                 <img src={logo} alt="" width="auto" height="70px" />
               </Link>
               <ul className="nav col-12 col-lg-auto my-2 justify-content-center my-md-0 text-small">
                 <li>
-                  <Link to="/" className="nav-link text-white">
+                  <Link to="/home" className="nav-link text-white">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="24"
@@ -35,23 +37,23 @@ const NavbarInit = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/search" className="nav-link text-white">
+                  <Link to="/verify" className="nav-link text-white">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="24"
                       height="24"
                       aria-hidden="true"
                       fill="currentColor"
-                      className="bi bi-binoculars-fill d-block mx-auto mb-1"
+                      class="bi bi-shield-fill-check d-block mx-auto mb-1"
                       viewBox="0 0 16 16"
                     >
-                      <path d="M4.5 1A1.5 1.5 0 0 0 3 2.5V3h4v-.5A1.5 1.5 0 0 0 5.5 1zM7 4v1h2V4h4v.882a.5.5 0 0 0 .276.447l.895.447A1.5 1.5 0 0 1 15 7.118V13H9v-1.5a.5.5 0 0 1 .146-.354l.854-.853V9.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v.793l.854.853A.5.5 0 0 1 7 11.5V13H1V7.118a1.5 1.5 0 0 1 .83-1.342l.894-.447A.5.5 0 0 0 3 4.882V4zM1 14v.5A1.5 1.5 0 0 0 2.5 16h3A1.5 1.5 0 0 0 7 14.5V14zm8 0v.5a1.5 1.5 0 0 0 1.5 1.5h3a1.5 1.5 0 0 0 1.5-1.5V14zm4-11H9v-.5A1.5 1.5 0 0 1 10.5 1h1A1.5 1.5 0 0 1 13 2.5z" />
+                      <path d="M8 0c-.69 0-1.843.265-2.928.56-1.11.3-2.229.655-2.887.87a1.54 1.54 0 0 0-1.044 1.262c-.596 4.477.787 7.795 2.465 9.99a11.8 11.8 0 0 0 2.517 2.453c.386.273.744.482 1.048.625.28.132.581.24.829.24s.548-.108.829-.24a7 7 0 0 0 1.048-.625 11.8 11.8 0 0 0 2.517-2.453c1.678-2.195 3.061-5.513 2.465-9.99a1.54 1.54 0 0 0-1.044-1.263 63 63 0 0 0-2.887-.87C9.843.266 8.69 0 8 0m2.146 5.146a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 7.793z" />
                     </svg>
-                    Explore
+                    Verify
                   </Link>
                 </li>
                 <li>
-                  <Link to="/about" className="nav-link text-white">
+                  <Link to="/about-us" className="nav-link text-white">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="24"

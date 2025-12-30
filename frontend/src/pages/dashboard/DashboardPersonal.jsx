@@ -1,7 +1,9 @@
 import React from "react";
 import NavbarReal from "../../components/navbar/NavbarReal";
 import Layout from "../../components/layout/LayoutPrivado";
+import PanelPersonal from "../../pages/dashboard/PanelPersonal";
 
+// Componente: Dashboard Personal
 const DashboardPersonal = () => {
   return (
     <div
@@ -11,19 +13,19 @@ const DashboardPersonal = () => {
       <NavbarReal />
       <div className="flex-grow-1">
         <Layout
-          title="Dashboard"
+          title="Dashboard Personal"
           icon={
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="nav-icon"
-              viewBox="0 0 640 640"
               fill="currentColor"
+              className="nav-icon"
+              viewBox="0 0 16 16"
             >
-              <path d="M256 144C256 117.5 277.5 96 304 96L336 96C362.5 96 384 117.5 384 144L384 496C384 522.5 362.5 544 336 544L304 544C277.5 544 256 522.5 256 496L256 144zM64 336C64 309.5 85.5 288 112 288L144 288C170.5 288 192 309.5 192 336L192 496C192 522.5 170.5 544 144 544L112 544C85.5 544 64 522.5 64 496L64 336zM496 160L528 160C554.5 160 576 181.5 576 208L576 496C576 522.5 554.5 544 528 544L496 544C469.5 544 448 522.5 448 496L448 208C448 181.5 469.5 160 496 160z" />
+              <path d="M15.985 8.5H8.207l-5.5 5.5a8 8 0 0 0 13.277-5.5zM2 13.292A8 8 0 0 1 7.5.015v7.778zM8.5.015V7.5h7.485A8 8 0 0 0 8.5.015" />
             </svg>
           }
         >
-          aqui quiero el chart
+          <PanelPersonal />
         </Layout>
       </div>
     </div>

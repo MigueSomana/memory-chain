@@ -1,94 +1,117 @@
 import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
 import { getAuthToken } from "../../utils/authSession";
-import { EyeIcon, EyeSlashIcon } from "../../utils/icons";
+import {
+  EyeIcon,
+  EyeSlashIcon,
+  CheckCircle,
+  CrossCircle,
+} from "../../utils/icons";
 
+// Configuración base (API + sesión)
 const API_BASE_URL = "http://localhost:4000/api";
 const token = getAuthToken();
 
-const FormProfileU = ({ initialData: initialDataProp /*, onSubmit*/ }) => {
-  // ------------------ ESTADO BÁSICO ------------------
+// Componente: Perfil de Institución
+const FormProfileU = ({ initialData: initialDataProp }) => {
+  // Estado base (datos iniciales / carga / errores)
   const [initialData, setInitialData] = useState(initialDataProp || null);
   const [loading, setLoading] = useState(!initialDataProp);
   const [loadError, setLoadError] = useState("");
   const [deptAlert, setDeptAlert] = useState("");
 
-  // Member (depende de initialData)
+  // Estado de membresía (para mostrar banner activo/inactivo)
   const isMember = Boolean(initialData?.isMember);
 
-  // Logo
+  // Logo institucional (preview + archivo)
   const [logoPreview, setLogoPreview] = useState("");
   const [logoFile, setLogoFile] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Abre el selector de archivos
   const pickLogo = () => fileInputRef.current?.click();
+
+  // Bandera para indicar que se desea eliminar el logo en backend
   const [removeImgFlag, setRemoveImgFlag] = useState(false);
 
-const removeLogo = () => {
-  setLogoPreview("");
-  setLogoFile(null);
-  setRemoveImgFlag(true);   // 👈 marca para backend
-  if (fileInputRef.current) fileInputRef.current.value = "";
-};
+  // Elimina logo localmente y marca para remover
+  const removeLogo = () => {
+    setLogoPreview("");
+    setLogoFile(null);
+    setRemoveImgFlag(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
+  // Maneja el cambio de logo (validación + preview)
   const onLogoChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     if (!/image\/(png|jpe?g|webp|svg\+xml)/.test(file.type)) {
       alert("Unsupported logo format. Use PNG/JPG/WebP/SVG.");
       return;
     }
+
     if (file.size > 4 * 1024 * 1024) {
       alert("Logo must be less than 4MB.");
       return;
     }
+
     setLogoFile(file);
     const reader = new FileReader();
     reader.onload = () => setLogoPreview(String(reader.result));
     reader.readAsDataURL(file);
   };
 
-  // Campos de la institución
+  // Campos básicos de institución
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [country, setCountry] = useState("");
   const [website, setWebsite] = useState("");
   const [type, setType] = useState("");
 
+  // Departamentos (lista + input + alertas)
   const [departments, setDepartments] = useState([]);
   const [deptInput, setDeptInput] = useState("");
 
   const addDepartment = () => {
     const val = deptInput.trim();
     if (!val) return;
+
     const exists = departments.some(
       (d) => d.name.toLowerCase() === val.toLowerCase()
     );
+
     if (exists) {
-    setDeptAlert(`The department "${val}" is already in the list.`);
-    return;
-  }setDepartments((prev) => [...prev, { name: val }]);
-  setDeptInput("");
-  setDeptAlert("");
+      setDeptAlert(`The department "${val}" is already in the list.`);
+      return;
+    }
+
+    setDepartments((prev) => [...prev, { name: val }]);
+    setDeptInput("");
+    setDeptAlert("");
   };
+
   const removeDepartment = (name) => {
     setDepartments((prev) => prev.filter((d) => d.name !== name));
   };
 
+  // Email principal + dominios permitidos
   const [email, setEmail] = useState("");
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  // Email domains
   const [emailDomains, setEmailDomains] = useState([]);
   const [domainInput, setDomainInput] = useState("");
 
   const addDomain = () => {
     const val = domainInput.trim();
     if (!val) return;
+
     const exists = emailDomains.some(
       (d) => d.value.toLowerCase() === val.toLowerCase()
     );
     if (exists) return;
+
     setEmailDomains((prev) => [...prev, { value: val }]);
     setDomainInput("");
   };
@@ -97,17 +120,18 @@ const removeLogo = () => {
     setEmailDomains((prev) => prev.filter((d) => d.value !== value));
   };
 
-  // Password
+  // Seguridad (cambio de contraseña)
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // Errores de validación
   const [errors, setErrors] = useState({});
 
-  // ------------------ CARGA INICIAL (GET /institutions/:id) ------------------
+  // Carga inicial de institución (si no llega por props)
   useEffect(() => {
-    // Si ya me pasaron initialData por props, no hago fetch
+    // Si ya nos pasan los datos, no hacemos fetch
     if (initialDataProp) {
       setInitialData(initialDataProp);
       setLoading(false);
@@ -122,7 +146,7 @@ const removeLogo = () => {
           return;
         }
 
-        // Sacamos institutionId del JWT
+        // Extrae institutionId del JWT (payload)
         let institutionId = null;
         try {
           const [, payloadB64] = token.split(".");
@@ -142,6 +166,7 @@ const removeLogo = () => {
           return;
         }
 
+        // Trae los datos de la institución
         const res = await axios.get(
           `${API_BASE_URL}/institutions/${institutionId}`,
           {
@@ -161,7 +186,7 @@ const removeLogo = () => {
     fetchInstitution();
   }, [initialDataProp]);
 
-  // ------------------ SINCRONIZAR CAMPOS CUANDO LLEGA initialData ------------------
+  // Sincroniza estados del formulario cuando initialData cambia
   useEffect(() => {
     if (!initialData) return;
 
@@ -173,34 +198,34 @@ const removeLogo = () => {
     setType(initialData.type || "");
     setEmail(initialData.email || "");
 
+    // Normaliza departamentos a objetos { name }
     const instDepts = (initialData.departments || []).map((d) =>
       typeof d === "string" ? { name: d } : d
     );
     setDepartments(instDepts);
 
+    // Normaliza dominios a objetos { value }
     const instDomains = (initialData.emailDomains || []).map((d) =>
       typeof d === "string" ? { value: d } : d
     );
     setEmailDomains(instDomains);
   }, [initialData]);
 
-  // ------------------ VALIDACIONES ------------------
+  // Validación del formulario (requeridos + formato)
   const validate = () => {
     const e = {};
 
-    // Obligatorios
     if (!name.trim()) e.name = "Name is required.";
     if (!country.trim()) e.country = "Country is required.";
     if (!type) e.type = "Institution type is required.";
     if (!email.trim()) e.email = "Primary email is required.";
     if (!website.trim()) e.website = "Website is required.";
 
-    // Email
     if (email && !EMAIL_RE.test(email)) {
       e.email = "Invalid email.";
     }
 
-    // Website URL
+    // Valida URL (acepta "example.edu" agregando https://)
     if (website) {
       try {
         new URL(website.startsWith("http") ? website : `https://${website}`);
@@ -209,7 +234,7 @@ const removeLogo = () => {
       }
     }
 
-    // Password (solo si se intenta cambiar)
+    // Si se cambia password, valida reglas básicas
     if (password || confirm) {
       if (password.length < 8) e.password = "At least 8 characters.";
       if (password !== confirm) e.confirm = "Passwords do not match.";
@@ -219,84 +244,94 @@ const removeLogo = () => {
     return Object.keys(e).length === 0;
   };
 
-  // ------------------ SUBMIT (PUT /institutions/:id) ------------------
-// ------------------ SUBMIT (PUT /institutions/:id) ------------------
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!validate()) return;
+  // Guardar cambios (PUT con FormData)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
 
-  if (!initialData?._id) {
-    alert("Institution data not loaded yet.");
-    return;
-  }
-
-  try {
-    if (!token) {
-      alert("No auth token found. Please log in again.");
+    if (!initialData?._id) {
+      alert("Institution data not loaded yet.");
       return;
     }
 
-    const form = new FormData();
-
-    if (logoFile) {
-  form.append("logo", logoFile);
-  // si subes una nueva, asegúrate de no remover
-  form.append("removeImg", "0");
-} else {
-  // si el usuario clickeó remove, lo mandas
-  if (removeImgFlag) form.append("removeImg", "1");
-}
-    // fields
-    form.append("name", name.trim());
-    form.append("description", description.trim());
-    form.append("country", country.trim());
-    form.append("website", website.trim());
-    form.append("type", type);
-    form.append("email", email.trim().toLowerCase());
-
-    // arrays como JSON
-    form.append("departments", JSON.stringify(departments.map((d) => d.name)));
-    form.append("emailDomains", JSON.stringify(emailDomains.map((d) => d.value)));
-
-    // flags si los necesitas conservar
-    form.append("isMember", String(Boolean(initialData.isMember)));
-    form.append("canVerify", String(Boolean(initialData.canVerify)));
-
-    // password opcional
-    if (password) form.append("password", password);
-
-    const res = await axios.put(
-      `${API_BASE_URL}/institutions/${initialData._id}`,
-      form,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          // NO pongas Content-Type
-        },
+    try {
+      if (!token) {
+        alert("No auth token found. Please log in again.");
+        return;
       }
-    );
 
-    alert("Institution profile updated successfully.");
+      // Payload tipo multipart para soportar logo (archivo)
+      const form = new FormData();
 
-    const updated = res.data;
-    setInitialData(updated);
+      // Logo: subir nuevo o marcar eliminación
+      if (logoFile) {
+        form.append("logo", logoFile);
+        form.append("removeImg", "0");
+      } else {
+        if (removeImgFlag) form.append("removeImg", "1");
+      }
 
-    // ✅ refresca preview con lo que devuelve backend
-    if (updated.logoUrl) {
-      setLogoPreview(updated.logoUrl);
-      setLogoFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      // Campos básicos
+      form.append("name", name.trim());
+      form.append("description", description.trim());
+      form.append("country", country.trim());
+      form.append("website", website.trim());
+      form.append("type", type);
+      form.append("email", email.trim().toLowerCase());
+
+      // Listas (departamentos + dominios)
+      form.append(
+        "departments",
+        JSON.stringify(departments.map((d) => d.name))
+      );
+      form.append(
+        "emailDomains",
+        JSON.stringify(emailDomains.map((d) => d.value))
+      );
+
+      // Flags de estado (solo lectura desde UI, se manda tal cual)
+      form.append("isMember", String(Boolean(initialData.isMember)));
+      form.append("canVerify", String(Boolean(initialData.canVerify)));
+
+      // Password opcional
+      if (password) form.append("password", password);
+
+      // Enviar actualización
+      const res = await axios.put(
+        `${API_BASE_URL}/institutions/${initialData._id}`,
+        form,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      alert("Institution profile updated successfully.");
+
+      // Refresca estado local
+      const updated = res.data;
+      setInitialData(updated);
+
+      // Resetea logo local si el backend devolvió logoUrl
+      if (updated.logoUrl) {
+        setLogoPreview(updated.logoUrl);
+        setLogoFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+
+      // Limpia campos de password
+      setPassword("");
+      setConfirm("");
+    } catch (err) {
+      console.error("Update institution error:", err?.response?.data || err);
+      alert(
+        err?.response?.data?.message || "Error updating institution profile."
+      );
     }
+  };
 
-    setPassword("");
-    setConfirm("");
-  } catch (err) {
-    console.error("Update institution error:", err?.response?.data || err);
-    alert(err?.response?.data?.message || "Error updating institution profile.");
-  }
-};
-
-  // ------------------ RENDER ------------------
+  // Estados de carga / error
   if (loading) {
     return <div className="container mt-4">Loading institution profile...</div>;
   }
@@ -305,8 +340,10 @@ const handleSubmit = async (e) => {
     return <div className="container mt-4 text-danger">{loadError}</div>;
   }
 
+  // Render del formulario
   return (
     <form className="container" onSubmit={handleSubmit}>
+      {/* Banner de membresía */}
       {isMember ? (
         <div
           className="alert border-0"
@@ -317,20 +354,28 @@ const handleSubmit = async (e) => {
             fontWeight: 600,
           }}
         >
-          Your membership plan is <strong>active</strong>.
+          <span className="mx-2">{CheckCircle}</span> Your membership plan is{" "}
+          <strong>active</strong>.
         </div>
       ) : (
-        <div className="alert alert-danger" role="alert">
-          Your membership plan is <strong>inactive</strong>.
+        <div
+          className="alert border-0"
+          role="alert"
+          style={{
+            backgroundColor: "#dc3545",
+            color: "#fff",
+            fontWeight: 600,
+          }}
+        >
+          <span className="mx-2">{CrossCircle}</span> Your membership plan is{" "}
+          <strong>inactive</strong>.
         </div>
       )}
 
-      {/* BASIC INFO */}
       <section className="mb-4">
         <h5 className="mb-3">Basic information</h5>
 
         <div className="row g-4">
-          {/* Logo */}
           <div className="col-md-4 d-flex align-items-center gap-3">
             <div
               className="overflow-hidden border"
@@ -366,6 +411,7 @@ const handleSubmit = async (e) => {
               >
                 Upload logo
               </button>
+
               {logoPreview && (
                 <button
                   type="button"
@@ -375,6 +421,7 @@ const handleSubmit = async (e) => {
                   Remove
                 </button>
               )}
+
               <input
                 ref={fileInputRef}
                 type="file"
@@ -385,9 +432,7 @@ const handleSubmit = async (e) => {
             </div>
           </div>
 
-          {/* Text fields */}
           <div className="col-md-8">
-            {/* Name */}
             <div className="mb-3">
               <label className="form-label">Name</label>
               <input
@@ -401,7 +446,6 @@ const handleSubmit = async (e) => {
               )}
             </div>
 
-            {/* Country (full row) */}
             <div className="row g-3">
               <div className="col-12">
                 <label className="form-label">Country</label>
@@ -420,7 +464,6 @@ const handleSubmit = async (e) => {
             </div>
           </div>
 
-          {/* Description */}
           <div className="col-12 mt-3">
             <label className="form-label">Description</label>
             <textarea
@@ -436,11 +479,9 @@ const handleSubmit = async (e) => {
 
       <hr />
 
-      {/* EMAIL SECTION */}
       <section className="mb-4">
         <h5 className="mb-3">Email</h5>
 
-        {/* Email + Website */}
         <div className="row g-3">
           <div className="col-md-6">
             <label className="form-label">Email Institutional</label>
@@ -470,7 +511,7 @@ const handleSubmit = async (e) => {
           </div>
         </div>
 
-        {/* Email domains (igual estilo que Departments) */}
+        {/* Gestión de dominios permitidos */}
         <div className="row g-3 align-items-end mt-3">
           <div className="col-md-8">
             <label className="form-label">Add email domain</label>
@@ -518,9 +559,9 @@ const handleSubmit = async (e) => {
 
       <hr />
 
-      {/* SECURITY */}
       <section className="mb-4">
         <h5 className="mb-3">Security</h5>
+
         <div className="row g-3">
           <div className="col-md-6">
             <label className="form-label">New password</label>
@@ -547,9 +588,7 @@ const handleSubmit = async (e) => {
               </button>
             </div>
             {errors.password && (
-              <div className="invalid-feedback d-block">
-                {errors.password}
-              </div>
+              <div className="invalid-feedback d-block">{errors.password}</div>
             )}
           </div>
 
@@ -576,9 +615,7 @@ const handleSubmit = async (e) => {
               </button>
             </div>
             {errors.confirm && (
-              <div className="invalid-feedback d-block">
-                {errors.confirm}
-              </div>
+              <div className="invalid-feedback d-block">{errors.confirm}</div>
             )}
           </div>
         </div>
@@ -586,9 +623,10 @@ const handleSubmit = async (e) => {
 
       <hr />
 
-      {/* DEPARTMENTS */}
       <section className="mb-4">
         <h5 className="mb-3">Departments</h5>
+
+        {/* Gestión de departamentos */}
         <div className="row g-3 align-items-end">
           <div className="col-md-8">
             <label className="form-label">Add a department</label>
@@ -610,13 +648,12 @@ const handleSubmit = async (e) => {
             </button>
           </div>
         </div>
-{deptAlert && (
-    <div className="mt-3 alert alert-warning py-2">
-      {deptAlert}
-    </div>
-  )}
-        <div className="mt-3 d-flex flex-wrap gap-2">
 
+        {deptAlert && (
+          <div className="mt-3 alert alert-warning py-2">{deptAlert}</div>
+        )}
+
+        <div className="mt-3 d-flex flex-wrap gap-2">
           {departments.length === 0 ? (
             <span className="text-muted">No departments added.</span>
           ) : (
@@ -639,7 +676,7 @@ const handleSubmit = async (e) => {
         </div>
       </section>
 
-      {/* BOTONES */}
+      {/* Acciones finales */}
       <div className="mt-4 d-flex justify-content-end gap-2">
         <button
           type="button"

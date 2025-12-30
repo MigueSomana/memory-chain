@@ -10,6 +10,7 @@ import {
 } from "../../utils/authSession";
 import { useParams } from "react-router-dom";
 
+// Componente: Página de Actualización de Tesis
 const UploadThesis = () => {
   const IDT = useParams();
   var idUser = getIdUser();

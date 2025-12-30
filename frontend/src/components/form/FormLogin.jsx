@@ -1,17 +1,39 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import isologo from "../../assets/isologo.png";
+import logo from "../../assets/logo.png";
 import { EyeIcon, EyeSlashIcon } from "../../utils/icons";
 import { saveAuthSession } from "../../utils/authSession";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-const FormLogin = () => {
-  const [email, setEmail] = useState("");
+function showModal(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const inst = window.bootstrap?.Modal?.getOrCreateInstance(el, {
+    backdrop: "static",
+    keyboard: false,
+  });
+  inst?.show();
+}
+
+function hideModal(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const inst = window.bootstrap?.Modal?.getInstance(el);
+  inst?.hide();
+}
+
+const FormLogin = ({ loginModalId, registerModalId, prefillEmail }) => {
+  const [email, setEmail] = useState(prefillEmail || "");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // cuando te registras, prefillEmail cambia
+  useEffect(() => {
+    if (prefillEmail) setEmail(prefillEmail);
+  }, [prefillEmail]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,165 +46,137 @@ const FormLogin = () => {
         password,
       });
 
-      // Ajusta según tu backend
       const { token, user, institution } = response.data;
 
-      // Determinar quién se logueó y cuál es su rol
       if (user) {
-        const role = user.role; // aquí entra el role del nuevo modelo
-        // Guarda token + rol + user en localStorage
         saveAuthSession({
           token,
-          role,
+          role: user.role,
           actor: "user",
           user,
         });
+        window.location.href = "/dashboard-personal";
+        return;
+      }
 
-        // Redirección según rol de persona
-        if (role === "REGULAR" || role === "STUDENT") {
-          window.location.href = "/dashboardP";
-        } else {
-          // si tienes otros roles (ADMIN, etc.), puedes tratarlos aquí
-          window.location.href = "/dashboardP";
-        }
-
-        console.log("Login user exitoso ✅", token, role);
-      } else if (institution) {
-        // Para instituciones: rol puede venir del backend o lo fijamos
-        const role = institution.role || "INSTITUTION";
-
+      if (institution) {
         saveAuthSession({
           token,
-          role,
+          role: institution.role || "INSTITUTION",
           actor: "institution",
           institution,
         });
-
-        // Mantengo tu lógica de tipo de institución para el dashboard
-        if (
-          institution.type === "INSTITUTE" ||
-          institution.type === "UNIVERSITY" ||
-          institution.type === "OTHER"
-        ) {
-          window.location.href = "/dashboardU";
-        } else {
-          window.location.href = "/dashboardU";
-        }
-
-        console.log("Login institution exitoso ✅", token, role);
-      } else {
-        // Caso raro: ni user ni institution
-        setErrorMsg("Respuesta de login inválida.");
+        window.location.href = "/dashboard-institution";
+        return;
       }
+
+      setErrorMsg("Respuesta de login inválida.");
     } catch (error) {
       console.error(error);
-
-      if (
-        error.response &&
-        error.response.data &&
-        error.response.data.message
-      ) {
-        setErrorMsg(error.response.data.message);
-      } else {
-        setErrorMsg("Login no exitoso. Verifica tus credenciales.");
-      }
+      setErrorMsg(
+        error.response?.data?.message ||
+          "Login no exitoso. Verifica tus credenciales."
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  const openRegister = () => {
+    // cierra login, abre register
+    hideModal(loginModalId);
+    setTimeout(() => showModal(registerModalId), 150);
+  };
+
   return (
-    <>
-      <div className="container fix-form-modal">
-        <form className="form-signin" onSubmit={handleSubmit}>
-          <div className="text-center spaced-fix" bis_skin_checked="1">
-            <img src={isologo} alt="" width="auto" height="70px" />
-            <h1 className="h3 mb-3 font-weight-normal mt-3">Log In</h1>
-            <p>
-              Protect your research with the world's most secure decentralized
-              library
-            </p>
+    <div className="container fix-form-modal">
+      <form className="form-signin" onSubmit={handleSubmit}>
+        <div className="text-center spaced-fix">
+          <img src={logo} alt="Logo" height="70px" />
+          <p className="my-4">
+            Protect your research with the world's most secure decentralized
+            library
+          </p>
+        </div>
+
+        {errorMsg && (
+          <div className="alert alert-danger mt-2" role="alert">
+            {errorMsg}
           </div>
+        )}
 
-          {/* ALERTA DE ERROR */}
-          {errorMsg && (
-            <div className="alert alert-danger mt-2" role="alert">
-              {errorMsg}
-            </div>
-          )}
+        <div className="form-label-group">
+          <label htmlFor="inputEmail">Email address</label>
+          <input
+            type="email"
+            id="inputEmail"
+            className="form-control"
+            placeholder="Email address"
+            required
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
+          />
+        </div>
 
-          <div className="form-label-group" bis_skin_checked="1">
-            <label htmlFor="inputEmail">Email address</label>
+        <div className="form-label-group mt-3">
+          <label htmlFor="inputPassword">Password</label>
+          <div className="input-group">
             <input
-              type="email"
-              id="inputEmail"
+              type={showPass ? "text" : "password"}
+              id="inputPassword"
               className="form-control"
-              placeholder="Email address"
+              placeholder="Password"
               required
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-
-          {/* PASSWORD CON TOGGLE */}
-          <div className="form-label-group mt-3" bis_skin_checked="1">
-            <label htmlFor="inputPassword">Password</label>
-            <div className="input-group">
-              <input
-                type={showPass ? "text" : "password"}
-                id="inputPassword"
-                className="form-control"
-                placeholder="Password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <button
-                type="button"
-                className="btn password-toggle-btn-login d-flex align-items-center"
-                onClick={() => setShowPass((v) => !v)}
-                tabIndex={-1}
-                aria-label={showPass ? "Hide password" : "Show password"}
-                title={showPass ? "Hide password" : "Show password"}
-              >
-                {showPass ? EyeSlashIcon : EyeIcon}
-              </button>
-            </div>
-          </div>
-          <div className="mb-3 mt-3 form-check">
-            <input
-              id="rememberMe"
-              className="form-check-input mc-check"
-              type="checkbox"
-            />
-            <label htmlFor="rememberMe" className="form-check-label">
-              Remember me
-            </label>
-          </div>
-
-          <div className="row">
-            <button
-              type="submit"
-              className="btn btn-memory btn-lg px-4 gap-3 my-1"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
-            >
-              {loading ? "Logging in..." : "Log in"}
-            </button>
-
+            />
             <button
               type="button"
-              className="btn btn-outline-memory btn-lg px-4 my-3"
-              onClick={() => {
-                console.log("Sign in / Register clicked");
-              }}
+              className="btn password-toggle-btn-login d-flex align-items-center"
+              onClick={() => setShowPass((v) => !v)}
+              tabIndex={-1}
+              disabled={loading}
             >
-              Sign in
+              {showPass ? EyeSlashIcon : EyeIcon}
             </button>
           </div>
-        </form>
-      </div>
-    </>
+        </div>
+
+        <div className="mb-3 mt-3 form-check">
+          <input
+            id="rememberMe"
+            className="form-check-input mc-check"
+            type="checkbox"
+            disabled={loading}
+          />
+          <label htmlFor="rememberMe" className="form-check-label">
+            Remember me
+          </label>
+        </div>
+
+        <div className="row">
+          <button
+            type="submit"
+            className="btn btn-memory px-4 gap-3 my-1"
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Log in"}
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-outline-memory px-4 my-2"
+            onClick={openRegister}
+            disabled={loading}
+          >
+            Sign up
+          </button>
+        </div>
+      </form>
+    </div>
   );
 };
 

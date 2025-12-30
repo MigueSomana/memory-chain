@@ -11,13 +11,14 @@ import {
   QuoteFill,
 } from "../../utils/icons";
 
+// ===================== CONFIG GLOBAL (API + IPFS gateway + sesión) =====================
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
 
 const role = getAuthRole();
 const token = getAuthToken();
 
-// Opciones de ordenamiento (instituciones)
+// ===================== SORT OPTIONS (Institutions) =====================
 const SORT_OPTIONS = [
   { key: "name_az", label: "Name A–Z" },
   { key: "name_za", label: "Name Z–A" },
@@ -25,13 +26,11 @@ const SORT_OPTIONS = [
   { key: "theses_least", label: "Fewest theses" },
 ];
 
-// helper para mostrar el type capitalizado
+// ===================== HELPERS (UI formatting) =====================
 const formatType = (t) =>
   t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : "";
 
-// ===================== SUBCOMPONENTE: THESIS LIST POR INSTITUCIÓN (FOCUS) =====================
-
-// Opciones de ordenamiento de tesis
+// ===================== SORT OPTIONS (Theses) =====================
 const THESIS_SORT_OPTIONS = [
   { key: "recent", label: "Most recent" },
   { key: "oldest", label: "Oldest" },
@@ -41,7 +40,7 @@ const THESIS_SORT_OPTIONS = [
   { key: "ratings_least", label: "Least ratings" },
 ];
 
-// helper para convertir authors (strings u objetos) a un string buscable
+// ===================== Helper: authors buscable (para search) =====================
 const buildAuthorsSearchString = (authors) => {
   if (!Array.isArray(authors)) return "";
   return authors
@@ -59,7 +58,10 @@ const buildAuthorsSearchString = (authors) => {
     .toLowerCase();
 };
 
-// ======= helpers APA (igual que tu ThesisSearch actual) =======
+// ===================== Helper: normalizar status =====================
+const normalizeStatus = (s) => String(s || "").toUpperCase();
+
+// ===================== HELPERS APA + Clipboard =====================
 async function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -105,7 +107,6 @@ function formatAuthorsAPA(authors = []) {
   const formatted = list.map(formatPersonAPA).filter(Boolean);
 
   if (formatted.length === 0) return "Author, A. A.";
-
   if (formatted.length === 1) return formatted[0];
 
   if (formatted.length <= 20) {
@@ -138,8 +139,7 @@ function buildThesisApa7Citation(thesis, gatewayDomain) {
       : "";
 
   const cid = thesis?.ipfsCid;
-  const url =
-    cid && gatewayDomain ? `https://${gatewayDomain}/ipfs/${cid}` : "";
+  const url = cid && gatewayDomain ? `https://${gatewayDomain}/ipfs/${cid}` : "";
 
   const bracket = instName ? `[${thesisType}, ${instName}]` : `[${thesisType}]`;
 
@@ -148,40 +148,49 @@ function buildThesisApa7Citation(thesis, gatewayDomain) {
   return `${base}.`;
 }
 
+// ===================== SUBCOMPONENT: InstitutionThesisSubsearch =====================
 const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
+  // ---------- Estado data + UI ----------
   const [theses, setTheses] = useState([]);
   const [liked, setLiked] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
+  // ---------- Estado filtros tesis ----------
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState("all");
   const [degree, setDegree] = useState("all");
+
   const now = new Date().getFullYear();
   const [minYear, setMinYear] = useState(1980);
   const [maxYear, setMaxYear] = useState(now);
+
   const [sortBy, setSortBy] = useState("recent");
+
+  // Filtro por status en modo focus
+  const [statusFilter, setStatusFilter] = useState("all"); // "all" | "APPROVED" | "PENDING"
+
+  // ---------- Estado paginación ----------
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // cargar tesis de esa institución
+  // Load: tesis SOLO de la institución
   useEffect(() => {
     const fetchTheses = async () => {
       try {
         setLoading(true);
         setLoadError("");
 
-        const headers = token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses/sub/${institutionId}`,
           headers ? { headers } : undefined
         );
+
         const data = Array.isArray(res.data) ? res.data : [];
 
-        // user actual
+        // Identificar usuario actual (para marcar likes)
         let currentUserId = null;
         try {
           const rawUser = localStorage.getItem("memorychain_user");
@@ -193,14 +202,12 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
           console.warn("No se pudo parsear memorychain_user", e);
         }
 
+        // Normaliza likes + userLiked
         const mapped = data.map((t) => {
           const likes = t.likes ?? 0;
-
           const userLiked =
             Array.isArray(t.likedBy) && currentUserId
-              ? t.likedBy.some(
-                  (u) => String(u._id ?? u) === String(currentUserId)
-                )
+              ? t.likedBy.some((u) => String(u._id ?? u) === String(currentUserId))
               : false;
 
           return { ...t, likes, userLiked };
@@ -223,10 +230,23 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
     if (institutionId) fetchTheses();
   }, [institutionId]);
 
+  // Filtrado: query + idioma + grado + rango de año + status (oculta REJECTED siempre)
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const selectedStatus = normalizeStatus(statusFilter); // ALL / APPROVED / PENDING
 
     return theses.filter((t) => {
+      const status = normalizeStatus(t.status);
+
+      // REGLA BASE: NO mostrar rechazadas
+      if (status === "REJECTED") return false;
+
+      // Filtro por status
+      const matchesStatus =
+        selectedStatus === "ALL"
+          ? status === "APPROVED" || status === "PENDING"
+          : status === selectedStatus;
+
       const authorsSearch = buildAuthorsSearchString(t.authors);
       const keywordsSearch = Array.isArray(t.keywords)
         ? t.keywords.map((k) => String(k).toLowerCase())
@@ -241,21 +261,20 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
       const matchesLang =
         language === "all" || (t.language || "").toLowerCase() === language;
 
-      const matchesDegree =
-        degree === "all" || String(t.degree || "") === degree;
+      const matchesDegree = degree === "all" || String(t.degree || "") === degree;
 
       const yearNum = Number(t.year);
       const inYearRange =
-        !Number.isNaN(yearNum) &&
-        yearNum >= Number(minYear) &&
-        yearNum <= Number(maxYear);
+        !Number.isNaN(yearNum) && yearNum >= Number(minYear) && yearNum <= Number(maxYear);
 
-      return matchesQ && matchesLang && matchesDegree && inYearRange;
+      return matchesStatus && matchesQ && matchesLang && matchesDegree && inYearRange;
     });
-  }, [theses, query, language, degree, minYear, maxYear]);
+  }, [theses, query, language, degree, minYear, maxYear, statusFilter]);
 
+  // Sort
   const filteredOrdered = useMemo(() => {
     const arr = [...filtered];
+
     arr.sort((a, b) => {
       const byTitle = (a.title || "").localeCompare(b.title || "");
       const byId = String(a._id ?? "").localeCompare(String(b._id ?? ""));
@@ -291,19 +310,17 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
           return 0;
       }
     });
+
     return arr;
   }, [filtered, sortBy]);
 
-  // paginación
+  // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredOrdered.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const start = (currentPage - 1) * pageSize;
   const end = start + pageSize;
 
-  const pageItems = useMemo(
-    () => filteredOrdered.slice(start, end),
-    [filteredOrdered, start, end]
-  );
+  const pageItems = useMemo(() => filteredOrdered.slice(start, end), [filteredOrdered, start, end]);
 
   const pagesArray = useMemo(
     () => Array.from({ length: totalPages }, (_, i) => i + 1),
@@ -312,7 +329,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
 
   const go = (p) => setPage(p);
 
-  // ===== actions (adaptadas al nuevo ThesisSearch) =====
+  // Actions
   const handleView = (thesis) => {
     const cid = thesis.ipfsCid;
     if (!cid) {
@@ -343,11 +360,8 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const res = await axios.post(
-        `${API_BASE_URL}/api/theses/${id}/like`,
-        null,
-        { headers }
-      );
+
+      const res = await axios.post(`${API_BASE_URL}/api/theses/${id}/like`, null, { headers });
 
       const { thesis, liked: isLiked } = res.data || {};
 
@@ -355,11 +369,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
         setTheses((prev) =>
           prev.map((t) =>
             t._id === thesis._id
-              ? {
-                  ...t,
-                  likes: thesis.likes ?? 0,
-                  userLiked: !!isLiked,
-                }
+              ? { ...t, likes: thesis.likes ?? 0, userLiked: !!isLiked }
               : t
           )
         );
@@ -372,18 +382,20 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
   };
 
   if (loading) return <div className="mt-3 text-muted">Loading theses…</div>;
-  if (loadError)
+
+  if (loadError) {
     return (
       <div className="mt-3 alert alert-danger" role="alert">
         {loadError}
       </div>
     );
+  }
 
   return (
     <div className="mt-4">
       <h5 className="mb-3">Theses from {institutionName || "Institution"}</h5>
 
-      {/* Search + Sort */}
+      {/* Barra: search + sort */}
       <div className="row g-3 align-items-center mb-3">
         <div className="col-lg-8">
           <div className="d-flex gap-2">
@@ -396,6 +408,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                 setQuery(e.target.value);
               }}
             />
+
             <div className="dropdown mc-sort">
               <button
                 className="btn btn-outline-secondary dropdown-toggle"
@@ -403,21 +416,19 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                Sort by:{" "}
-                {THESIS_SORT_OPTIONS.find((o) => o.key === sortBy)?.label ??
-                  "—"}
+                Sort by: {THESIS_SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
               </button>
+
               <ul className="dropdown-menu dropdown-menu-end">
                 {THESIS_SORT_OPTIONS.map((opt) => (
                   <li key={opt.key}>
                     <button
-                      className={`dropdown-item ${
-                        sortBy === opt.key ? "active" : ""
-                      }`}
+                      className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
                       onClick={() => {
                         setSortBy(opt.key);
                         setPage(1);
                       }}
+                      type="button"
                     >
                       {opt.label}
                     </button>
@@ -430,15 +441,14 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
 
         <div className="col-lg-4 text-lg-end">
           <span className="text-muted">
-            {filteredOrdered.length} result
-            {filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
-            {totalPages}
+            {filteredOrdered.length} result{filteredOrdered.length !== 1 ? "s" : ""} · Page{" "}
+            {currentPage} of {totalPages}
           </span>
         </div>
       </div>
 
       <div className="row">
-        {/* LEFT list */}
+        {/* LEFT: list */}
         <div className="col-lg-8 d-flex flex-column gap-3">
           {pageItems.map((t, idx) => {
             const rowKey = `${t._id}-${start + idx}`;
@@ -463,13 +473,15 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                     PDF
                   </div>
 
-                  {/* Main info */}
+                  {/* Info */}
                   <div className="flex-grow-1">
                     <h5 className="m-0">{t.title}</h5>
+
                     <div className="text-muted small">
                       Institution:&nbsp;{institutionName || "Institution"}
                       {t.department ? ` · ${t.department}` : ""}{" "}
                     </div>
+
                     <div className="text-muted small">
                       Autors:&nbsp;
                       {Array.isArray(t.authors)
@@ -483,17 +495,13 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                         : ""}
                       {" · "}
                     </div>
-                    <div className="text-muted small">
-                      CID: {t.ipfsCid ?? ""}
-                    </div>
+
+                    <div className="text-muted small">CID: {t.ipfsCid ?? ""}</div>
 
                     {t.keywords?.length ? (
                       <div className="mt-1 d-flex flex-wrap gap-2">
                         {t.keywords.map((k, kidx) => (
-                          <span
-                            key={`${rowKey}-kw-${kidx}`}
-                            className="badge text-bg-light"
-                          >
+                          <span key={`${rowKey}-kw-${kidx}`} className="badge text-bg-light">
                             {k}
                           </span>
                         ))}
@@ -501,9 +509,8 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                     ) : null}
                   </div>
 
-                  {/* ACTIONS */}
+                  {/* Actions */}
                   <div className="d-flex align-items-center gap-2">
-                    {/* View */}
                     <button
                       type="button"
                       className="btn btn-memory"
@@ -513,7 +520,6 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                       {EyeFillIcon}
                     </button>
 
-                    {/* Quote */}
                     <button
                       type="button"
                       className="btn btn-warning"
@@ -523,7 +529,6 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                       {QuoteFill}
                     </button>
 
-                    {/* Like */}
                     {role !== "INSTITUTION" && (
                       <button
                         type="button"
@@ -542,40 +547,28 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
           })}
 
           {pageItems.length === 0 && (
-            <div className="text-muted">
-              No theses found for this institution.
-            </div>
+            <div className="text-muted">No theses found for this institution.</div>
           )}
 
           {/* Pagination */}
-          <nav
-            aria-label="Theses pagination"
-            className="mt-3 d-flex justify-content-center"
-          >
+          <nav aria-label="Theses pagination" className="mt-3 d-flex justify-content-center">
             <ul className="pagination mc-pagination">
-              <li
-                className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-              >
-                <button className="page-link" onClick={() => go(1)}>
+              <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                <button className="page-link" onClick={() => go(1)} type="button">
                   First
                 </button>
               </li>
+
               {pagesArray.map((p) => (
-                <li
-                  key={`p-${p}`}
-                  className={`page-item ${p === currentPage ? "active" : ""}`}
-                >
-                  <button className="page-link" onClick={() => go(p)}>
+                <li key={`p-${p}`} className={`page-item ${p === currentPage ? "active" : ""}`}>
+                  <button className="page-link" onClick={() => go(p)} type="button">
                     {p}
                   </button>
                 </li>
               ))}
-              <li
-                className={`page-item ${
-                  currentPage === totalPages ? "disabled" : ""
-                }`}
-              >
-                <button className="page-link" onClick={() => go(totalPages)}>
+
+              <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                <button className="page-link" onClick={() => go(totalPages)} type="button">
                   Last
                 </button>
               </li>
@@ -583,11 +576,42 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
           </nav>
         </div>
 
-        {/* RIGHT filters */}
+        {/* RIGHT: filtros (desktop) */}
         <div className="col-lg-4 d-none d-lg-block">
           <div className="card mc-filters sticky-top" style={{ top: "1rem" }}>
             <div className="card-header">Filters</div>
+
             <div className="card-body">
+              {/* Status filter */}
+              <div className="mb-3">
+                <label className="form-label">Status</label>
+
+                <div className="row">
+                  {[
+                    { key: "all", label: "All Status" }, 
+                    { key: "APPROVED", label: "Approved" },
+                    { key: "PENDING", label: "Pending" },
+                  ].map((s) => (
+                    <div key={s.key} className="col-6 col-md-4">
+                      <label className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          name={`status-inst-${institutionId}`}
+                          value={s.key}
+                          checked={statusFilter === s.key}
+                          onChange={(e) => {
+                            setPage(1);
+                            setStatusFilter(e.target.value);
+                          }}
+                        />
+                        <span className="form-check-label ms-1">{s.label}</span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Year range */}
               <div className="mb-3">
                 <div className="d-flex justify-content-between align-items-center">
@@ -599,10 +623,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                   </span>
                 </div>
 
-                <div
-                  className="mc-dualrange position-relative"
-                  style={{ height: 36 }}
-                >
+                <div className="mc-dualrange position-relative" style={{ height: 36 }}>
                   <input
                     type="range"
                     className="form-range position-absolute top-50 start-0 translate-middle-y w-100 mc-dualrange-input mc-dualrange-min"
@@ -614,12 +635,9 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                       setPage(1);
                       setMinYear(Math.min(Number(e.target.value), maxYear));
                     }}
-                    style={{
-                      background: "transparent",
-                      pointerEvents: "none",
-                      zIndex: 2,
-                    }}
+                    style={{ background: "transparent", pointerEvents: "none", zIndex: 2 }}
                   />
+
                   <input
                     type="range"
                     className="form-range position-absolute top-50 start-0 translate-middle-y w-100 mc-dualrange-input mc-dualrange-max"
@@ -631,41 +649,35 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                       setPage(1);
                       setMaxYear(Math.max(Number(e.target.value), minYear));
                     }}
-                    style={{
-                      background: "transparent",
-                      pointerEvents: "none",
-                      zIndex: 3,
-                    }}
+                    style={{ background: "transparent", pointerEvents: "none", zIndex: 3 }}
                   />
                 </div>
               </div>
 
-              {/* Language (4 por fila) */}
+              {/* Language */}
               <div className="mb-3">
                 <label className="form-label">Language</label>
                 <div className="row">
-                  {["all", "en", "es", "fr", "pt", "ch", "ko", "ru"].map(
-                    (l) => (
-                      <div key={l} className="col-6 col-md-3">
-                        <label className="form-check">
-                          <input
-                            className="form-check-input"
-                            type="radio"
-                            name={`lang-inst-${institutionId}`}
-                            value={l}
-                            checked={language === l}
-                            onChange={(e) => {
-                              setPage(1);
-                              setLanguage(e.target.value);
-                            }}
-                          />
-                          <span className="form-check-label text-uppercase ms-1">
-                            {l === "all" ? "All" : l}
-                          </span>
-                        </label>
-                      </div>
-                    )
-                  )}
+                  {["all", "en", "es", "fr", "pt", "ch", "ko", "ru"].map((l) => (
+                    <div key={l} className="col-6 col-md-3">
+                      <label className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="radio"
+                          name={`lang-inst-${institutionId}`}
+                          value={l}
+                          checked={language === l}
+                          onChange={(e) => {
+                            setPage(1);
+                            setLanguage(e.target.value);
+                          }}
+                        />
+                        <span className="form-check-label text-uppercase ms-1">
+                          {l === "all" ? "All" : l}
+                        </span>
+                      </label>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -688,18 +700,15 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                 </select>
               </div>
 
-              {/* Institution fixed */}
+              {/* Institution fijo */}
               <div className="mb-3">
                 <label className="form-label">Institution</label>
-                <select
-                  className="form-select"
-                  value={institutionName}
-                  disabled
-                >
+                <select className="form-select" value={institutionName} disabled>
                   <option>{institutionName}</option>
                 </select>
               </div>
 
+              {/* Reset */}
               <div className="text-end">
                 <button
                   className="btn btn-outline-secondary btn-sm"
@@ -710,6 +719,7 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
                     setDegree("all");
                     setMinYear(1980);
                     setMaxYear(now);
+                    setStatusFilter("all"); 
                     setSortBy("recent");
                     setPage(1);
                   }}
@@ -725,27 +735,32 @@ const InstitutionThesisSubsearch = ({ institutionId, institutionName }) => {
   );
 };
 
-// ===================== COMPONENTE PRINCIPAL: INSTITUTIONS SEARCH =====================
-
+// ===================== InstitutionsSearch =====================
 const InstitutionsSearch = () => {
   const [institutions, setInstitutions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
+  // Conteos SOLO de APPROVED + PENDING (rechazadas NO cuentan)
   const [thesisCounts, setThesisCounts] = useState({});
 
+  // Filters
   const [query, setQuery] = useState("");
   const [type, setType] = useState("all");
   const [country, setCountry] = useState("all");
   const [onlyMembers, setOnlyMembers] = useState(false);
+
+  // Sort + pagination
   const [sortBy, setSortBy] = useState("name_az");
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
+  // Focus mode
   const [focusedInstitutionId, setFocusedInstitutionId] = useState(null);
-  const headerRef = useRef(true); // reemplazo de "var encabezadoshow"
 
-  // cargar institutions
+  const headerRef = useRef(true);
+
+  // Load: institutions
   useEffect(() => {
     headerRef.current = true;
 
@@ -755,9 +770,7 @@ const InstitutionsSearch = () => {
         setLoadError("");
 
         const tokenLocal = localStorage.getItem("memorychain_token");
-        const headers = tokenLocal
-          ? { Authorization: `Bearer ${tokenLocal}` }
-          : undefined;
+        const headers = tokenLocal ? { Authorization: `Bearer ${tokenLocal}` } : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/institutions`,
@@ -778,14 +791,12 @@ const InstitutionsSearch = () => {
     fetchInstitutions();
   }, []);
 
-  // contar tesis por institución
+  // Load: theses -> counts por institución SOLO (APPROVED + PENDING)
   useEffect(() => {
     const fetchThesesAndBuildCounts = async () => {
       try {
         const tokenLocal = localStorage.getItem("memorychain_token");
-        const headers = tokenLocal
-          ? { Authorization: `Bearer ${tokenLocal}` }
-          : undefined;
+        const headers = tokenLocal ? { Authorization: `Bearer ${tokenLocal}` } : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses`,
@@ -796,6 +807,10 @@ const InstitutionsSearch = () => {
         const counts = {};
 
         for (const thesis of theses) {
+          const status = normalizeStatus(thesis?.status);
+          if (status === "REJECTED") continue;
+          if (status !== "APPROVED" && status !== "PENDING") continue;
+
           const instField = thesis.institution;
           const instId =
             typeof instField === "string"
@@ -818,13 +833,13 @@ const InstitutionsSearch = () => {
     fetchThesesAndBuildCounts();
   }, []);
 
-  // country options
+  // Country options
   const countryOptions = useMemo(() => {
     const set = new Set(institutions.map((i) => i.country).filter(Boolean));
     return ["all", ...Array.from(set)];
   }, [institutions]);
 
-  // filtrado institutions
+  // Filter institutions
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const selectedType = type.toLowerCase();
@@ -837,16 +852,12 @@ const InstitutionsSearch = () => {
       const isMemberVal = !!i.isMember;
 
       const matchesQ =
-        !q ||
-        name.toLowerCase().includes(q) ||
-        countryVal.toLowerCase().includes(q);
+        !q || name.toLowerCase().includes(q) || countryVal.toLowerCase().includes(q);
 
-      const matchesType =
-        selectedType === "all" || typeVal.toLowerCase() === selectedType;
+      const matchesType = selectedType === "all" || typeVal.toLowerCase() === selectedType;
 
       const matchesCountry =
-        selectedCountry === "all" ||
-        countryVal.toLowerCase() === selectedCountry;
+        selectedCountry === "all" || countryVal.toLowerCase() === selectedCountry;
 
       const matchesMember = !onlyMembers || isMemberVal;
 
@@ -854,7 +865,7 @@ const InstitutionsSearch = () => {
     });
   }, [institutions, query, type, country, onlyMembers]);
 
-  // ordenar institutions
+  // Sort institutions (por nombre o por conteo)
   const filteredOrdered = useMemo(() => {
     const arr = [...filtered];
 
@@ -888,7 +899,7 @@ const InstitutionsSearch = () => {
     return arr;
   }, [filtered, sortBy, thesisCounts]);
 
-  // paginación institutions
+  // Pagination only when not focused
   const totalPages = Math.max(1, Math.ceil(filteredOrdered.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const start = (currentPage - 1) * pageSize;
@@ -896,9 +907,7 @@ const InstitutionsSearch = () => {
 
   const institutionsToRender = useMemo(() => {
     if (focusedInstitutionId) {
-      return filteredOrdered.filter(
-        (i) => String(i._id) === String(focusedInstitutionId)
-      );
+      return filteredOrdered.filter((i) => String(i._id) === String(focusedInstitutionId));
     }
     return filteredOrdered.slice(start, end);
   }, [filteredOrdered, focusedInstitutionId, start, end]);
@@ -916,7 +925,6 @@ const InstitutionsSearch = () => {
     );
   };
 
-  // render
   if (loading) {
     return (
       <div className="container py-2">
@@ -935,11 +943,11 @@ const InstitutionsSearch = () => {
     );
   }
 
-  const showHeader = !focusedInstitutionId; // reemplaza encabezadoshow
+  const showHeader = !focusedInstitutionId;
 
   return (
     <div className="container py-2">
-      {/* Search + sort */}
+      {/* Header search + sort (solo si NO hay foco) */}
       {showHeader && (
         <div className="row g-3 align-items-center mb-3">
           <div className="col-lg-8">
@@ -953,6 +961,7 @@ const InstitutionsSearch = () => {
                   setQuery(e.target.value);
                 }}
               />
+
               <div className="dropdown mc-sort">
                 <button
                   className="btn btn-outline-secondary dropdown-toggle"
@@ -960,20 +969,19 @@ const InstitutionsSearch = () => {
                   data-bs-toggle="dropdown"
                   aria-expanded="false"
                 >
-                  Sort By:{" "}
-                  {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
+                  Sort By: {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
                 </button>
+
                 <ul className="dropdown-menu dropdown-menu-end">
                   {SORT_OPTIONS.map((opt) => (
                     <li key={opt.key}>
                       <button
-                        className={`dropdown-item ${
-                          sortBy === opt.key ? "active" : ""
-                        }`}
+                        className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
                         onClick={() => {
                           setSortBy(opt.key);
                           setPage(1);
                         }}
+                        type="button"
                       >
                         {opt.label}
                       </button>
@@ -986,28 +994,19 @@ const InstitutionsSearch = () => {
 
           <div className="col-lg-4 text-lg-end">
             <span className="text-muted">
-              {filteredOrdered.length} result
-              {filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
-              {totalPages}
+              {filteredOrdered.length} result{filteredOrdered.length !== 1 ? "s" : ""} · Page{" "}
+              {currentPage} of {totalPages}
             </span>
           </div>
         </div>
       )}
 
       <div className="row">
-        {/* LEFT: list */}
-        <div
-          className={
-            focusedInstitutionId
-              ? "col-12 d-flex flex-column gap-3"
-              : "col-lg-8 d-flex flex-column gap-3"
-          }
-        >
+        {/* LEFT: listado de instituciones */}
+        <div className={focusedInstitutionId ? "col-12 d-flex flex-column gap-3" : "col-lg-8 d-flex flex-column gap-3"}>
           {institutionsToRender.map((i, idx) => {
-            const rowKey = `${i._id}-${
-              focusedInstitutionId ? idx : start + idx
-            }`;
-            const thesisCount = thesisCounts[i._id] ?? 0;
+            const rowKey = `${i._id}-${focusedInstitutionId ? idx : start + idx}`;
+            const thesisCount = thesisCounts[i._id] ?? 0; 
             const isFocused = focusedInstitutionId === String(i._id);
 
             return (
@@ -1030,11 +1029,7 @@ const InstitutionsSearch = () => {
                         <img
                           src={i.logoUrl}
                           alt={i.name}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         />
                       ) : (
                         <div className="w-100 h-100 d-flex align-items-center justify-content-center text-muted small">
@@ -1043,7 +1038,7 @@ const InstitutionsSearch = () => {
                       )}
                     </div>
 
-                    {/* Main info */}
+                    {/* Info */}
                     <div className="flex-grow-1">
                       <div className="d-flex align-items-center gap-2">
                         <h5 className="m-0">{i.name}</h5>
@@ -1053,13 +1048,13 @@ const InstitutionsSearch = () => {
                           <span className="badge text-bg-danger">Deactive</span>
                         )}
                       </div>
+
                       <div className="text-muted small">
-                        {i.country} · {formatType(i.type)} · {thesisCount}{" "}
-                        thesis
+                        {i.country} · {formatType(i.type)} · {thesisCount} thesis
                       </div>
                     </div>
 
-                    {/* ACTIONS */}
+                    {/* Actions */}
                     <div className="d-flex align-items-center gap-2">
                       <button
                         type="button"
@@ -1085,7 +1080,7 @@ const InstitutionsSearch = () => {
                   </div>
                 </div>
 
-                {/* Subvista de tesis debajo de la card cuando está en foco */}
+                {/* Focus: tesis */}
                 {isFocused && (
                   <InstitutionThesisSubsearch
                     institutionId={String(i._id)}
@@ -1096,40 +1091,28 @@ const InstitutionsSearch = () => {
             );
           })}
 
-          {institutionsToRender.length === 0 && (
-            <div className="text-muted">No institutions found.</div>
-          )}
+          {institutionsToRender.length === 0 && <div className="text-muted">No institutions found.</div>}
 
-          {/* Pagination (solo cuando NO estamos en modo foco) */}
+          {/* Pagination (solo si NO hay foco) */}
           {!focusedInstitutionId && (
-            <nav
-              aria-label="Institutions pagination"
-              className="mt-3 d-flex justify-content-center"
-            >
+            <nav aria-label="Institutions pagination" className="mt-3 d-flex justify-content-center">
               <ul className="pagination mc-pagination">
-                <li
-                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-                >
-                  <button className="page-link" onClick={() => go(1)}>
+                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={() => go(1)} type="button">
                     First
                   </button>
                 </li>
+
                 {pagesArray.map((p) => (
-                  <li
-                    key={`p-${p}`}
-                    className={`page-item ${p === currentPage ? "active" : ""}`}
-                  >
-                    <button className="page-link" onClick={() => go(p)}>
+                  <li key={`p-${p}`} className={`page-item ${p === currentPage ? "active" : ""}`}>
+                    <button className="page-link" onClick={() => go(p)} type="button">
                       {p}
                     </button>
                   </li>
                 ))}
-                <li
-                  className={`page-item ${
-                    currentPage === totalPages ? "disabled" : ""
-                  }`}
-                >
-                  <button className="page-link" onClick={() => go(totalPages)}>
+
+                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={() => go(totalPages)} type="button">
                     Last
                   </button>
                 </li>
@@ -1138,25 +1121,19 @@ const InstitutionsSearch = () => {
           )}
         </div>
 
-        {/* RIGHT: filtros de instituciones (OCULTOS en modo foco) */}
+        {/* RIGHT: filtros instituciones (solo desktop y solo si NO hay foco) */}
         {!focusedInstitutionId && (
           <div className="col-lg-4 d-none d-lg-block">
             <div className="card mc-filters sticky-top" style={{ top: "1rem" }}>
               <div className="card-header">Filters</div>
+
               <div className="card-body">
                 {/* Type */}
                 <div className="mb-3">
                   <label className="form-label">Institution type</label>
 
                   <div className="row">
-                    {[
-                      "all",
-                      "university",
-                      "institute",
-                      "college",
-                      "academic",
-                      "other",
-                    ].map((t) => (
+                    {["all", "university", "institute", "college", "academic", "other"].map((t) => (
                       <div key={t} className="col-6 col-md-4">
                         <label className="form-check">
                           <input
@@ -1170,9 +1147,7 @@ const InstitutionsSearch = () => {
                               setPage(1);
                             }}
                           />
-                          <span className="form-check-label text-capitalize ms-1">
-                            {t}
-                          </span>
+                          <span className="form-check-label text-capitalize ms-1">{t}</span>
                         </label>
                       </div>
                     ))}
@@ -1198,8 +1173,8 @@ const InstitutionsSearch = () => {
                   </select>
                 </div>
 
-                {/* Only members */}
-                <div className="mb-2 form-check">
+                {/* Only active memberships */}
+                <div className="mb-2 form-check text-end d-flex justify-content-center align-items-center">
                   <input
                     id="onlyMembers"
                     className="form-check-input"
@@ -1211,11 +1186,12 @@ const InstitutionsSearch = () => {
                     }}
                   />
                   <label htmlFor="onlyMembers" className="form-check-label">
-                    Only active memberships
+                    &nbsp; Only active memberships
                   </label>
                 </div>
 
-                <div className="text-end">
+                {/* Reset */}
+                <div className="text-end d-flex justify-content-center align-items-center">
                   <button
                     className="btn btn-outline-secondary btn-sm"
                     onClick={() => {

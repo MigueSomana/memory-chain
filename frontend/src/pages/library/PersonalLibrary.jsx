@@ -3,6 +3,7 @@ import NavbarReal from "../../components/navbar/NavbarReal";
 import Layout from "../../components/layout/LayoutPrivado";
 import LibraryPSearch from "../search/LibraryPSearch";
 
+// Componente: Libreria de Personal
 const PersonalLibrary = () => {
   return (
     <div

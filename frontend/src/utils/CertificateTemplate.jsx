@@ -1,18 +1,19 @@
 import React from "react";
+import isologo from "../assets/isologo.png";
+import background from "../assets/background.png";
+import MC from "../assets/MC.png";
+import PO from "../assets/PO.png";
+import BC from "../assets/BC.png";
 
+// Estilo monoespaciado para hashes / CIDs / txHash (mejor legibilidad técnica)
 const mono = {
   fontFamily:
     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
 };
 
-const trimMiddle = (s, start = 12, end = 10) => {
-  if (!s) return "";
-  if (s.length <= start + end) return s;
-  return `${s.slice(0, start)}…${s.slice(-end)}`;
-};
-
+// Formatea la fecha de emisión en formato legible (fallback a "—")
 const formatIssued = (iso) => {
-  if (!iso) return "";
+  if (!iso) return "—";
   try {
     const d = new Date(iso);
     return d.toLocaleDateString(undefined, {
@@ -21,481 +22,605 @@ const formatIssued = (iso) => {
       day: "2-digit",
     });
   } catch {
-    return iso;
+    return String(iso);
   }
 };
 
-export default function CertificateTemplate({
-  thesis,
-  certificate,
-  qrDataUrl,
-  verificationUrl,
-  institutionLogoUrl, // opcional (si lo tienes)
-  platformLogoUrl, // opcional (tu logo)
-}) {
-  const instName = thesis?.institution?.name || "Institution";
-  const degree = thesis?.degree || "";
-  const department = thesis?.department || "";
-  const field = thesis?.field || "";
-  const title = thesis?.title || "Thesis Title";
+// Marca de agua suave estilo “blockchain”
+const Watermark = () => (
+  <svg
+    width="1400"
+    height="900"
+    viewBox="0 0 1400 900"
+    style={{
+      position: "absolute",
+      inset: 0,
+      opacity: 0.08,
+      pointerEvents: "none",
+    }}
+  >
+    <path
+      d="M860 180 L1080 300 L1220 220"
+      stroke="#94A3B8"
+      strokeWidth="10"
+      opacity="0.22"
+      fill="none"
+    />
+    <path
+      d="M1080 300 L1160 520 L1010 650"
+      stroke="#94A3B8"
+      strokeWidth="10"
+      opacity="0.18"
+      fill="none"
+    />
+    {[
+      { x: 860, y: 100, s: 160 },
+      { x: 1080, y: 250, s: 170 },
+      { x: 1210, y: 140, s: 160 },
+      { x: 1150, y: 520, s: 170 },
+      { x: 820, y: 540, s: 170 },
+    ].map((c, idx) => (
+      <g key={idx} transform={`translate(${c.x} ${c.y})`}>
+        <path
+          d={`M18 46 L${c.s - 26} 18 L${c.s - 8} 60 L34 88 Z`}
+          fill="none"
+          stroke="#0B7E7A"
+          strokeWidth="12"
+          strokeLinejoin="round"
+          opacity="0.9"
+        />
+        <path
+          d={`M34 88 L${c.s - 8} 60 L${c.s - 8} ${c.s - 44} L34 ${c.s - 16} Z`}
+          fill="none"
+          stroke="#0B7E7A"
+          strokeWidth="12"
+          strokeLinejoin="round"
+          opacity="0.9"
+        />
+        <path
+          d={`M18 46 L34 88 L34 ${c.s - 16} L18 ${c.s - 58} Z`}
+          fill="none"
+          stroke="#0B7E7A"
+          strokeWidth="12"
+          strokeLinejoin="round"
+          opacity="0.9"
+        />
+      </g>
+    ))}
+  </svg>
+);
 
-  const authors = Array.isArray(thesis?.authors) ? thesis.authors : [];
-  const authorsText = authors
-    .map((a) => `${a?.name ?? ""} ${a?.lastname ?? ""}`.trim())
+// Convierte arrays de autores/tutores (strings u objetos {name, lastname}) a una sola cadena
+const joinPeople = (arr) => {
+  if (!Array.isArray(arr)) return "";
+  return arr
+    .map((p) => {
+      if (typeof p === "string") return p;
+      return `${p?.name ?? ""} ${p?.lastname ?? ""}`.trim();
+    })
     .filter(Boolean)
     .join(", ");
+};
 
-  // Datos técnicos
-  const fileHash = thesis?.fileHash || certificate?.onchain?.fileHash || "";
-  const ipfsCid = thesis?.ipfsCid || certificate?.onchain?.ipfsCid || "";
-  const chainId =
-    thesis?.chainId ||
-    certificate?.mongo?.chainId ||
-    certificate?.onchain?.chainId ||
-    "";
-  const blockNumber =
-    thesis?.blockNumber ||
-    certificate?.mongo?.blockNumber ||
-    certificate?.onchain?.blockNumber ||
-    "";
-  const hashAlg = thesis?.hashAlgorithm || "sha256";
+// Certificate Template
+export default function CertificateTemplate({
+  thesis, // datos de la tesis (title, authors, tutors, hashes, etc.)
+  certificate, // datos del certificado (ej: explorerTx, metadata extra)
+  qrDataUrl, // QR generado en base64/dataURL para verificación
+  institution, // institución (por si thesis.institution no viene populate)
+}) {
+  // Preferimos thesis.institution.name si viene populate; si no, usamos institution prop; si no, texto default
+  const instName =
+    thesis?.institution?.name || institution?.name || "Institution";
 
-  // Network label simple
-  const networkLabel =
-    chainId === 80002
-      ? "Polygon Amoy (Testnet)"
-      : chainId === 137
-      ? "Polygon Mainnet"
-      : chainId
-      ? `Chain ${chainId}`
-      : "—";
+  // Campos auxiliares de institución (opcional)
+  const instDept = institution?.department || "";
+  const instAddress = institution?.country || "";
 
-  // Smart contract: idealmente viene del backend (si no, lo dejas vacío)
-  const smartContract =
-    certificate?.onchain?.contractAddress ||
-    certificate?.mongo?.contractAddress ||
-    "";
+  // Logo de institución (si existe)
+  const instLogo = institution?.logoUrl || "";
 
-  // URL tx
-  const explorerTx = certificate?.explorerTx || "";
+  // Thesis info (contenido principal)
+  const title = thesis?.title || "—";
+  const degree = thesis?.degree || "";
+  const authorsText = joinPeople(thesis?.authors);
+  const tutorsText = joinPeople(thesis?.tutors);
+  const issued = formatIssued(thesis?.createdAt);
+
+  // Verification metadata (data técnica)
+  const fileHash = thesis?.fileHash || "—";
+  const ipfsCid = thesis?.ipfsCid || "—";
+
+  // Extrae el txHash desde la URL del explorer, si viene.
   const txHash =
-    explorerTx?.split("/tx/")[1] ||
-    thesis?.txHash ||
-    certificate?.mongo?.txHash ||
-    "";
+    (certificate?.explorerTx ? certificate.explorerTx.split("/tx/")[1] : "") ||
+    "—";
 
-  const issuedIso = thesis?.updatedAt || thesis?.createdAt || "";
-  const issued = formatIssued(issuedIso);
-
-  // Redacción fluida (como pediste)
-  const subtitle = [
-    authorsText ? `Authors: ${authorsText}` : "",
-    degree || instName
-      ? `For the ${degree}${degree && instName ? ", " : ""}${instName}`
-      : "",
-    department || field
-      ? `${department}${department && field ? " • " : ""}${field}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" — ");
-
+  // Render del certificado
   return (
     <div
       id="mc-certificate"
       style={{
-        width: 1123, // A4 landscape approx at 96dpi (puedes cambiar)
-        minHeight: 794,
-        background: "#FCFCFD",
-        color: "#0f172a",
-        borderRadius: 18,
-        border: "2px solid rgba(25,179,153,.25)",
+        // 3508x2480 px aprox A4 landscape a ~300dpi (ideal para export)
+        width: 3508,
+        minHeight: 2480,
+
+        // Contenedor "lienzo" para capas y layout
         position: "relative",
         overflow: "hidden",
-        padding: 36,
+        padding: "140px 165px",
         boxSizing: "border-box",
+
+        // Tema base (blanco + texto oscuro)
+        background: "#ffffff",
+        color: "#0f172a",
         fontFamily:
           "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
       }}
     >
-      {/* Barra izquierda */}
+      {/* Capa 0: fondo con gradientes suaves (no interactivo) */}
       <div
         style={{
           position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 14,
-          background: "linear-gradient(180deg, #19B399, rgba(25,179,153,.55))",
+          inset: 0,
+          background:
+            "radial-gradient(circle at 20% 0%, rgba(11,126,122,.07), transparent 45%), radial-gradient(circle at 90% 40%, rgba(55,242,197,.08), transparent 45%), linear-gradient(#ffffff, #ffffff)",
+          pointerEvents: "none",
+          zIndex: 0,
         }}
       />
 
-      {/* Header logos */}
+      {/* Capa 1: imagen background alineada a la derecha con opacidad */}
       <div
         style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          zIndex: 1,
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 16,
+          justifyContent: "flex-end",
+          alignItems: "stretch",
         }}
       >
-        <div
+        <img
+          src={background}
+          alt=""
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            maxWidth: 360,
+            height: "100%",
+            width: "100%",
+            objectFit: "contain",
+            objectPosition: "right center",
+            opacity: 0.25,
+            filter: "grayscale(100%)",
           }}
-        >
-          {institutionLogoUrl ? (
-            <img
-              src={institutionLogoUrl}
-              alt="Institution logo"
-              style={{ width: 56, height: 56, objectFit: "contain" }}
-              crossOrigin="anonymous"
-            />
-          ) : (
-            <div
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 12,
-                background: "rgba(15,23,42,.06)",
-                border: "1px solid rgba(15,23,42,.08)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#64748b",
-                fontWeight: 800,
-              }}
-            >
-              UNI
-            </div>
-          )}
-          <div>
-            <div style={{ fontWeight: 900, letterSpacing: 0.2, fontSize: 16 }}>
-              {instName}
-            </div>
-            <div style={{ color: "#64748b", fontSize: 12 }}>
-              {department || field
-                ? `${department}${department && field ? " • " : ""}${field}`
-                : "Research & Innovation"}
-            </div>
-          </div>
-        </div>
-
-        {/* Sello */}
-        <div
-          style={{
-            width: 92,
-            height: 92,
-            borderRadius: 999,
-            border: "2px dashed rgba(25,179,153,.85)",
-            background: "rgba(25,179,153,.06)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#19B399",
-          }}
-        >
-          <div style={{ fontWeight: 900, fontSize: 12, letterSpacing: 1 }}>
-            BLOCKCHAIN
-          </div>
-          <div style={{ fontWeight: 900, fontSize: 12, letterSpacing: 1 }}>
-            VERIFIED
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            maxWidth: 360,
-            justifyContent: "flex-end",
-          }}
-        >
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontWeight: 900, letterSpacing: 0.2, fontSize: 16 }}>
-              MemoryChain
-            </div>
-            <div style={{ color: "#64748b", fontSize: 12 }}>
-              Immutable Academic Registry
-            </div>
-          </div>
-          {platformLogoUrl ? (
-            <img
-              src={platformLogoUrl}
-              alt="Platform logo"
-              style={{ width: 56, height: 56, objectFit: "contain" }}
-              crossOrigin="anonymous"
-            />
-          ) : (
-            <div
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 12,
-                background: "rgba(25,179,153,.10)",
-                border: "1px solid rgba(25,179,153,.25)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#0f172a",
-                fontWeight: 900,
-              }}
-            >
-              MC
-            </div>
-          )}
-        </div>
+          crossOrigin="anonymous"
+        />
       </div>
 
-      {/* Title */}
-      <div style={{ textAlign: "center", marginTop: 18 }}>
-        <div
-          style={{
-            fontFamily: "Poppins, Inter, sans-serif",
-            fontWeight: 900,
-            fontSize: 30,
-            letterSpacing: 0.3,
-          }}
-        >
-          CERTIFICATE OF THESIS VERIFICATION
-        </div>
-        <div style={{ marginTop: 6, color: "#64748b", fontSize: 13 }}>
-          This document certifies that the following thesis metadata was
-          registered and verified on a public blockchain.
-        </div>
+      {/* Capa 2: watermark (seguridad visual) */}
+      <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
+        <Watermark />
       </div>
 
-      {/* Main content */}
-      <div style={{ display: "flex", gap: 16, marginTop: 18 }}>
-        {/* Left - Thesis */}
-        <div style={{ flex: 1 }}>
+      {/* Capa 3: doble borde ornamental (firma visual del certificado) */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 18,
+          border: "6px solid rgba(11,126,122,.35)",
+          pointerEvents: "none",
+          zIndex: 3,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: 52,
+          border: "12px solid rgba(11,126,122,.85)",
+          pointerEvents: "none",
+          zIndex: 3,
+        }}
+      />
+
+      {/* Capa 4: contenido principal */}
+      <div style={{ position: "relative", zIndex: 4 }}>
+        <div style={{ width: "100%", maxWidth: 3150, marginInline: "auto" }}>
+          {/* Header: institución a la izquierda + marca MemoryChain a la derecha */}
           <div
             style={{
-              background: "#fff",
-              borderRadius: 14,
-              border: "1px solid rgba(15,23,42,.10)",
-              padding: "16px 18px",
+              display: "grid",
+              gridTemplateColumns: "1fr auto 1fr",
+              alignItems: "center",
+              gap: 54,
             }}
           >
-            <div
-              style={{
-                color: "#19B399",
-                fontWeight: 900,
-                letterSpacing: 1,
-                fontSize: 11,
-                textTransform: "uppercase",
-              }}
-            >
-              Thesis
-            </div>
-
-            {/* Título grande y con espacio para largo */}
-            <div
-              style={{
-                marginTop: 10,
-                fontFamily: "Poppins, Inter, sans-serif",
-                fontWeight: 900,
-                fontSize: 26,
-                lineHeight: 1.15,
-                wordBreak: "break-word",
-              }}
-            >
-              {title}
-            </div>
-
-            {/* Texto fluido */}
-            <div
-              style={{
-                marginTop: 10,
-                fontSize: 13,
-                color: "#0f172a",
-                lineHeight: 1.5,
-              }}
-            >
-              {subtitle || "—"}
-            </div>
-
-            {/* Issued */}
-            <div style={{ marginTop: 12, fontSize: 12, color: "#64748b" }}>
-              <strong style={{ color: "#0f172a" }}>Issued:</strong>{" "}
-              {issued || "—"}
-            </div>
-          </div>
-
-          {/* Bloque técnico: una sola línea con hash/cid/network/contract */}
-          <div
-            style={{
-              marginTop: 12,
-              background: "rgba(25,179,153,.06)",
-              border: "1px solid rgba(25,179,153,.25)",
-              borderRadius: 14,
-              padding: "14px 16px",
-            }}
-          >
-            <div
-              style={{
-                color: "#19B399",
-                fontWeight: 900,
-                letterSpacing: 1,
-                fontSize: 11,
-                textTransform: "uppercase",
-              }}
-            >
-              On-chain verification
-            </div>
-
-            {/* misma linea como pediste */}
-            <div
-              style={{
-                marginTop: 10,
-                fontSize: 12,
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 10,
-                alignItems: "center",
-              }}
-            >
-              <span style={{ color: "#64748b" }}>Hash ({hashAlg}):</span>
-              <strong style={mono} title={fileHash}>
-                {trimMiddle(fileHash, 14, 10)}
-              </strong>
-
-              <span style={{ color: "#64748b", marginLeft: 10 }}>CID:</span>
-              <strong style={mono} title={ipfsCid}>
-                {trimMiddle(ipfsCid, 16, 10)}
-              </strong>
-
-              <span style={{ color: "#64748b", marginLeft: 10 }}>Network:</span>
-              <strong>{networkLabel}</strong>
-
-              <span style={{ color: "#64748b", marginLeft: 10 }}>
-                Smart contract:
-              </span>
-              <strong style={mono} title={smartContract || ""}>
-                {smartContract ? trimMiddle(smartContract, 10, 8) : "—"}
-              </strong>
-            </div>
-
-            {/* línea secundaria opcional: tx + block */}
-            <div
-              style={{
-                marginTop: 8,
-                fontSize: 12,
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 10,
-                alignItems: "center",
-              }}
-            >
-              <span style={{ color: "#64748b" }}>Tx:</span>
-              <strong style={mono} title={txHash}>
-                {txHash ? trimMiddle(txHash, 12, 10) : "—"}
-              </strong>
-
-              <span style={{ color: "#64748b", marginLeft: 10 }}>Block:</span>
-              <strong>{blockNumber || "—"}</strong>
-
-              {explorerTx ? (
-                <span style={{ marginLeft: 10, color: "#19B399" }}>
-                  {explorerTx}
-                </span>
-              ) : null}
-            </div>
-          </div>
-
-          {/* Nota legal pequeña */}
-          <div
-            style={{
-              marginTop: 10,
-              fontSize: 11,
-              color: "#64748b",
-              textAlign: "center",
-            }}
-          >
-            This certificate attests to the existence and integrity of the
-            referenced thesis at the time of registration. Rights remain with
-            the authors and institution.
-          </div>
-        </div>
-
-        {/* Right - QR */}
-        <div style={{ width: 260 }}>
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 14,
-              border: "1px solid rgba(15,23,42,.10)",
-              padding: 14,
-            }}
-          >
-            <div style={{ fontWeight: 900, fontSize: 13 }}>
-              Verify authenticity
-            </div>
-            <div
-              style={{
-                marginTop: 6,
-                color: "#64748b",
-                fontSize: 12,
-                lineHeight: 1.4,
-              }}
-            >
-              Scan the QR code to validate this certificate and view the
-              immutable on-chain record.
-            </div>
-
-            <div
-              style={{
-                marginTop: 12,
-                borderRadius: 12,
-                border: "1px solid rgba(15,23,42,.10)",
-                padding: 10,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {qrDataUrl ? (
+            {/* Bloque institución */}
+            <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
+              {instLogo ? (
                 <img
-                  src={qrDataUrl}
-                  alt="QR"
-                  style={{ width: 180, height: 180, objectFit: "contain" }}
+                  src={instLogo}
+                  alt="Institution"
+                  style={{
+                    width: 180,
+                    height: 180,
+                    objectFit: "contain",
+                    borderRadius: 36,
+                    background: "rgba(255,255,255,.75)",
+                    border: "3px solid rgba(15,23,42,.10)",
+                    padding: 18,
+                  }}
                   crossOrigin="anonymous"
                 />
               ) : (
+                // Placeholder elegante si no hay logo
                 <div
                   style={{
                     width: 180,
                     height: 180,
+                    borderRadius: 36,
+                    background: "rgba(255,255,255,.75)",
+                    border: "3px solid rgba(15,23,42,.10)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: "#64748b",
+                    fontWeight: 900,
+                    fontSize: 44,
+                    color: "#0B7E7A",
                   }}
                 >
-                  QR…
+                  UNI
                 </div>
               )}
+
+              {/* Info de institución */}
+              <div style={{ maxWidth: 1200 }}>
+                <div style={{ fontWeight: 900, fontSize: 54, lineHeight: 1.1 }}>
+                  {instName}
+                </div>
+                <div style={{ fontSize: 32, marginTop: 8 }}>{instDept}</div>
+                <div style={{ color: "#64748b", fontSize: 32, marginTop: 8 }}>
+                  {instAddress}
+                </div>
+              </div>
             </div>
 
+            {/* Columna centro (vacía para balance visual) */}
+            <div />
+
+            {/* Bloque MemoryChain */}
             <div
               style={{
-                marginTop: 10,
-                fontSize: 11,
-                color: "#0f172a",
-                ...mono,
-                wordBreak: "break-all",
-                padding: "8px 10px",
-                borderRadius: 10,
-                border: "1px solid rgba(15,23,42,.08)",
-                background: "#fff",
+                display: "flex",
+                alignItems: "center",
+                gap: 36,
+                justifyContent: "flex-end",
               }}
             >
-              {verificationUrl || "—"}
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontWeight: 900, fontSize: 54 }}>MemoryChain</div>
+                <div style={{ color: "#64748b", fontSize: 32 }}>
+                  Immutable Academic Registry
+                </div>
+              </div>
+
+              <img
+                src={isologo}
+                alt="MemoryChain"
+                style={{
+                  width: 180,
+                  height: 180,
+                  objectFit: "contain",
+                  borderRadius: 36,
+                  background: "rgba(255,255,255,.75)",
+                  border: "3px solid rgba(15,23,42,.10)",
+                  padding: 18,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Título + descripción del certificado */}
+          <div style={{ textAlign: "center", marginTop: 70 }}>
+            <div
+              style={{
+                fontFamily: "Poppins, Inter, sans-serif",
+                fontWeight: 900,
+                fontSize: 110,
+                letterSpacing: 1.2,
+                textTransform: "uppercase",
+              }}
+            >
+              Certificate of Thesis Verification
+            </div>
+
+            {/* Barra de color con degradado (branding) */}
+            <div
+              style={{
+                width: 2100,
+                height: 14,
+                borderRadius: 999,
+                background:
+                  "linear-gradient(90deg, rgba(11,126,122,1), rgba(55,242,197,.85))",
+                margin: "18px auto 0",
+              }}
+            />
+
+            {/* Texto de propósito (explica blockchain + integridad) */}
+            <div
+              style={{
+                marginTop: 28,
+                color: "#64748b",
+                fontSize: 42,
+                maxWidth: 2900,
+                marginInline: "auto",
+                lineHeight: 1.45,
+              }}
+            >
+              This certificate confirms that the thesis record below has been
+              registered and cryptographically anchored on a public blockchain
+              to ensure integrity and verifiability.
+            </div>
+          </div>
+
+          {/* Body: izquierda info de tesis + derecha panel QR */}
+          <div
+            style={{
+              marginTop: 70,
+              display: "grid",
+              gridTemplateColumns: "1fr 880px",
+              gap: 78,
+              alignItems: "start",
+            }}
+          >
+            {/* Panel izquierdo: datos de la tesis + metadata */}
+            <div
+              style={{
+                background: "rgba(255,255,255,.76)",
+                border: "3px solid rgba(15,23,42,.10)",
+                borderRadius: 54,
+                padding: "66px 78px",
+                boxShadow: "0 18px 60px rgba(15,23,42,.06)",
+                backdropFilter: "blur(2px)",
+              }}
+            >
+              {/* Título de la tesis */}
+              <div
+                style={{
+                  fontFamily: "Poppins, Inter, sans-serif",
+                  fontWeight: 900,
+                  fontSize: 86,
+                  lineHeight: 1.12,
+                  textAlign: "center",
+                  wordBreak: "break-word",
+                }}
+              >
+                {title}
+              </div>
+
+              {/* Autores y tutores */}
+              <div
+                style={{
+                  marginTop: 22,
+                  textAlign: "center",
+                  fontSize: 54,
+                  lineHeight: 1.55,
+                }}
+              >
+                <div>
+                  <strong>Author(s):</strong> {authorsText || "—"}
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <strong>Tutor(s):</strong> {tutorsText || "—"}
+                </div>
+              </div>
+
+              {/* Contexto académico (degree + institución) */}
+              <div style={{ marginTop: 18, textAlign: "center", fontSize: 54 }}>
+                {degree ? (
+                  <>
+                    Awarded for the <strong>{degree}</strong> degree at{" "}
+                    <em>{instName}</em>.
+                  </>
+                ) : (
+                  <>
+                    Certified by <em>{instName}</em>.
+                  </>
+                )}
+              </div>
+
+              {/* Sección de metadata verificable */}
+              <div style={{ marginTop: 60 }}>
+                <div
+                  style={{
+                    background:
+                      "linear-gradient(90deg, rgba(11,126,122,1), rgba(11,126,122,.82))",
+                    color: "#fff",
+                    borderRadius: 36,
+                    padding: "26px 32px",
+                    textAlign: "center",
+                    fontWeight: 900,
+                    letterSpacing: 2.2,
+                    textTransform: "uppercase",
+                    fontSize: 38,
+                  }}
+                >
+                  Verification Metadata
+                </div>
+
+                {/* Lista de claves técnicas: FileHash, CID, Tx */}
+                <div
+                  style={{
+                    marginTop: 32,
+                    background: "rgba(255,255,255,.86)",
+                    border: "3px solid rgba(15,23,42,.10)",
+                    borderRadius: 42,
+                    padding: "36px 36px",
+                    fontSize: 40,
+                  }}
+                >
+                  {[
+                    { label: "File Hash", value: fileHash },
+                    { label: "IPFS CID", value: ipfsCid },
+                    { label: "Smart Contract", value: txHash },
+                  ].map((row, idx) => (
+                    <div key={idx} style={{ padding: "16px 12px" }}>
+                      <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+                        <div
+                          style={{
+                            width: 360,
+                            color: "#64748b",
+                            fontWeight: 800,
+                          }}
+                        >
+                          {row.label}
+                        </div>
+
+                        {/* Valores largos en mono + break-all */}
+                        <div
+                          style={{
+                            ...mono,
+                            wordBreak: "break-all",
+                            color: "#0B7E7A",
+                            flex: 1,
+                            fontSize: 38,
+                          }}
+                        >
+                          {row.value || "—"}
+                        </div>
+                      </div>
+
+                      {/* Separador interno (no al final) */}
+                      {idx < 2 && (
+                        <div
+                          style={{
+                            marginTop: 26,
+                            height: 3,
+                            background: "rgba(15,23,42,.08)",
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Nota legal/responsabilidad */}
+                <div
+                  style={{
+                    marginTop: 40,
+                    textAlign: "center",
+                    fontSize: 34,
+                    color: "#64748b",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  This certificate attests the record&apos;s integrity at the
+                  time of issuance. Rights remain with the authors and
+                  institution.
+                </div>
+              </div>
+            </div>
+
+            {/* Panel derecho: QR + fecha + badges */}
+            <div
+              style={{
+                background: "rgba(255,255,255,.78)",
+                border: "3px solid rgba(15,23,42,.10)",
+                borderRadius: 54,
+                padding: 48,
+                textAlign: "center",
+                boxShadow: "0 18px 60px rgba(15,23,42,.06)",
+                backdropFilter: "blur(2px)",
+              }}
+            >
+              <div style={{ fontWeight: 900, fontSize: 46 }}>
+                Verify Authenticity
+              </div>
+              <div
+                style={{
+                  marginTop: 18,
+                  fontSize: 36,
+                  color: "#64748b",
+                  lineHeight: 1.4,
+                }}
+              >
+                Scan the QR code to validate this certificate and view the
+                record.
+              </div>
+
+              {/* Contenedor del QR (borde + padding) */}
+              <div
+                style={{
+                  marginTop: 36,
+                  borderRadius: 42,
+                  border: "3px solid rgba(15,23,42,.10)",
+                  background: "#fff",
+                  padding: 36,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: 720,
+                }}
+              >
+                {qrDataUrl ? (
+                  <img
+                    src={qrDataUrl}
+                    alt="QR"
+                    style={{ width: 640, height: 640, objectFit: "contain" }}
+                  />
+                ) : (
+                  <div style={{ color: "#64748b", fontSize: 40 }}>QR…</div>
+                )}
+              </div>
+
+              {/* Fecha de emisión */}
+              <div style={{ marginTop: 34, textAlign: "center" }}>
+                <div style={{ marginTop: 10, fontSize: 36, color: "#64748b" }}>
+                  <strong style={{ color: "#0f172a" }}>Issued:</strong> {issued}
+                </div>
+              </div>
+
+              {/* Badges (Polygon / Blockchain / MemoryChain) para confianza visual */}
+              <div
+                style={{
+                  marginTop: 44,
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 28,
+                }}
+              >
+                <img
+                  src={PO}
+                  alt="Polygon Badge"
+                  style={{
+                    height: 220,
+                    width: "auto",
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                />
+                <img
+                  src={BC}
+                  alt="Blockchain Badge"
+                  style={{
+                    height: 220,
+                    width: "auto",
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                />
+                <img
+                  src={MC}
+                  alt="MemoryChain Badge"
+                  style={{
+                    height: 220,
+                    width: "auto",
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>

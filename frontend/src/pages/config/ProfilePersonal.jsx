@@ -3,6 +3,7 @@ import NavbarReal from "../../components/navbar/NavbarReal";
 import Layout from "../../components/layout/LayoutPrivado";
 import FormProfile from "../../components/form/FormProfile";
 
+// Componente: Página de Perfil Personal
 const ProfilePersonal = () => {
   return (
     <div

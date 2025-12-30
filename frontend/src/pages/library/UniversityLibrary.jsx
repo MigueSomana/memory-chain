@@ -3,6 +3,7 @@ import NavbarReal from "../../components/navbar/NavbarReal";
 import Layout from "../../components/layout/LayoutPrivado";
 import LibraryUSearch from "../search/LibraryUSearch";
 
+// Componente: Libreria de Institution
 const UniversityLibrary = () => {
   return (
     <div
@@ -12,7 +13,6 @@ const UniversityLibrary = () => {
       <NavbarReal />
       <div className="flex-grow-1">
         <Layout
-          showButton
           title="Our Library"
           icon={
             <svg

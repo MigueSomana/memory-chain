@@ -9,102 +9,107 @@ import {
   CloseIcon,
 } from "../../utils/icons";
 
-// Cambia esto si tu backend corre en otro puerto o ruta
+// Configuración base (API + sesión)
 const API_BASE_URL = "http://localhost:4000/api";
 const token = getAuthToken();
 
+// Componente: Perfil de Usuario
 const FormProfile = () => {
-  // ------------------ ESTADO BÁSICO ------------------
+  // Estado inicial (datos cargados del backend)
   const [initialData, setInitialData] = useState(null);
   const [institutionOptions, setInstitutionOptions] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  // Imagen
+  // Imagen de perfil (preview + archivo)
   const [imgPreview, setImgPreview] = useState("");
   const [imgFile, setImgFile] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Abre el selector de archivos
   const pickImage = () => fileInputRef.current?.click();
+
+  // Bandera para indicar que se desea eliminar la imagen
   const [removeImgFlag, setRemoveImgFlag] = useState(false);
 
+  // Elimina imagen localmente y marca para remover en backend
   const removeImage = () => {
     setImgPreview("");
     setImgFile(null);
-    setRemoveImgFlag(true); // 👈 marca para backend
+    setRemoveImgFlag(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  // Maneja el cambio de imagen (validación + preview)
   const onImageChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     if (!/image\/(png|jpe?g|webp)/.test(file.type)) {
       alert("Unsupported image format. Use PNG/JPG/WebP.");
       return;
     }
+
     if (file.size > 3 * 1024 * 1024) {
       alert("Image must be less than 3MB.");
       return;
     }
+
     setImgFile(file);
     const reader = new FileReader();
     reader.onload = () => setImgPreview(String(reader.result));
     reader.readAsDataURL(file);
   };
 
-  // Datos básicos
+  // Datos básicos del usuario
   const [name, setName] = useState("");
   const [lastname, setLastname] = useState("");
   const [email, setEmail] = useState("");
 
-  // Seguridad
+  // Seguridad (cambio de contraseña)
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Instituciones seleccionadas por el usuario
+  // Instituciones vinculadas + emails institucionales
   const [institutions, setInstitutions] = useState([]);
-  // Correo institucional por institución: { [instId]: email }
   const [institutionEmails, setInstitutionEmails] = useState({});
 
-  // Para el select de instituciones
+  // Control de selección / edición
   const [selectedInstitutionId, setSelectedInstitutionId] = useState("");
-  // Id de la institución que se está editando (para mostrar/ocultar inputs)
   const [editingInstitutionId, setEditingInstitutionId] = useState("");
 
+  // Validaciones generales
   const [errors, setErrors] = useState({});
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  // IDs de instituciones que ya existían en el perfil al cargar (no se pueden borrar)
+  // IDs de instituciones que ya venían en el perfil (para diferenciar "nuevas")
   const initialInstitutionIdSet = useMemo(() => {
     const ids = new Set();
     if (!initialData) return ids;
 
+    // IDs desde educationalEmails
     const eduEmails = initialData.educationalEmails || [];
     eduEmails.forEach((entry) => {
       if (!entry) return;
       const inst = entry.institution;
-      if (typeof inst === "string") {
-        ids.add(inst);
-      } else if (inst && inst._id) {
-        ids.add(inst._id);
-      }
+      if (typeof inst === "string") ids.add(inst);
+      else if (inst && inst._id) ids.add(inst._id);
     });
 
+    // IDs desde institutions
     const insts = initialData.institutions || [];
     insts.forEach((inst) => {
-      if (typeof inst === "string") {
-        ids.add(inst);
-      } else if (inst && inst._id) {
-        ids.add(inst._id);
-      }
+      if (typeof inst === "string") ids.add(inst);
+      else if (inst && inst._id) ids.add(inst._id);
     });
 
     return ids;
   }, [initialData]);
 
-  // ------------------ CARGA INICIAL (GET /me + GET /institutions) ------------------
+  // Carga inicial (perfil + lista de instituciones)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -114,6 +119,7 @@ const FormProfile = () => {
           return;
         }
 
+        // Trae usuario actual + instituciones disponibles
         const [userRes, instRes] = await Promise.all([
           axios.get(`${API_BASE_URL}/users/me`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -129,19 +135,16 @@ const FormProfile = () => {
         setInitialData(user);
         setInstitutionOptions(allInstitutions);
 
-        // Imagen inicial (si tu modelo tiene imgUrl)
+        // Inicializa preview + campos básicos
         const imgUrl = user.imgUrl || "";
         setImgPreview(imgUrl);
 
-        // Datos básicos
         setName(user.name || "");
         setLastname(user.lastname || "");
         setEmail(user.email || "");
 
-        // educationalEmails
+        // Construye mapa institutionId -> email institucional
         const eduEmails = user.educationalEmails || [];
-
-        // 1) Mapeamos institutionId -> email
         const emailMap = {};
         eduEmails.forEach((entry) => {
           if (entry.institution && entry.email) {
@@ -150,7 +153,7 @@ const FormProfile = () => {
         });
         setInstitutionEmails(emailMap);
 
-        // 2) A partir de esos IDs construimos el arreglo de instituciones
+        // Crea el arreglo institutions con objetos completos
         const instIdsFromEdu = eduEmails.map((e) => e.institution);
         const userInsts = allInstitutions.filter((inst) =>
           instIdsFromEdu.includes(inst._id)
@@ -168,12 +171,13 @@ const FormProfile = () => {
     fetchData();
   }, []);
 
-  // ------------------ OPCIONES DE INSTITUCIONES RESTANTES ------------------
+  // Opciones restantes (instituciones aún no agregadas)
   const remainingOptions = useMemo(() => {
     const selectedIds = new Set(institutions.map((i) => i._id));
     return institutionOptions.filter((opt) => !selectedIds.has(opt._id));
   }, [institutionOptions, institutions]);
 
+  // Gestión de instituciones (agregar / quitar / editar email)
   const addInstitution = () => {
     if (!selectedInstitutionId) return;
     const opt = institutionOptions.find((o) => o._id === selectedInstitutionId);
@@ -184,7 +188,7 @@ const FormProfile = () => {
       return [...prev, opt];
     });
 
-    // Al añadir una institución nueva, abrimos inmediatamente sus inputs de edición
+    // Al agregar una institución, abrimos edición del email
     setEditingInstitutionId(opt._id);
     setSelectedInstitutionId("");
   };
@@ -206,39 +210,32 @@ const FormProfile = () => {
     }));
   };
 
-  // ------------------ VALIDACIONES ------------------
+  // Validación básica (campos + contraseña)
   const validateBasic = () => {
     const e = {};
 
-    // Campos básicos: no vacíos
     if (!name.trim()) e.name = "First name is required.";
     if (!lastname.trim()) e.lastname = "Last name is required.";
+
     if (!email.trim()) {
       e.email = "Email is required.";
     } else if (!EMAIL_RE.test(email)) {
       e.email = "Invalid email format.";
     }
 
-    // Password: solo validamos si el usuario intenta cambiarla
+    // Si se intenta cambiar password, validamos condiciones
     if (password || confirm) {
       const pwd = password || "";
       const conf = confirm || "";
 
-      if (!pwd.trim()) {
-        e.password = "Password is required.";
-      }
-
-      if (!conf.trim()) {
-        e.confirm = "Please confirm your password.";
-      }
+      if (!pwd.trim()) e.password = "Password is required.";
+      if (!conf.trim()) e.confirm = "Please confirm your password.";
 
       if (pwd.trim()) {
-        // Longitud mínima
         if (pwd.length < 8) {
           e.password = "Password must be at least 8 characters long.";
         }
 
-        // Reglas de complejidad
         const hasUpper = /[A-Z]/.test(pwd);
         const hasLower = /[a-z]/.test(pwd);
         const hasDigit = /\d/.test(pwd);
@@ -250,7 +247,6 @@ const FormProfile = () => {
         }
       }
 
-      // Coincidencia
       if (pwd && conf && pwd !== conf) {
         e.confirm = "Passwords do not match.";
       }
@@ -260,11 +256,11 @@ const FormProfile = () => {
     return Object.keys(e).length === 0;
   };
 
+  // Validación de emails institucionales por dominio permitido
   const validateInstitutionEmails = () => {
-    // Recorremos cada email institucional y validamos dominio
     for (const [instId, eduEmailRaw] of Object.entries(institutionEmails)) {
       const eduEmail = eduEmailRaw.trim();
-      if (!eduEmail) continue; // si está vacío, lo ignoramos
+      if (!eduEmail) continue;
 
       const institution = institutionOptions.find((i) => i._id === instId);
       if (!institution) continue;
@@ -301,9 +297,10 @@ const FormProfile = () => {
     return true;
   };
 
-  // ------------------ SUBMIT (PUT /users/me) ------------------
+  // Guardar cambios del perfil (PUT con FormData)
   const handleSubmit = async (ev) => {
     ev.preventDefault();
+
     if (!validateBasic()) return;
     if (!validateInstitutionEmails()) return;
 
@@ -318,30 +315,30 @@ const FormProfile = () => {
         return;
       }
 
-      // ✅ multipart/form-data
+      // Payload tipo multipart para soportar imagen
       const form = new FormData();
 
-      // Imagen (solo si el usuario seleccionó una nueva)
+      // Imagen: subir nueva o marcar eliminación
       if (imgFile) {
         form.append("img", imgFile);
-        // si subes una nueva, asegúrate de no remover
         form.append("removeImg", "0");
       } else {
-        // si el usuario clickeó remove, lo mandas
         if (removeImgFlag) form.append("removeImg", "1");
       }
 
-      // Campos
+      // Campos básicos
       form.append("name", name.trim());
       form.append("lastname", lastname.trim());
       form.append("email", email.trim().toLowerCase());
 
+      // Password opcional
       if (password) form.append("password", password);
 
-      // Arrays como JSON
+      // Instituciones vinculadas
       const currentInstIds = institutions.map((i) => i._id);
       form.append("institutions", JSON.stringify(currentInstIds));
 
+      // Emails institucionales (solo los no vacíos)
       const educationalEmailsPayload = Object.entries(institutionEmails)
         .map(([instId, eduEmailRaw]) => ({
           institution: instId,
@@ -354,27 +351,19 @@ const FormProfile = () => {
         JSON.stringify(educationalEmailsPayload)
       );
 
+      // Enviar actualización
       const res = await axios.put(`${API_BASE_URL}/users/me`, form, {
         headers: {
           Authorization: `Bearer ${token}`,
-          // ❌ NO pongas Content-Type manual; axios lo setea con boundary
         },
       });
 
       alert("Profile updated successfully.");
-      if (imgFile) {
-        form.append("img", imgFile);
-        // si subes una nueva, asegúrate de no remover
-        form.append("removeImg", "0");
-      } else {
-        // si el usuario clickeó remove, lo mandas
-        if (removeImgFlag) form.append("removeImg", "1");
-      }
-      // ✅ refresca datos locales
+
+      // Refresca estado local con la respuesta
       const updatedUser = res.data;
       setInitialData(updatedUser);
 
-      // si backend devuelve imgUrl, úsalo
       if (updatedUser.imgUrl) {
         setImgPreview(updatedUser.imgUrl);
         setImgFile(null);
@@ -388,7 +377,7 @@ const FormProfile = () => {
     }
   };
 
-  // ------------------ RENDER ------------------
+  // Estados de carga / error
   if (loading) {
     return <div className="container py-2">Loading profile...</div>;
   }
@@ -397,9 +386,9 @@ const FormProfile = () => {
     return <div className="container py-2 text-danger">{loadError}</div>;
   }
 
+  // Render del formulario
   return (
     <form className="container mb-3" onSubmit={handleSubmit}>
-      {/* BASIC INFORMATION */}
       <section className="mb-4">
         <h5 className="mb-2 mt-0">Basic information</h5>
 
@@ -418,6 +407,7 @@ const FormProfile = () => {
                 </span>
               )}
             </div>
+
             <div className="d-flex flex-column gap-2">
               <button
                 type="button"
@@ -426,6 +416,7 @@ const FormProfile = () => {
               >
                 Upload image
               </button>
+
               {imgPreview && (
                 <button
                   type="button"
@@ -435,6 +426,7 @@ const FormProfile = () => {
                   Remove
                 </button>
               )}
+
               <input
                 ref={fileInputRef}
                 type="file"
@@ -446,7 +438,6 @@ const FormProfile = () => {
           </div>
 
           <div className="col-md-8">
-            {/* First + Last name en la misma fila */}
             <div className="row g-3">
               <div className="col-md-6">
                 <label className="form-label">First name </label>
@@ -461,6 +452,7 @@ const FormProfile = () => {
                   <div className="invalid-feedback">{errors.name}</div>
                 )}
               </div>
+
               <div className="col-md-6">
                 <label className="form-label">Last name </label>
                 <input
@@ -478,7 +470,6 @@ const FormProfile = () => {
               </div>
             </div>
 
-            {/* Email debajo */}
             <div className="mt-3">
               <label className="form-label">Email </label>
               <input
@@ -499,9 +490,9 @@ const FormProfile = () => {
 
       <hr />
 
-      {/* SECURITY */}
       <section className="mb-4">
         <h5 className="mb-3">Security</h5>
+
         <div className="row g-3">
           <div className="col-md-6">
             <label className="form-label">New password</label>
@@ -563,11 +554,9 @@ const FormProfile = () => {
 
       <hr />
 
-      {/* INSTITUTIONS */}
       <section className="mb-4">
         <h5 className="mb-3">Institutions</h5>
 
-        {/* Cards siempre visibles */}
         <div className="mb-3 d-flex flex-column gap-3">
           {institutions.length === 0 ? (
             <span className="text-muted">No institutions added.</span>
@@ -578,11 +567,11 @@ const FormProfile = () => {
               const allowedDomains = inst.emailDomains || [];
               const isEditing = editingInstitutionId === instId;
               const isNew = !initialInstitutionIdSet.has(instId);
+
               return (
                 <React.Fragment key={instId}>
                   <div className="card shadow-sm">
                     <div className="card-body d-flex align-items-center gap-3">
-                      {/* Logo */}
                       <div
                         style={{
                           width: 72,
@@ -609,7 +598,6 @@ const FormProfile = () => {
                         )}
                       </div>
 
-                      {/* Info principal */}
                       <div className="flex-grow-1">
                         <h5 className="m-0 fw-semibold">{inst.name}</h5>
                         <div className="text-muted small">
@@ -617,7 +605,6 @@ const FormProfile = () => {
                         </div>
                       </div>
 
-                      {/* Botón editar */}
                       <div className="d-flex align-items-center gap-2">
                         <button
                           type="button"
@@ -635,7 +622,6 @@ const FormProfile = () => {
                     </div>
                   </div>
 
-                  {/* Panel de edición SOLO cuando se está editando esta institución */}
                   {isEditing && (
                     <div className="mt-2 border rounded p-2">
                       <label
@@ -649,6 +635,7 @@ const FormProfile = () => {
                           </span>
                         )}
                       </label>
+
                       <div className="d-flex gap-2">
                         <input
                           type="email"
@@ -659,7 +646,7 @@ const FormProfile = () => {
                           }
                           placeholder="john@youruniversity.edu"
                         />
-                        {/* Solo se puede descartar si es una institución nueva */}
+
                         {isNew && (
                           <button
                             type="button"
@@ -679,7 +666,6 @@ const FormProfile = () => {
           )}
         </div>
 
-        {/* Selector para añadir nuevas instituciones */}
         <div className="row g-3 align-items-end">
           <div className="col-md-8">
             <label className="form-label">Select an institution</label>
@@ -696,6 +682,7 @@ const FormProfile = () => {
               ))}
             </select>
           </div>
+
           <div className="col-md-4 d-grid">
             <button
               type="button"
@@ -709,6 +696,7 @@ const FormProfile = () => {
         </div>
       </section>
 
+      {/* Acciones finales */}
       <div className="mt-4 d-flex justify-content-end gap-2">
         <button
           type="button"

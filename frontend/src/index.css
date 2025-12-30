@@ -365,3 +365,9 @@ body {
   cursor: pointer;
   box-shadow: 0 0 0 0.15rem rgba(32, 201, 151, 0.15);
 }
+.text-bg-warning {
+    color: #fff !important;
+}
+.t-white {
+  color: #fff !important;
+}

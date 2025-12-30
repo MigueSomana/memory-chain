@@ -19,17 +19,17 @@ const Segmented = ({ options, value, onChange }) => (
   </div>
 );
 
+// Layout para las vistas para usuario o institution logueado
 const LayoutPrivado = ({
   icon,
   title,
   children,
 
-  // ✅ Opcional: mostrar u ocultar el switch
-  showSwitch = false,
-  showButton = false,
-  showBack = false,
+  showSwitch = false, // Switch de institution-thesis en explore
+  showButton = false, // Botón de "Add Thesis"
+  showBack = false, // Botón de "Back"
+  showBackDashboard = false, // Botón de "Back" a Dashboard 
 
-  // ✅ Opcional: controlar el switch desde fuera (o dejarlo no-controlado)
   activeKey: controlledKey,
   onChange,
   options = [
@@ -68,7 +68,7 @@ const LayoutPrivado = ({
           {showButton && (
             <div className="d-flex" style={{ marginLeft: "auto" }}>
               <a
-                href={"/upload"}
+                href={"/new-upload"}
                 type="button"
                 className="btn btn-memory d-flex align-items-center justify-content-center gap-2"
               >
@@ -81,12 +81,26 @@ const LayoutPrivado = ({
             <div className="d-flex" style={{ marginLeft: "auto" }}>
               <a
                 href={
-                  getAuthActor() === "institution" ? "/libraryU" : "/libraryP"
+                  getAuthActor() === "institution" ? "/library-institution" : "/library-personal"
                 }
                 type="button"
                 className="btn btn-secondary d-flex align-items-center justify-content-center gap-2"
               >
-                {BackIcon} 
+                {BackIcon}
+                <span className="t-white"> Back</span>
+              </a>
+            </div>
+          )}
+          {showBackDashboard && (
+            <div className="d-flex" style={{ marginLeft: "auto" }}>
+              <a
+                href={
+                  getAuthActor() === "institution" ? "/dashboard-institution" : "/dashboard-personal"
+                }
+                type="button"
+                className="btn btn-secondary d-flex align-items-center justify-content-center gap-2"
+              >
+                {BackIcon}
                 <span className="t-white"> Back</span>
               </a>
             </div>

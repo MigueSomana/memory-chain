@@ -10,36 +10,37 @@ import {
 } from "../../utils/icons";
 import { getAuthActor } from "../../utils/authSession";
 
+// Navbar para vistas privadas (logueado)
 const NavbarReal = () => {
   const [activeKey, setActiveKey] = useState("dashboard");
 
   const actor = getAuthActor();
-  const isInstitution = actor === "institution"; // si no, asumimos user/estudiante
+  const isInstitution = actor === "institution"; 
 
   const items = [
     {
       key: "dashboard",
       label: "Dashboard",
       icon: DashboardIcon,
-      href: isInstitution ? "/dashboardU" : "/dashboardP",
+      href: isInstitution ? "/dashboard-institution" : "/dashboard-personal",
     },
     {
       key: "explore",
       label: "Explore",
       icon: ExploreIcon,
-      href: "/search",
+      href: "/explore",
     },
     {
       key: "library",
       label: "Library",
       icon: LibraryIcon,
-      href: isInstitution ? "/libraryU" : "/libraryP",
+      href: isInstitution ? "/library-institution" : "/library-personal",
     },
     {
       key: "profile",
       label: "Profile",
       icon: isInstitution ? ProfileUIcon : ProfilePIcon,
-      href: isInstitution ? "/profileU" : "/profileP",
+      href: isInstitution ? "/profile-institution" : "/profile-personal",
     },
     {
       key: "signout",

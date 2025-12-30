@@ -3,9 +3,9 @@ import { clearAuthSession } from "../../utils/authSession";
 
 const handleLogout = () => {
   clearAuthSession();
-  window.location.href = "/"; 
+  window.location.href = "/";
 };
-
+// Modal de Sign Out
 const ModalSignOut = () => {
   return (
     <>
@@ -17,7 +17,7 @@ const ModalSignOut = () => {
         aria-hidden="true"
       >
         <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content bg-dark text-white">
+          <div className="modal-content bg-mc-dark text-white">
             <div className="modal-body container mb-4">
               <div className="row">
                 <div className="button-close-modal-fix">
@@ -32,9 +32,7 @@ const ModalSignOut = () => {
                   Are you sure you want to log out?
                 </p>
 
-                {/* Botones */}
                 <div className="d-flex justify-content-center gap-3">
-                  {/* Botón rojo (logout) */}
                   <button
                     type="button"
                     className="btn btn-danger px-4"
@@ -43,7 +41,6 @@ const ModalSignOut = () => {
                     Log out
                   </button>
 
-                  {/* Botón outline-memory (cerrar) */}
                   <button
                     type="button"
                     className="btn btn-outline-memory px-4"

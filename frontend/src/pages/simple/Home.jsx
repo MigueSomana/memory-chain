@@ -1,7 +1,10 @@
-import React from "react";
+import React from 'react'
+import NavbarInit from '../../components/navbar/NavbarInit'
 
-const Hero = () => {
+const Home = () => {
   return (
+    <>
+    <NavbarInit/>
     <div className="background-home text-white">
       <div className="container-fluid">
         <div className="row justify-content-end">
@@ -33,7 +36,8 @@ const Hero = () => {
         </div>
       </div>
     </div>
-  );
-};
+    </>    
+  )
+}
 
-export default Hero;
+export default Home;

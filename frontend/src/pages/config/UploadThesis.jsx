@@ -5,6 +5,7 @@ import Layout from "../../components/layout/LayoutPrivado";
 import FormThesis from "../../components/form/FormThesis";
 import { getIdUser, getIdInstitution, getAuthToken } from "../../utils/authSession";
 
+// Componente: Página de Subida de Tesis
 const UploadThesis = () => {
   var idUser = getIdUser();
   var idInstitution = getIdInstitution();
@@ -14,7 +15,6 @@ const UploadThesis = () => {
 const [institutionOptions, setInstitutionOptions] = useState([]);
 const [ setLoadingInst] = useState(true);
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
-
 
 useEffect(() => {
     const fetchInstitutions = async () => {
