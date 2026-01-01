@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import ModalCertificate from "../../components/modal/ModalCertificate";
+import ModalView from "../../components/modal/ModalView";
 import axios from "axios";
 import { getAuthToken, getAuthUser } from "../../utils/authSession";
 import {
@@ -16,7 +17,6 @@ import {
 
 // CONFIG GLOBAL (API + IPFS gateway)
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
-const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
 
 // UI OPTIONS (Ordenamiento)
 const SORT_OPTIONS = [
@@ -129,6 +129,9 @@ const LibraryPSearch = () => {
   // ---------- Certificate modal ----------
   const [certificateData, setCertificateData] = useState(null);
   const [selectedThesis, setSelectedThesis] = useState(null);
+
+  // -------------- View modal ----------
+  const [selectedThesisView, setSelectedThesisView] = useState(null);
 
   // Load: trae TODAS las theses y filtra las que “pertenecen” al usuario
   useEffect(() => {
@@ -278,15 +281,16 @@ const LibraryPSearch = () => {
 
   // Actions: abrir PDF en gateway
   const handleView = (thesis) => {
-    const cid = thesis.ipfsCid;
+    setSelectedThesisView(thesis);
 
-    if (!cid) {
-      alert("This thesis does not have a downloadable file.");
-      return;
-    }
+    const el = document.getElementById("modalView");
+    if (!el) return;
 
-    const url = `https://${gateway}/ipfs/${cid}#toolbar=0&navpanes=0&scrollbar=0`;
-    window.open(url, "_blank");
+    const modal = window.bootstrap?.Modal?.getOrCreateInstance(el, {
+      backdrop: "static",
+      keyboard: false,
+    });
+    modal?.show();
   };
 
   // Placeholder: permiso / edición (por ahora logs)
@@ -405,6 +409,9 @@ const LibraryPSearch = () => {
   // Render: UI principal
   return (
     <div className="container py-2">
+      {/* ModalView montado (recibe la tesis seleccionada) */}
+      <ModalView thesis={selectedThesisView} />
+
       {/* Search + Sort */}
       <div className="row g-3 align-items-center mb-3">
         <div className="col-lg-8">
@@ -420,7 +427,7 @@ const LibraryPSearch = () => {
             />
 
             {/* Sort dropdown (Bootstrap) */}
-            <div className="dropdown mc-sort">
+            <div className="dropdown mc-sort mc-select">
               <button
                 className="btn btn-outline-secondary dropdown-toggle"
                 type="button"
@@ -431,7 +438,7 @@ const LibraryPSearch = () => {
                 {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
               </button>
 
-              <ul className="dropdown-menu dropdown-menu-end">
+              <ul className="dropdown-menu dropdown-menu-end mc-select">
                 {SORT_OPTIONS.map((opt) => (
                   <li key={opt.key}>
                     <button
@@ -473,21 +480,6 @@ const LibraryPSearch = () => {
             return (
               <div key={rowKey} className="card shadow-sm">
                 <div className="card-body d-flex align-items-center gap-3">
-                  {/* Thumbnail (placeholder) */}
-                  <div
-                    style={{
-                      width: 72,
-                      height: 72,
-                      borderRadius: 12,
-                      overflow: "hidden",
-                      background: "#f8f9fa",
-                      border: "1px solid #eee",
-                      flex: "0 0 auto",
-                    }}
-                    className="d-flex align-items-center justify-content-center text-muted"
-                  >
-                    PDF
-                  </div>
 
                   {/* Info */}
                   <div className="flex-grow-1">
@@ -512,7 +504,7 @@ const LibraryPSearch = () => {
                     </div>
 
                     <div className="text-muted small">
-                      CID: {t.ipfsCid ?? "—"}
+                      File Hash: {t.fileHash ?? "—"}
                     </div>
 
                     {t.keywords?.length ? (

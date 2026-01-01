@@ -3,8 +3,13 @@ import { register, registerInstitution, login } from "../controllers/auth.contro
 
 const router = Router();
 
+// Registro de usuarios normales
 router.post("/register", register);
-router.post("/register/i", registerInstitution);
+
+// Registro de instituciones
+router.post("/registerinst", registerInstitution);
+
+// Login unificado (usuario o institución)
 router.post("/login", login);
 
 export default router;

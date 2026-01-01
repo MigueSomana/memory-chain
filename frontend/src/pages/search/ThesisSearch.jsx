@@ -1,7 +1,13 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { getAuthRole, getAuthToken } from "../../utils/authSession";
+import ModalView from "../../components/modal/ModalView";
 import axios from "axios";
-import { EyeFillIcon, HeartFill, HeartOutline, QuoteFill } from "../../utils/icons";
+import {
+  EyeFillIcon,
+  HeartFill,
+  HeartOutline,
+  QuoteFill,
+} from "../../utils/icons";
 
 // ===================== Configuración base (API + Auth + Gateway) =====================
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -58,6 +64,9 @@ const ThesisSearch = () => {
   const [liked, setLiked] = useState({});
   const [institutions, setInstitutions] = useState([]);
 
+  // Thesis seleccionada para el modal View
+  const [selectedForView, setSelectedForView] = useState(null);
+
   // ---------- Estados de carga/errores ----------
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -88,7 +97,9 @@ const ThesisSearch = () => {
         setLoading(true);
         setLoadError("");
 
-        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        const headers = token
+          ? { Authorization: `Bearer ${token}` }
+          : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses`,
@@ -114,7 +125,9 @@ const ThesisSearch = () => {
 
           const userLiked =
             Array.isArray(t.likedBy) && currentUserId
-              ? t.likedBy.some((u) => String(u?._id ?? u) === String(currentUserId))
+              ? t.likedBy.some(
+                  (u) => String(u?._id ?? u) === String(currentUserId)
+                )
               : false;
 
           return { ...t, likes, userLiked };
@@ -144,7 +157,9 @@ const ThesisSearch = () => {
     const fetchInstitutions = async () => {
       try {
         const tokenLocal = localStorage.getItem("memorychain_token");
-        const headers = tokenLocal ? { Authorization: `Bearer ${tokenLocal}` } : undefined;
+        const headers = tokenLocal
+          ? { Authorization: `Bearer ${tokenLocal}` }
+          : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/institutions`,
@@ -165,7 +180,9 @@ const ThesisSearch = () => {
   // ===================== Opciones del filtro institución =====================
   const institutionOptions = useMemo(() => {
     const names = institutions.map((i) => i.name).filter(Boolean);
-    const unique = Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+    const unique = Array.from(new Set(names)).sort((a, b) =>
+      a.localeCompare(b)
+    );
     return ["all", ...unique];
   }, [institutions]);
 
@@ -201,12 +218,15 @@ const ThesisSearch = () => {
         language === "all" || (t.language || "").toLowerCase() === language;
 
       // Grado
-      const matchesDegree = degree === "all" || String(t.degree || "") === degree;
+      const matchesDegree =
+        degree === "all" || String(t.degree || "") === degree;
 
       // Rango de años
       const yearNum = Number(t.year);
       const inYearRange =
-        !Number.isNaN(yearNum) && yearNum >= Number(minYear) && yearNum <= Number(maxYear);
+        !Number.isNaN(yearNum) &&
+        yearNum >= Number(minYear) &&
+        yearNum <= Number(maxYear);
 
       // Institución
       const matchesInst =
@@ -214,11 +234,29 @@ const ThesisSearch = () => {
 
       // Filtro por status (all = APPROVED + PENDING)
       const matchesStatus =
-        selectedStatus === "ALL" ? status === "APPROVED" || status === "PENDING" : status === selectedStatus;
+        selectedStatus === "ALL"
+          ? status === "APPROVED" || status === "PENDING"
+          : status === selectedStatus;
 
-      return matchesQ && matchesLang && matchesDegree && inYearRange && matchesInst && matchesStatus;
+      return (
+        matchesQ &&
+        matchesLang &&
+        matchesDegree &&
+        inYearRange &&
+        matchesInst &&
+        matchesStatus
+      );
     });
-  }, [theses, query, language, degree, minYear, maxYear, institutionFilter, statusFilter]);
+  }, [
+    theses,
+    query,
+    language,
+    degree,
+    minYear,
+    maxYear,
+    institutionFilter,
+    statusFilter,
+  ]);
 
   // ===================== Ordenamiento =====================
   const filteredOrdered = useMemo(() => {
@@ -269,21 +307,30 @@ const ThesisSearch = () => {
   const start = (currentPage - 1) * pageSize;
   const end = start + pageSize;
 
-  const pageItems = useMemo(() => filteredOrdered.slice(start, end), [filteredOrdered, start, end]);
+  const pageItems = useMemo(
+    () => filteredOrdered.slice(start, end),
+    [filteredOrdered, start, end]
+  );
 
-  const pagesArray = useMemo(() => Array.from({ length: totalPages }, (_, i) => i + 1), [totalPages]);
+  const pagesArray = useMemo(
+    () => Array.from({ length: totalPages }, (_, i) => i + 1),
+    [totalPages]
+  );
 
   const go = (p) => setPage(p);
 
   // ===================== Acción: ver PDF (gateway/IPFS) =====================
   const handleView = (thesis) => {
-    const cid = thesis.ipfsCid;
-    if (!cid) {
-      alert("This thesis does not have a downloadable file.");
-      return;
-    }
-    const url = `https://${gateway}/ipfs/${cid}#toolbar=0&navpanes=0&scrollbar=0`;
-    window.open(url, "_blank");
+    setSelectedForView(thesis);
+
+    const el = document.getElementById("modalView");
+    if (!el) return;
+
+    const modal = window.bootstrap?.Modal?.getOrCreateInstance(el, {
+      backdrop: "static",
+      keyboard: false,
+    });
+    modal?.show();
   };
 
   // ===================== Cita APA + Clipboard =====================
@@ -364,9 +411,12 @@ const ThesisSearch = () => {
         : "";
 
     const cid = thesis?.ipfsCid;
-    const url = cid && gatewayDomain ? `https://${gatewayDomain}/ipfs/${cid}` : "";
+    const url =
+      cid && gatewayDomain ? `https://${gatewayDomain}/ipfs/${cid}` : "";
 
-    const bracket = instName ? `[${thesisType}, ${instName}]` : `[${thesisType}]`;
+    const bracket = instName
+      ? `[${thesisType}, ${instName}]`
+      : `[${thesisType}]`;
 
     const base = `${authors} (${year}). ${title} ${bracket}`;
     return url ? `${base}. ${url}` : `${base}.`;
@@ -394,7 +444,11 @@ const ThesisSearch = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      const res = await axios.post(`${API_BASE_URL}/api/theses/${id}/like`, null, { headers });
+      const res = await axios.post(
+        `${API_BASE_URL}/api/theses/${id}/like`,
+        null,
+        { headers }
+      );
 
       const { thesis, liked: isLiked } = res.data || {};
 
@@ -440,6 +494,9 @@ const ThesisSearch = () => {
   // ===================== Render principal =====================
   return (
     <div className="container py-2">
+      {/* ModalView montado aquí, recibe la thesis seleccionada */}
+      <ModalView thesis={selectedForView} />
+
       {/* Top bar: Search + Sort */}
       <div className="row g-3 align-items-center mb-3">
         <div className="col-lg-8">
@@ -454,21 +511,24 @@ const ThesisSearch = () => {
               }}
             />
 
-            <div className="dropdown mc-sort">
+            <div className="dropdown mc-sort mc-select">
               <button
                 className="btn btn-outline-secondary dropdown-toggle"
                 type="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                Sort by: {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
+                Sort by:{" "}
+                {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
               </button>
 
-              <ul className="dropdown-menu dropdown-menu-end">
+              <ul className="dropdown-menu dropdown-menu-end mc-select">
                 {SORT_OPTIONS.map((opt) => (
                   <li key={opt.key}>
                     <button
-                      className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
+                      className={`dropdown-item ${
+                        sortBy === opt.key ? "active" : ""
+                      }`}
                       onClick={() => {
                         setSortBy(opt.key);
                         setPage(1);
@@ -486,7 +546,8 @@ const ThesisSearch = () => {
 
         <div className="col-lg-4 text-lg-end">
           <span className="text-muted">
-            {filteredOrdered.length} result{filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
+            {filteredOrdered.length} result
+            {filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
             {totalPages}
           </span>
         </div>
@@ -503,21 +564,6 @@ const ThesisSearch = () => {
             return (
               <div key={rowKey} className="card shadow-sm">
                 <div className="card-body d-flex align-items-center gap-3">
-                  {/* Thumbnail */}
-                  <div
-                    style={{
-                      width: 72,
-                      height: 72,
-                      borderRadius: 12,
-                      overflow: "hidden",
-                      background: "#f8f9fa",
-                      border: "1px solid #eee",
-                      flex: "0 0 auto",
-                    }}
-                    className="d-flex align-items-center justify-content-center text-muted"
-                  >
-                    PDF
-                  </div>
 
                   {/* Main info */}
                   <div className="flex-grow-1">
@@ -542,12 +588,13 @@ const ThesisSearch = () => {
                       {" · "}
                     </div>
 
-                    <div className="text-muted small">CID: {t.ipfsCid ?? "—"}</div>
-
                     {t.keywords?.length ? (
                       <div className="mt-1 d-flex flex-wrap gap-2">
                         {t.keywords.map((k, kidx) => (
-                          <span key={`${rowKey}-kw-${kidx}`} className="badge text-bg-light">
+                          <span
+                            key={`${rowKey}-kw-${kidx}`}
+                            className="badge text-bg-light"
+                          >
                             {k}
                           </span>
                         ))}
@@ -557,11 +604,21 @@ const ThesisSearch = () => {
 
                   {/* Actions */}
                   <div className="d-flex align-items-center gap-2">
-                    <button type="button" className="btn btn-memory" title="Download" onClick={() => handleView(t)}>
+                    <button
+                      type="button"
+                      className="btn btn-memory"
+                      title="View"
+                      onClick={() => handleView(t)}
+                    >
                       {EyeFillIcon}
                     </button>
 
-                    <button type="button" className="btn btn-warning" title="Cite" onClick={() => handleQuote(t)}>
+                    <button
+                      type="button"
+                      className="btn btn-warning"
+                      title="Cite"
+                      onClick={() => handleQuote(t)}
+                    >
                       {QuoteFill}
                     </button>
 
@@ -582,27 +639,53 @@ const ThesisSearch = () => {
             );
           })}
 
-          {pageItems.length === 0 && <div className="text-muted">No theses found.</div>}
+          {pageItems.length === 0 && (
+            <div className="text-muted">No theses found.</div>
+          )}
 
           {/* Pagination */}
-          <nav aria-label="Theses pagination" className="mt-3 d-flex justify-content-center">
+          <nav
+            aria-label="Theses pagination"
+            className="mt-3 d-flex justify-content-center"
+          >
             <ul className="pagination mc-pagination">
-              <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                <button className="page-link" onClick={() => go(1)} type="button">
+              <li
+                className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
+              >
+                <button
+                  className="page-link"
+                  onClick={() => go(1)}
+                  type="button"
+                >
                   First
                 </button>
               </li>
 
               {pagesArray.map((p) => (
-                <li key={`p-${p}`} className={`page-item ${p === currentPage ? "active" : ""}`}>
-                  <button className="page-link" onClick={() => go(p)} type="button">
+                <li
+                  key={`p-${p}`}
+                  className={`page-item ${p === currentPage ? "active" : ""}`}
+                >
+                  <button
+                    className="page-link"
+                    onClick={() => go(p)}
+                    type="button"
+                  >
                     {p}
                   </button>
                 </li>
               ))}
 
-              <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                <button className="page-link" onClick={() => go(totalPages)} type="button">
+              <li
+                className={`page-item ${
+                  currentPage === totalPages ? "disabled" : ""
+                }`}
+              >
+                <button
+                  className="page-link"
+                  onClick={() => go(totalPages)}
+                  type="button"
+                >
                   Last
                 </button>
               </li>
@@ -657,7 +740,10 @@ const ThesisSearch = () => {
                   </span>
                 </div>
 
-                <div className="mc-dualrange position-relative" style={{ height: 36 }}>
+                <div
+                  className="mc-dualrange position-relative"
+                  style={{ height: 36 }}
+                >
                   <input
                     type="range"
                     className="form-range position-absolute top-50 start-0 translate-middle-y w-100 mc-dualrange-input mc-dualrange-min"
@@ -669,7 +755,11 @@ const ThesisSearch = () => {
                       setPage(1);
                       setMinYear(Math.min(Number(e.target.value), maxYear));
                     }}
-                    style={{ background: "transparent", pointerEvents: "none", zIndex: 2 }}
+                    style={{
+                      background: "transparent",
+                      pointerEvents: "none",
+                      zIndex: 2,
+                    }}
                   />
 
                   <input
@@ -683,7 +773,11 @@ const ThesisSearch = () => {
                       setPage(1);
                       setMaxYear(Math.max(Number(e.target.value), minYear));
                     }}
-                    style={{ background: "transparent", pointerEvents: "none", zIndex: 3 }}
+                    style={{
+                      background: "transparent",
+                      pointerEvents: "none",
+                      zIndex: 3,
+                    }}
                   />
                 </div>
               </div>
@@ -692,26 +786,28 @@ const ThesisSearch = () => {
               <div className="mb-3">
                 <label className="form-label">Language</label>
                 <div className="row">
-                  {["all", "en", "es", "fr", "pt", "ch", "ko", "ru"].map((l) => (
-                    <div key={l} className="col-6 col-md-3">
-                      <label className="form-check">
-                        <input
-                          className="form-check-input"
-                          type="radio"
-                          name="lang"
-                          value={l}
-                          checked={language === l}
-                          onChange={(e) => {
-                            setPage(1);
-                            setLanguage(e.target.value);
-                          }}
-                        />
-                        <span className="form-check-label text-uppercase ms-1">
-                          {l === "all" ? "All" : l}
-                        </span>
-                      </label>
-                    </div>
-                  ))}
+                  {["all", "en", "es", "fr", "pt", "ch", "ko", "ru"].map(
+                    (l) => (
+                      <div key={l} className="col-6 col-md-3">
+                        <label className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="radio"
+                            name="lang"
+                            value={l}
+                            checked={language === l}
+                            onChange={(e) => {
+                              setPage(1);
+                              setLanguage(e.target.value);
+                            }}
+                          />
+                          <span className="form-check-label text-uppercase ms-1">
+                            {l === "all" ? "All" : l}
+                          </span>
+                        </label>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
 

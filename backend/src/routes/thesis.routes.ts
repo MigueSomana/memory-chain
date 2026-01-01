@@ -9,29 +9,29 @@ import {
   toggleLikeThesis,
   getThesesByInstitutionId,
 } from "../controllers/thesis.controller";
-import { uploadPdf } from "../config/multer"; // sigue disponible, pero el archivo es opcional
+import { uploadPdf } from "../config/multer"; // middleware para subir PDFs
 
 const router = Router();
 
-// CREAR TESIS (PDF opcional por ahora)
+// Crear thesis (requiere auth, acepta PDF opcional)
 router.post("/", authMiddleware, uploadPdf.single("pdf"), createThesis);
 
-// EDITAR TESIS
+// Editar thesis (solo el uploader, PDF opcional)
 router.patch("/:id", authMiddleware, uploadPdf.single("pdf"), updateThesis);
 
-// VER TODAS
+// Ver todas las thesis
 router.get("/", getAllTheses);
 
-// POR INSTITUCIÓN
+// Ver thesis por institution
 router.get("/sub/:idInstitution", getThesesByInstitutionId);
 
-// VER UNA
+// Ver thesis por ID
 router.get("/:id", getThesisById);
 
-// CAMBIAR STATUS
+// Cambiar status de thesis (aprobación/rechazo, requiere auth)
 router.patch("/:id/status", authMiddleware, setThesisStatus);
 
-// LIKE
+// Like/Unlike Thesis
 router.post("/:id/like", authMiddleware, toggleLikeThesis);
 
 export default router;

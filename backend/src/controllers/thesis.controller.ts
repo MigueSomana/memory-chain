@@ -6,9 +6,10 @@ import { User } from "../models/user.model";
 import { uploadPdfBufferToPinata } from "../services/pinata.service";
 import { certifyOnChain } from "../services/blockchain.service";
 
-// helpers tipados
+// Helpers tipados para evitar any
 type AnyRecord = Record<string, unknown>;
 
+// Parsea JSON si viene como string (común en multipart/form-data), si falla usa fallback
 function parseMaybeJson<T>(v: unknown, fallback: T): T {
   if (typeof v === "string") {
     try {
@@ -20,8 +21,10 @@ function parseMaybeJson<T>(v: unknown, fallback: T): T {
   return (v as T) ?? fallback;
 }
 
+// DTO simple para autores/tutores (lo mínimo necesario)
 type AuthorDTO = { name: string; lastname: string; email?: string };
 
+// Type guard: valida que un objeto tenga forma de AuthorDTO
 function isAuthorDTO(x: unknown): x is AuthorDTO {
   if (!x || typeof x !== "object") return false;
   const o = x as AnyRecord;
@@ -29,18 +32,20 @@ function isAuthorDTO(x: unknown): x is AuthorDTO {
 }
 
 // GET /theses?sortBy=title|createdAt|likes&order=asc|desc
+// Lista todas las tesis con sort dinámico y populate de relaciones
 export async function getAllTheses(req: Request, res: Response) {
   try {
     const { sortBy = "createdAt", order = "desc" } = req.query;
 
+    // Solo permite ordenar por campos conocidos (evita sort inyectado)
     const sortField =
       sortBy === "title" || sortBy === "likes" ? String(sortBy) : "createdAt";
     const sortOrder = order === "asc" ? 1 : -1;
 
     const theses = await Thesis.find()
-      .populate("uploadedBy", "name lastname email")
-      .populate("institution", "name")
-      .sort({ [sortField]: sortOrder });
+      .populate("uploadedBy", "name lastname email") // datos básicos del uploader
+      .populate("institution", "name") // datos básicos de la institución
+      .sort({ [sortField]: sortOrder }); // sort seguro
 
     return res.json(theses);
   } catch (err) {
@@ -50,17 +55,19 @@ export async function getAllTheses(req: Request, res: Response) {
 }
 
 // GET /theses/institution/:idInstitution
+// Lista tesis filtradas por institución
 export async function getThesesByInstitutionId(req: Request, res: Response) {
   try {
     const { idInstitution } = req.params;
 
+    // Validación rápida de ObjectId para evitar consultas inválidas
     if (!idInstitution || !idInstitution.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({ message: "ID de institución inválido" });
     }
 
     const theses = await Thesis.find({ institution: idInstitution })
-      .populate("uploadedBy", "name lastname email")
-      .populate("institution", "name type country");
+      .populate("uploadedBy", "name lastname email") // info uploader
+      .populate("institution", "name type country"); // info institución
 
     return res.json(theses);
   } catch (err) {
@@ -69,6 +76,8 @@ export async function getThesesByInstitutionId(req: Request, res: Response) {
   }
 }
 
+// GET /theses/:id
+// Obtiene una tesis por ID con relaciones pobladas
 export async function getThesisById(req: Request, res: Response) {
   try {
     const { id } = req.params;
@@ -85,7 +94,8 @@ export async function getThesisById(req: Request, res: Response) {
   }
 }
 
-// ✅ Crear tesis: requiere PDF
+// ✅ Crear tesis: requiere PDF (multer)
+// Flujo: validar -> parsear body -> subir a Pinata -> guardar en Mongo
 export async function createThesis(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "No autorizado" });
@@ -93,10 +103,12 @@ export async function createThesis(req: AuthRequest, res: Response) {
       return res.status(400).json({ message: "Archivo PDF requerido" });
     }
 
+    // Soporta JSON normal o multipart con campo "data"
     const body = req.body?.data
       ? parseMaybeJson<AnyRecord>(req.body.data, {})
       : (req.body as AnyRecord);
 
+    // Normalización básica de strings
     const title = String(body.title ?? "").trim();
     const summary = String(body.summary ?? "").trim();
     const language = String(body.language ?? "").trim();
@@ -108,20 +120,25 @@ export async function createThesis(req: AuthRequest, res: Response) {
     const doi = typeof body.doi === "string" ? body.doi.trim() : undefined;
     const year = typeof body.year === "number" ? body.year : Number(body.year);
 
+    // ID de institución (viene del cliente)
     const institution = body.institution;
 
+    // Parseo seguro de arrays (por si vienen como string)
     const authors = parseMaybeJson<unknown[]>(body.authors, []);
     const tutors = parseMaybeJson<unknown[]>(body.tutors, []);
     const keywords = parseMaybeJson<string[]>(body.keywords, []);
 
+    // Filtra solo objetos válidos (evita basura/estructura rara)
     const parsedAuthors: AuthorDTO[] = authors.filter(isAuthorDTO);
     const parsedTutors: AuthorDTO[] = tutors.filter(isAuthorDTO);
 
+    // Sube PDF a Pinata y calcula hash del archivo
     const { cid, fileHash } = await uploadPdfBufferToPinata(
       req.file.buffer,
       req.file.originalname
     );
 
+    // Crea la tesis en Mongo con metadata + IPFS + hash
     const thesis = await Thesis.create({
       title,
       authors: parsedAuthors,
@@ -135,11 +152,11 @@ export async function createThesis(req: AuthRequest, res: Response) {
       institution,
       department,
       doi,
-      uploadedBy: req.user._id,
+      uploadedBy: req.user._id, // quien la subió
       fileHash,
       hashAlgorithm: "sha256",
       ipfsCid: cid,
-      status: "PENDING",
+      status: "PENDING", // empieza pendiente hasta verificación
     });
 
     return res.status(201).json(thesis);
@@ -161,6 +178,7 @@ export async function createThesis(req: AuthRequest, res: Response) {
  *
  * Si NO pones multer en PATCH, req.file siempre será undefined.
  */
+// Actualiza campos permitidos + opcionalmente re-sube PDF a Pinata
 export async function updateThesis(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "No autorizado" });
@@ -170,6 +188,7 @@ export async function updateThesis(req: AuthRequest, res: Response) {
     if (!thesis)
       return res.status(404).json({ message: "Tesis no encontrada" });
 
+    // Solo el uploader puede editar su tesis
     if (thesis.uploadedBy?.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "No puedes editar esta tesis" });
     }
@@ -179,6 +198,7 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       ? parseMaybeJson<AnyRecord>(req.body.data, {})
       : (req.body as AnyRecord);
 
+    // Campos permitidos (evita que el estudiante cambie status, txHash, etc.)
     const allowedFields = [
       "title",
       "authors",
@@ -201,7 +221,7 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       }
     }
 
-    // parse arrays si vienen string (multipart)
+    // Parsear arrays si vienen como string (multipart/form-data)
     if (typeof updates.authors === "string")
       updates.authors = JSON.parse(updates.authors);
     if (typeof updates.tutors === "string")
@@ -209,7 +229,7 @@ export async function updateThesis(req: AuthRequest, res: Response) {
     if (typeof updates.keywords === "string")
       updates.keywords = JSON.parse(updates.keywords);
 
-    // filtrar authors/tutors tipados por seguridad
+    // Filtra authors/tutors con shape válida
     if (Array.isArray(updates.authors)) {
       updates.authors = (updates.authors as unknown[]).filter(isAuthorDTO);
     }
@@ -217,7 +237,7 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       updates.tutors = (updates.tutors as unknown[]).filter(isAuthorDTO);
     }
 
-    // ✅ si hay pdf nuevo -> re-subir a pinata y actualizar campos
+    // ✅ Si llega un PDF nuevo: re-subir a Pinata y actualizar CID/hash
     if (req.file) {
       const { cid, fileHash } = await uploadPdfBufferToPinata(
         req.file.buffer,
@@ -229,13 +249,13 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       updates.hashAlgorithm = "sha256";
     }
 
-    // ✅ cualquier edición resetea a PENDING
+    // ✅ Cualquier edición invalida la aprobación previa y vuelve a PENDING
     updates.status = "PENDING";
 
     const updated = await Thesis.findByIdAndUpdate(
       id,
       { $set: updates },
-      { new: true }
+      { new: true } // devuelve el documento actualizado
     )
       .populate("uploadedBy", "name lastname email")
       .populate("institution", "name");
@@ -248,8 +268,10 @@ export async function updateThesis(req: AuthRequest, res: Response) {
 }
 
 // Institución marca como aprobada o no
+// Si aprueba y no está en cadena -> certifica en blockchain y guarda txHash
 export async function setThesisStatus(req: AuthRequest, res: Response) {
   try {
+    // Permite acceso si viene user o institución autenticada
     if (!req.user && !req.institution) {
       return res.status(401).json({ message: "No autorizado" });
     }
@@ -263,6 +285,7 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
 
     let canCertify = false;
 
+    // Caso: user con instituciones asociadas (ej: admin/miembro)
     if (req.user?.institutions) {
       const isMember = req.user.institutions.some(
         (instId) => instId.toString() === thesis.institution.toString()
@@ -270,25 +293,30 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
       if (isMember) canCertify = true;
     }
 
+    // Caso: institución autenticada directamente
     if (req.institution) {
       if (req.institution._id.toString() === thesis.institution.toString()) {
         canCertify = true;
       }
     }
 
+    // Bloquea si no tiene permisos para certificar esa tesis
     if (!canCertify) {
       return res
         .status(403)
         .json({ message: "No puedes certificar esta tesis" });
     }
 
+    // Validación del status permitido
     if (!["PENDING", "APPROVED", "REJECTED"].includes(status)) {
       return res.status(400).json({ message: "Status inválido" });
     }
 
     thesis.status = status;
+
+    // Si aprueba: ancla en blockchain (solo si no existe txHash)
     if (status === "APPROVED") {
-      // evita doble certificación
+      // Evita doble certificación on-chain
       if (!thesis.txHash) {
         if (!thesis.uploadedBy) {
           return res
@@ -296,6 +324,7 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
             .json({ message: "Tesis sin uploadedBy, no se puede certificar" });
         }
 
+        // Llama al servicio blockchain para registrar hash/cid e IDs
         const onchain = await certifyOnChain({
           thesisId: thesis._id.toString(),
           userId: thesis.uploadedBy.toString(),
@@ -305,6 +334,7 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
           hashAlgorithm: thesis.hashAlgorithm,
         });
 
+        // Guarda referencia de la transacción on-chain
         thesis.txHash = onchain.txHash;
         thesis.chainId = onchain.chainId;
         thesis.blockNumber = onchain.blockNumber;
@@ -321,6 +351,7 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
 }
 
 // Like / Unlike
+// Sincroniza: User.likedTheses + Thesis.likedBy + contador Thesis.likes
 export async function toggleLikeThesis(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "No autorizado" });
@@ -337,6 +368,7 @@ export async function toggleLikeThesis(req: AuthRequest, res: Response) {
 
     const userIdStr = req.user._id.toString();
 
+    // Verifica like tanto del lado usuario como del lado tesis (por consistencia)
     const alreadyLikedUser = user.likedTheses.some(
       (tId) => tId.toString() === id
     );
@@ -347,14 +379,16 @@ export async function toggleLikeThesis(req: AuthRequest, res: Response) {
     const alreadyLiked = alreadyLikedUser || alreadyLikedThesis;
 
     if (alreadyLiked) {
+      // Quita like en ambas direcciones
       user.likedTheses = user.likedTheses.filter(
         (tId) => tId.toString() !== id
       );
       thesis.likedBy = (thesis.likedBy || []).filter(
         (uId) => uId.toString() !== userIdStr
       );
-      thesis.likes = Math.max((thesis.likes || 0) - 1, 0);
+      thesis.likes = Math.max((thesis.likes || 0) - 1, 0); // evita negativos
     } else {
+      // Agrega like en ambas direcciones
       user.likedTheses.push(thesis._id);
       thesis.likedBy = thesis.likedBy || [];
       if (!thesis.likedBy.some((uId) => uId.toString() === userIdStr)) {

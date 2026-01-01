@@ -15,6 +15,12 @@ import Blockchainground from "../../assets/blockchainground.png";
 import SearchPNG from "../../assets/Search.png";
 import NotFoundPNG from "../../assets/NotFound.png";
 
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/esm/Page/AnnotationLayer.css";
+import "react-pdf/dist/esm/Page/TextLayer.css";
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
 
@@ -82,6 +88,258 @@ const PlaceholderArt = ({ src, alt = "" }) => {
   );
 };
 
+/* ===================== SINGLE PDF VIEWER (para Verify) ===================== */
+
+function SinglePdfViewer({ url, height }) {
+  const [numPages, setNumPages] = useState(0);
+  const [pageNumber, setPageNumber] = useState(1);
+
+  const FIXED_SCALE = 0.7;
+
+  const scrollRef = useRef(null);
+  const pageRefs = useRef([]);
+
+  useEffect(() => {
+    setNumPages(0);
+    setPageNumber(1);
+    if (scrollRef.current) scrollRef.current.scrollTo({ top: 0 });
+  }, [url]);
+
+  const canPrev = pageNumber > 1;
+  const canNext = numPages > 0 && pageNumber < numPages;
+
+  const scrollToPage = (p) => {
+    const target = Math.max(1, Math.min(p, Math.max(1, numPages)));
+    const el = pageRefs.current[target - 1];
+    const container = scrollRef.current;
+
+    if (!el || !container) {
+      setPageNumber(target);
+      return;
+    }
+
+    const topPadding = 12;
+    container.scrollTo({
+      top: Math.max(0, el.offsetTop - topPadding),
+      behavior: "smooth",
+    });
+
+    setPageNumber(target);
+  };
+
+  const goPrev = () => scrollToPage(pageNumber - 1);
+  const goNext = () => scrollToPage(pageNumber + 1);
+
+  const onScroll = () => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const scrollTop = container.scrollTop;
+    const threshold = 24;
+
+    let current = 1;
+    for (let i = 0; i < pageRefs.current.length; i++) {
+      const el = pageRefs.current[i];
+      if (!el) continue;
+      if (el.offsetTop - threshold <= scrollTop) current = i + 1;
+      else break;
+    }
+
+    if (current !== pageNumber) setPageNumber(current);
+  };
+
+  if (!url) return null;
+
+  return (
+    <div style={{ height, width: "100%", position: "relative" }}>
+      <style>{`
+        .react-pdf__Page { display: flex; justify-content: center; }
+        .react-pdf__Page__canvas { margin: 0 auto !important; display: block; }
+        .react-pdf__Page__textContent { left: 50% !important; transform: translateX(-50%) !important; }
+        .react-pdf__Page__annotations { left: 50% !important; transform: translateX(-50%) !important; }
+      `}</style>
+
+      {/* Scroll body */}
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        style={{
+          height: "100%",
+          overflow: "auto",
+          padding: 12,
+          borderRadius: 5,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <Document
+            file={url}
+            onLoadSuccess={(info) => {
+              setNumPages(info.numPages);
+              setPageNumber(1);
+              if (scrollRef.current) scrollRef.current.scrollTo({ top: 0 });
+            }}
+            onLoadError={(e) => {
+              console.error("PDF load error (Verify Single):", e);
+            }}
+            loading={<div style={noticeStyleDark}>Loading PDF…</div>}
+            error={
+              <div style={{ ...noticeStyleDark, borderColor: "#ff6b6b" }}>
+                Could not open the PDF.
+              </div>
+            }
+          >
+            <div style={{ width: "min(980px, 100%)" }}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 14 }}
+              >
+                {Array.from({ length: numPages }, (_, i) => i + 1).map((p) => (
+                  <div
+                    key={p}
+                    ref={(el) => (pageRefs.current[p - 1] = el)}
+                    style={singlePageCardDark}
+                  >
+                    <div style={pageCenter}>
+                      <div style={pageFrame}>
+                        <Page pageNumber={p} scale={FIXED_SCALE} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Document>
+        </div>
+      </div>
+
+      {/* Controls bottom (single): paginación CENTRADA */}
+      <div style={controlsDockCentered}>
+        <div style={pagerPill}>
+          <button
+            type="button"
+            onClick={goPrev}
+            disabled={!canPrev}
+            style={pillIconBtn(!canPrev)}
+            title="Previous page"
+          >
+            ◀
+          </button>
+
+          <div style={pagerTextSmallCentered}>
+            {numPages ? (
+              <>
+                Page <b>{pageNumber}</b> / {numPages}
+              </>
+            ) : (
+              <>—</>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={goNext}
+            disabled={!canNext}
+            style={pillIconBtn(!canNext)}
+            title="Next page"
+          >
+            ▶
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===================== STYLES para viewer dentro de Verify ===================== */
+
+const darkPillBg = "rgba(15,15,16,0.55)";
+const darkPillBorder = "1px solid rgba(255,255,255,0.10)";
+
+function pillIconBtn(disabled) {
+  return {
+    border: darkPillBorder,
+    background: darkPillBg,
+    color: "white",
+    fontSize: 14,
+    fontWeight: 900,
+    padding: "7px 9px",
+    borderRadius: 999,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.35 : 0.95,
+    userSelect: "none",
+    lineHeight: 1,
+  };
+}
+
+const pagerPill = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "5px 8px",
+  borderRadius: 999,
+  background: darkPillBg,
+  border: darkPillBorder,
+};
+
+const pagerTextSmallCentered = {
+  color: "white",
+  fontWeight: 900,
+  fontSize: 12,
+  minWidth: 120,
+  textAlign: "center",
+  opacity: 0.95,
+};
+
+const controlsDockCentered = {
+  position: "sticky",
+  left: 0,
+  right: 0,
+  bottom: 6,
+  zIndex: 10,
+  padding: "6px 10px",
+  background: "transparent",
+  display: "flex",
+  justifyContent: "center",
+};
+
+const noticeStyleDark = {
+  color: "white",
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(15,15,16,0.35)",
+  borderRadius: 12,
+  padding: 12,
+  maxWidth: 520,
+  margin: "12px auto",
+  textAlign: "center",
+};
+
+const singlePageCardDark = {
+  background: "rgba(15,15,16,0.25)",
+  padding: 10,
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.10)",
+  overflow: "hidden",
+  margin: "0 auto",
+  maxWidth: 980,
+};
+
+const pageCenter = {
+  width: "100%",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+const pageFrame = {
+  maxWidth: "100%",
+  overflow: "hidden",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: 0,
+};
+
+/* ===================== VERIFY PAGE ===================== */
+
 const Verify = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -119,13 +377,14 @@ const Verify = () => {
   const isPending = statusUpper === "PENDING";
   const isRejected = statusUpper === "REJECTED";
 
-  const iframeUrl = useMemo(() => {
+  // URL del PDF con gateway Pinata (SIN iframe)
+  const pdfUrl = useMemo(() => {
     const cid = safeStr(selectedThesis?.ipfsCid);
     if (!cid || !gateway) return "";
-    return `https://${gateway}/ipfs/${cid}#toolbar=0&navpanes=0&scrollbar=0`;
+    return `https://${gateway}/ipfs/${cid}`;
   }, [selectedThesis, gateway]);
 
-  const canPreview = !!selectedThesis && isApproved && !!iframeUrl;
+  const canPreview = !!selectedThesis && isApproved && !!pdfUrl;
 
   const canShowCertificateBtn = useMemo(
     () => !!selectedThesis && !!certificateData && isApproved,
@@ -157,7 +416,6 @@ const Verify = () => {
 
   const rightIsIdle = !hasSearched && !selectedThesis && !loading;
 
-  // ✅ FIX CLAVE: si vamos a /verify (sin id) NO reiniciar si ya se buscó antes
   useEffect(() => {
     const loadById = async () => {
       if (!id) {
@@ -165,11 +423,9 @@ const Verify = () => {
         setCertificateData(null);
         setErrorMsg("");
 
-        // ✅ SOLO mostrar "Start searching..." si nunca se ha buscado
         if (!hasSearched) {
           setRightMsg("Start searching for certification now");
         }
-        // ✅ NO tocar hasSearched aquí (para que no vuelva a "primera vez")
         return;
       }
 
@@ -224,7 +480,6 @@ const Verify = () => {
   const handleSearch = async (ev) => {
     ev?.preventDefault?.();
 
-    // ✅ siempre cuenta como intento de búsqueda
     setHasSearched(true);
 
     const q = safeStr(hashInput);
@@ -233,8 +488,6 @@ const Verify = () => {
       setErrorMsg("Enter a file hash or transaction hash.");
       setSelectedThesis(null);
       setCertificateData(null);
-      // ✅ NO machacar el right panel con "Start searching..." aquí
-      // (porque si vienes de una búsqueda previa, se vería como “primera vez”)
       navigate("/verify", { replace: true });
       return;
     }
@@ -242,7 +495,11 @@ const Verify = () => {
     try {
       setLoading(true);
       setErrorMsg("");
-      setRightMsg("Searching...");
+      setRightMsg(
+        <div className="alert alert-light" role="alert">
+          Searching...
+        </div>
+      );
 
       const listRes = await axios.get(`${API_BASE_URL}/api/theses`);
       const list = Array.isArray(listRes.data) ? listRes.data : [];
@@ -432,11 +689,18 @@ const Verify = () => {
             <div className="row gx-5 gy-4 align-items-center">
               {/* LEFT */}
               <div className="col-12 col-lg-6">
-                <div className="mb-3" style={{ maxWidth: 560 }}>
-                  <h2 className="fw-bold mb-0">Verify your thesis in 3 steps</h2>
+                <div
+                  className="mb-3 d-flex justify-content-center"
+                  style={{ maxWidth: 560 }}
+                >
+                  <h2 className="fw-bold mb-0">
+                    Verify your thesis in 3 steps
+                  </h2>
                 </div>
 
-                <div style={{ maxWidth: 560, paddingTop: leftIsEmpty ? 10 : 0 }}>
+                <div
+                  style={{ maxWidth: 560, paddingTop: leftIsEmpty ? 10 : 0 }}
+                >
                   <Step
                     icon={SearchIcon}
                     title="Step 1: Paste the hash"
@@ -474,7 +738,10 @@ const Verify = () => {
                         </div>
 
                         {errorMsg ? (
-                          <div className="alert alert-danger mt-3 mb-0" role="alert">
+                          <div
+                            className="alert alert-danger mt-3 mb-0"
+                            role="alert"
+                          >
                             {errorMsg}
                           </div>
                         ) : null}
@@ -499,16 +766,27 @@ const Verify = () => {
                         <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
                           <span className="badge text-bg-light">
                             ID:{" "}
-                            <strong className="ms-1">{selectedThesis._id}</strong>
+                            <strong className="ms-1">
+                              {selectedThesis._id}
+                            </strong>
                           </span>
                           <StatusPill />
                         </div>
 
                         {showFullTechSheet ? (
                           <div className="row g-2 mt-0">
-                            <CopyField label="IPFS CID" value={selectedThesis?.ipfsCid} />
-                            <CopyField label="File hash" value={selectedThesis?.fileHash} />
-                            <CopyField label="Transaction hash" value={selectedThesis?.txHash} />
+                            <CopyField
+                              label="IPFS CID"
+                              value={selectedThesis?.ipfsCid}
+                            />
+                            <CopyField
+                              label="File hash"
+                              value={selectedThesis?.fileHash}
+                            />
+                            <CopyField
+                              label="Transaction hash"
+                              value={selectedThesis?.txHash}
+                            />
                           </div>
                         ) : null}
                       </div>
@@ -543,8 +821,12 @@ const Verify = () => {
                           </button>
                         </div>
                       ) : (
-                        <div className="text-muted text-center" style={{ fontSize: 12 }}>
-                          (This appears only when an approved on-chain certificate exists.)
+                        <div
+                          className="text-muted text-center"
+                          style={{ fontSize: 12 }}
+                        >
+                          (This appears only when an approved on-chain
+                          certificate exists.)
                         </div>
                       )}
                     </div>
@@ -563,7 +845,10 @@ const Verify = () => {
                       <div className="text-muted d-flex flex-column align-items-center justify-content-center">
                         <PlaceholderArt src={NotFoundPNG} alt="Not approved" />
                         <div className="mt-3" style={{ fontWeight: 600 }}>
-                          Please verify and update your thesis so its status can be changed.
+                          <div className="alert alert-warning" role="alert">
+                            Please verify and update your thesis so its status
+                            can be changed.
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -580,26 +865,28 @@ const Verify = () => {
                         )}
 
                         <div className="mt-3" style={{ fontWeight: 600 }}>
-                          {rightIsNotFound
-                            ? "No thesis found. Please double-check the hash."
-                            : rightIsIdle
-                            ? "Start searching for certification now"
-                            : rightMsg || "Start searching for certification now"}
+                          {rightIsNotFound ? (
+                            <div className="alert alert-danger" role="alert">
+                              No thesis found. Please double-check the hash
+                            </div>
+                          ) : rightIsIdle ? (
+                            <div className="alert alert-light" role="alert">
+                              Start searching for certification now
+                            </div>
+                          ) : (
+                            rightMsg || (
+                              <div className="alert alert-light" role="alert">
+                                Start searching for certification now
+                              </div>
+                            )
+                          )}
                         </div>
                       </div>
                     </div>
                   ) : canPreview ? (
                     <div style={{ height: iframeH }}>
-                      <iframe
-                        title="Thesis Preview"
-                        src={iframeUrl}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          border: "0",
-                          borderRadius: 16,
-                        }}
-                      />
+                      {/*  Viewer bonito con pdf.js (single) */}
+                      <SinglePdfViewer url={pdfUrl} height={iframeH} />
                     </div>
                   ) : (
                     <div
@@ -607,9 +894,14 @@ const Verify = () => {
                       style={{ minHeight: iframeH, padding: 24 }}
                     >
                       <div className="text-muted d-flex flex-column align-items-center justify-content-center">
-                        <PlaceholderArt src={NotFoundPNG} alt="Preview unavailable" />
+                        <PlaceholderArt
+                          src={NotFoundPNG}
+                          alt="Preview unavailable"
+                        />
                         <div className="mt-3" style={{ fontWeight: 600 }}>
-                          Preview unavailable. Please try again later.
+                          <div className="alert alert-danger" role="alert">
+                            Preview unavailable. Please try again later.
+                          </div>
                         </div>
                       </div>
                     </div>

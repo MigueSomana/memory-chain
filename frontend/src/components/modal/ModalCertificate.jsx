@@ -3,8 +3,7 @@ import axios from "axios";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
-
-import CertificateTemplate from "../../utils/CertificateTemplate";
+import CertificateTemplate from "../../utils/certificateTemplate";
 
 import {
   FacebookIcon,

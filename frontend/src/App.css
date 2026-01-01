@@ -64,7 +64,7 @@ body {
 
 /* Navbar General*/
 .sticky-nav {
-  background: #121212d9; /* Transparent background 12121200*/
+  background: #191919; 
   position: sticky;
   top: 0;
   z-index: 999;
@@ -95,7 +95,7 @@ body {
   max-width: 700px;
 }
 :root {
-  --mc-bg: #121212;
+  --mc-bg: #191919;
   --mc-active: #1eab81;
 }
 
@@ -185,10 +185,10 @@ body {
 
 /* Botones secundarios neutrales dentro del perfil (por coherencia) */
 .btn-outline-neutral {
-  --bs-btn-color: #121212;
+  --bs-btn-color: #191919;
   --bs-btn-bg: transparent;
   --bs-btn-border-color: #6c6f72;
-  --bs-btn-hover-color: #121212;
+  --bs-btn-hover-color: #191919;
   --bs-btn-hover-bg: #6c6f72;
   --bs-btn-hover-border-color: #6c6f72;
 }
@@ -408,5 +408,17 @@ body {
 }
 
 .bg-mc-dark {
-  background-color: #121212 !important;
+  background-color: #191919 !important;
+}
+
+.mc-select .dropdown-item.active,
+.mc-select .dropdown-item.active:hover,
+.mc-select .dropdown-item.active:focus {
+  background-color: #20c997;
+  color: #fff;
+}
+.mc-select .dropdown-item:hover,
+.mc-select .dropdown-item:focus {
+  background-color: #20c997;
+  color: #fff;
 }

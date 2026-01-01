@@ -11,13 +11,24 @@ import { uploadImage } from "../config/multer";
 
 const router = Router();
 
+// Lista todas las instituciones
 router.get("/", getAllInstitutions);
+
+// Obtiene una institución por ID
 router.get("/:id", getInstitutionById);
 
+// Obtiene los estudiantes asociados a una institución (requiere auth)
 router.get("/:id/students", authMiddleware, getInstitutionStudents);
+
+// Obtiene las tesis de una institución (requiere auth)
 router.get("/:id/theses", authMiddleware, getInstitutionTheses);
 
-// ✅ multipart: logo + fields
-router.put("/:id", authMiddleware, uploadImage.single("logo"), updateInstitution);
+// Actualiza perfil institucional (logo + campos, multipart/form-data)
+router.put(
+  "/:id",
+  authMiddleware,
+  uploadImage.single("logo"),
+  updateInstitution
+);
 
 export default router;

@@ -10,12 +10,16 @@ import { uploadImage } from "../config/multer";
 
 const router = Router();
 
+// Lista todos los usuarios (requiere autenticación)
 router.get("/", authMiddleware, getAllUsers);
+
+// Obtiene el perfil del usuario autenticado
 router.get("/me", authMiddleware, getMe);
 
-// ✅ multipart: img + fields
+// Actualiza el perfil del usuario autenticado (img + campos, multipart/form-data)
 router.put("/me", authMiddleware, uploadImage.single("img"), updateMe);
 
+// Obtiene las tesis a las que el usuario dio like
 router.get("/me/likes", authMiddleware, getMyLikedTheses);
 
 export default router;

@@ -12,9 +12,11 @@ import {
   AlertDanger,
 } from "../../utils/icons";
 
+// ModalView
+import ModalView from "../../components/modal/ModalView";
+
 // CONFIG GLOBAL (API + IPFS gateway)
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
-const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
 
 // UI OPTIONS (Sort + Filters + Status transitions)
 const SORT_OPTIONS = [
@@ -126,6 +128,9 @@ const LibraryUSearch = () => {
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
+  // Estado para ModalView
+  const [selectedThesisView, setSelectedThesisView] = useState(null);
+
   // Load: tesis de la institución logueada
   useEffect(() => {
     const fetchMyTheses = async () => {
@@ -139,9 +144,7 @@ const LibraryUSearch = () => {
           return;
         }
 
-        const headers = token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
         // Endpoint: theses por institución (sub)
         const res = await axios.get(
@@ -193,8 +196,7 @@ const LibraryUSearch = () => {
 
       // Status filter (ALL o match exacto)
       const status = String(t.status || "").toUpperCase();
-      const matchesStatus =
-        selectedStatus === "ALL" || status === selectedStatus;
+      const matchesStatus = selectedStatus === "ALL" || status === selectedStatus;
 
       return matchesQ && matchesStatus;
     });
@@ -257,15 +259,16 @@ const LibraryUSearch = () => {
 
   // Actions: abrir PDF (gateway/ipfsCid)
   const handleView = (thesis) => {
-    const cid = thesis.ipfsCid;
+    setSelectedThesisView(thesis);
 
-    if (!cid) {
-      alert("This thesis does not have a downloadable file.");
-      return;
-    }
+    const el = document.getElementById("modalView");
+    if (!el) return;
 
-    const url = `https://${gateway}/ipfs/${cid}#toolbar=0&navpanes=0&scrollbar=0`;
-    window.open(url, "_blank");
+    const modal = window.bootstrap?.Modal?.getOrCreateInstance(el, {
+      backdrop: "static",
+      keyboard: false,
+    });
+    modal?.show();
   };
 
   // Action placeholder: permiso (por ahora solo log)
@@ -291,9 +294,7 @@ const LibraryUSearch = () => {
       // Actualiza SOLO la tesis afectada en el estado local
       setTheses((prev) =>
         prev.map((t) =>
-          t._id === thesisId
-            ? { ...t, status: updated?.status ?? newStatus }
-            : t
+          t._id === thesisId ? { ...t, status: updated?.status ?? newStatus } : t
         )
       );
     } catch (err) {
@@ -350,6 +351,9 @@ const LibraryUSearch = () => {
   // Render: pantalla principal
   return (
     <div className="container py-2">
+      {/* ModalView montado (recibe la tesis seleccionada) */}
+      <ModalView thesis={selectedThesisView} />
+
       {/* Banner de advertencia si NO puede verificar */}
       {!canVerify && (
         <div className="row">
@@ -387,8 +391,8 @@ const LibraryUSearch = () => {
               style={{ minWidth: 260, flex: "1 1 260px" }}
             />
 
-            {/* Status filter dropdown */}
-            <div className="dropdown mc-sort" style={{ position: "relative" }}>
+            {/* Status filter dropdown (estilo “select” como sort) */}
+            <div className="dropdown mc-select" style={{ position: "relative" }}>
               <button
                 className="btn btn-outline-secondary dropdown-toggle"
                 type="button"
@@ -419,14 +423,15 @@ const LibraryUSearch = () => {
             </div>
 
             {/* Sort dropdown */}
-            <div className="dropdown mc-sort" style={{ position: "relative" }}>
+            <div className="dropdown mc-sort mc-select" style={{ position: "relative" }}>
               <button
                 className="btn btn-outline-secondary dropdown-toggle"
                 type="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                Sort by: {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
+                Sort by:{" "}
+                {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
               </button>
 
               <ul className="dropdown-menu dropdown-menu-end">
@@ -474,22 +479,6 @@ const LibraryUSearch = () => {
             return (
               <div key={rowKey} className="card shadow-sm">
                 <div className="card-body d-flex align-items-center gap-3">
-                  {/* Thumbnail (placeholder) */}
-                  <div
-                    style={{
-                      width: 72,
-                      height: 72,
-                      borderRadius: 12,
-                      overflow: "hidden",
-                      background: "#f8f9fa",
-                      border: "1px solid #eee",
-                      flex: "0 0 auto",
-                    }}
-                    className="d-flex align-items-center justify-content-center text-muted"
-                  >
-                    PDF
-                  </div>
-
                   {/* Info principal */}
                   <div className="flex-grow-1">
                     <h5 className="m-0">{t.title}</h5>
@@ -512,7 +501,9 @@ const LibraryUSearch = () => {
                         : ""}
                     </div>
 
-                    <div className="text-muted small">CID: {t.ipfsCid ?? "—"}</div>
+                    <div className="text-muted small">
+                      File Hash: {t.fileHash ?? "—"}
+                    </div>
 
                     {t.keywords?.length ? (
                       <div className="mt-1 d-flex flex-wrap gap-2">
@@ -586,7 +577,7 @@ const LibraryUSearch = () => {
 
                         {/* Menú: solo si no está bloqueado */}
                         {!statusUI.disabled && (
-                          <ul className="dropdown-menu w-100">
+                          <ul className="dropdown-menu w-100 dropdown mc-select">
                             {STATUS_CHANGE_OPTIONS.map((opt) => {
                               const isCurrent = opt.key === statusUI.value;
                               return (

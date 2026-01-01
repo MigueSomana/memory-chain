@@ -3,7 +3,7 @@ import { getThesisCertificate } from "../controllers/certificate.controller";
 
 const router = Router();
 
-// publico o con auth: tú decides
+// Obtiene el certificado de una tesis publico
 router.get("/theses/:id/certificate", getThesisCertificate);
 
 export default router;

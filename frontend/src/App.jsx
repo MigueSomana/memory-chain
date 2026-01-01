@@ -1,5 +1,7 @@
 import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import RouteLoader from "./utils/loader";
+import ViewerPDF from "./utils/viewerPDF";
 
 // General Import
 import Modal from "./components/modal/Modal";
@@ -28,13 +30,14 @@ function App() {
     <>
       <BrowserRouter>
         <Routes>
-
-          <Route path="/" element={<Home />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/verify" element={<Verify />} />
-          <Route path="/verify/:id" element={<Verify />} />
-          <Route path="/about-us" element={<About />} />
-          <Route path="*" element={<NotFound />} />
+          
+          <Route element={<RouteLoader />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/home" element={<Home />} />
+            <Route path="/verify" element={<Verify />} />
+            <Route path="/verify/:id" element={<Verify />} />
+            <Route path="/about-us" element={<About />} />
+          </Route>
 
           <Route path="/explore" element={<Search />} />
           <Route path="/new-upload" element={<UploadThesis />} />
@@ -50,10 +53,12 @@ function App() {
           <Route path="/profile-institution" element={<ProfileU />} />
           <Route path="/members-institution" element={<ListMember />} />
 
+          <Route path="/view/:id" element={<ViewerPDF />} />
+          <Route path="*" element={<NotFound />} />
+
         </Routes>
 
         <Modal />
-
       </BrowserRouter>
     </>
   );
