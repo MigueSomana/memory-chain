@@ -7,6 +7,9 @@ import {
   EditIcon,
   DiscardIcon,
   CloseIcon,
+  BasicPIcon,
+  SecurePIcon,
+  InstPIcon,
 } from "../../utils/icons";
 
 // Configuración base (API + sesión)
@@ -386,318 +389,365 @@ const FormProfile = () => {
     return <div className="container py-2 text-danger">{loadError}</div>;
   }
 
-  // Render del formulario
   return (
     <form className="container mb-3" onSubmit={handleSubmit}>
-      <section className="mb-4">
-        <h5 className="mb-2 mt-0">Basic information</h5>
+      {/* ✅ SECTION 1: BASIC INFO (CARD) */}
+      <section className="card mc-card-shadow mb-4">
+        <div className="card-body">
+          <div className="mc-card-header mb-3">
+            <h5 className="m-0">Basic information</h5>
+            <span>{BasicPIcon}</span>
+          </div>
 
-        <div className="row g-4">
-          <div className="col-md-4 basic-info-left">
-            <div className="basic-info-avatar">
-              {imgPreview ? (
-                <img
-                  src={imgPreview}
-                  alt="profile preview"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
-              ) : (
-                <span className="text-muted" style={{ fontSize: 12 }}>
-                  No image
-                </span>
-              )}
-            </div>
+          <div className="row g-4">
+            <div className="col-md-4 basic-info-left px-5">
+              <div className="basic-info-avatar">
+                {imgPreview ? (
+                  <img
+                    src={imgPreview}
+                    alt="profile preview"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <span className="text-muted" style={{ fontSize: 12 }}>
+                    No image
+                  </span>
+                )}
+              </div>
 
-            <div className="d-flex flex-column gap-2">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-memory"
-                onClick={pickImage}
-              >
-                Upload image
-              </button>
-
-              {imgPreview && (
+              <div className="d-flex flex-column gap-2">
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline-danger"
-                  onClick={removeImage}
+                  className="btn btn-sm btn-outline-memory"
+                  onClick={pickImage}
                 >
-                  Remove
+                  Upload image
                 </button>
-              )}
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={onImageChange}
-                hidden
-              />
-            </div>
-          </div>
-
-          <div className="col-md-8">
-            <div className="row g-3">
-              <div className="col-md-6">
-                <label className="form-label">First name </label>
-                <input
-                  className={`form-control ${errors.name ? "is-invalid" : ""}`}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your first name"
-                  required
-                />
-                {errors.name && (
-                  <div className="invalid-feedback">{errors.name}</div>
+                {imgPreview && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={removeImage}
+                  >
+                    Remove
+                  </button>
                 )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={onImageChange}
+                  hidden
+                />
+              </div>
+            </div>
+
+            <div className="col-md-8">
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label">First name</label>
+                  <input
+                    className={`form-control ${
+                      errors.name ? "is-invalid" : ""
+                    }`}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your first name"
+                    required
+                  />
+                  {errors.name && (
+                    <div className="invalid-feedback">{errors.name}</div>
+                  )}
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Last name</label>
+                  <input
+                    className={`form-control ${
+                      errors.lastname ? "is-invalid" : ""
+                    }`}
+                    value={lastname}
+                    onChange={(e) => setLastname(e.target.value)}
+                    placeholder="Your last name"
+                    required
+                  />
+                  {errors.lastname && (
+                    <div className="invalid-feedback">{errors.lastname}</div>
+                  )}
+                </div>
               </div>
 
-              <div className="col-md-6">
-                <label className="form-label">Last name </label>
+              <div className="mt-3">
+                <label className="form-label">Email</label>
+                <input
+                  className={`form-control ${errors.email ? "is-invalid" : ""}`}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@domain.com"
+                  required
+                />
+                {errors.email && (
+                  <div className="invalid-feedback">{errors.email}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ✅ SECTION 2: SECURITY (CARD) */}
+      <section className="card mc-card-shadow mb-4">
+        <div className="card-body">
+          <div className="mc-card-header mb-3">
+            <h5 className="m-0">Security</h5>
+            <span>{SecurePIcon}</span>
+          </div>
+
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label">New password</label>
+              <div className="input-group">
                 <input
                   className={`form-control ${
-                    errors.lastname ? "is-invalid" : ""
+                    errors.password ? "is-invalid" : ""
                   }`}
-                  value={lastname}
-                  onChange={(e) => setLastname(e.target.value)}
-                  placeholder="Your last name"
-                  required
+                  type={showPass ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
                 />
-                {errors.lastname && (
-                  <div className="invalid-feedback">{errors.lastname}</div>
-                )}
+                <button
+                  type="button"
+                  className="btn password-toggle-btn d-flex align-items-center"
+                  onClick={() => setShowPass((v) => !v)}
+                  tabIndex={-1}
+                  aria-label={showPass ? "Hide password" : "Show password"}
+                  title={showPass ? "Hide password" : "Show password"}
+                >
+                  {showPass ? EyeSlashIcon : EyeIcon}
+                </button>
               </div>
+              {errors.password && (
+                <div className="invalid-feedback d-block">
+                  {errors.password}
+                </div>
+              )}
             </div>
 
-            <div className="mt-3">
-              <label className="form-label">Email </label>
-              <input
-                className={`form-control ${errors.email ? "is-invalid" : ""}`}
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@domain.com"
-                required
-              />
-              {errors.email && (
-                <div className="invalid-feedback">{errors.email}</div>
+            <div className="col-md-6">
+              <label className="form-label">Confirm password</label>
+              <div className="input-group">
+                <input
+                  className={`form-control ${
+                    errors.confirm ? "is-invalid" : ""
+                  }`}
+                  type={showConfirm ? "text" : "password"}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  placeholder="Repeat the password"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="btn password-toggle-btn d-flex align-items-center"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  tabIndex={-1}
+                  aria-label={showConfirm ? "Hide password" : "Show password"}
+                  title={showConfirm ? "Hide password" : "Show password"}
+                >
+                  {showConfirm ? EyeSlashIcon : EyeIcon}
+                </button>
+              </div>
+              {errors.confirm && (
+                <div className="invalid-feedback d-block">{errors.confirm}</div>
               )}
             </div>
           </div>
         </div>
       </section>
 
-      <hr />
-
-      <section className="mb-4">
-        <h5 className="mb-3">Security</h5>
-
-        <div className="row g-3">
-          <div className="col-md-6">
-            <label className="form-label">New password</label>
-            <div className="input-group">
-              <input
-                className={`form-control ${
-                  errors.password ? "is-invalid" : ""
-                }`}
-                type={showPass ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                className="btn password-toggle-btn d-flex align-items-center"
-                onClick={() => setShowPass((v) => !v)}
-                tabIndex={-1}
-                aria-label={showPass ? "Hide password" : "Show password"}
-                title={showPass ? "Hide password" : "Show password"}
-              >
-                {showPass ? EyeSlashIcon : EyeIcon}
-              </button>
-            </div>
-            {errors.password && (
-              <div className="invalid-feedback d-block">{errors.password}</div>
-            )}
+      {/* ✅ SECTION 3: INSTITUTIONS (CARD) */}
+      <section className="card mc-card-shadow">
+        <div className="card-body">
+          <div className="mc-card-header mb-3">
+            <h5 className="m-0">Institutions</h5>
+            <span>{InstPIcon}</span>
           </div>
 
-          <div className="col-md-6">
-            <label className="form-label">Confirm password</label>
-            <div className="input-group">
-              <input
-                className={`form-control ${errors.confirm ? "is-invalid" : ""}`}
-                type={showConfirm ? "text" : "password"}
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                placeholder="Repeat the password"
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                className="btn password-toggle-btn d-flex align-items-center"
-                onClick={() => setShowConfirm((v) => !v)}
-                tabIndex={-1}
-                aria-label={showConfirm ? "Hide password" : "Show password"}
-                title={showConfirm ? "Hide password" : "Show password"}
-              >
-                {showConfirm ? EyeSlashIcon : EyeIcon}
-              </button>
-            </div>
-            {errors.confirm && (
-              <div className="invalid-feedback d-block">{errors.confirm}</div>
-            )}
-          </div>
-        </div>
-      </section>
+          <div className="mb-3 d-flex flex-column gap-3">
+            {institutions.length === 0 ? (
+              <span className="text-muted">No institutions added.</span>
+            ) : (
+              institutions.map((inst) => {
+                const instId = inst._id;
+                const eduEmail = institutionEmails[instId] || "";
+                const allowedDomains = inst.emailDomains || [];
+                const isEditing = editingInstitutionId === instId;
+                const isNew = !initialInstitutionIdSet.has(instId);
 
-      <hr />
-
-      <section className="mb-4">
-        <h5 className="mb-3">Institutions</h5>
-
-        <div className="mb-3 d-flex flex-column gap-3">
-          {institutions.length === 0 ? (
-            <span className="text-muted">No institutions added.</span>
-          ) : (
-            institutions.map((inst) => {
-              const instId = inst._id;
-              const eduEmail = institutionEmails[instId] || "";
-              const allowedDomains = inst.emailDomains || [];
-              const isEditing = editingInstitutionId === instId;
-              const isNew = !initialInstitutionIdSet.has(instId);
-
-              return (
-                <React.Fragment key={instId}>
-                  <div className="card shadow-sm">
-                    <div className="card-body d-flex align-items-center gap-3">
-                      <div
-                        style={{
-                          width: 72,
-                          height: 72,
-                          borderRadius: 12,
-                          overflow: "hidden",
-                          background: "#f8f9fa",
-                          border: "1px solid #eee",
-                          flex: "0 0 auto",
-                        }}
-                        className="d-flex align-items-center justify-content-center text-muted"
-                      >
-                        {inst.logoUrl ? (
-                          <img
-                            src={inst.logoUrl}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                            }}
-                          />
-                        ) : (
-                          "LOGO"
-                        )}
-                      </div>
-
-                      <div className="flex-grow-1">
-                        <h5 className="m-0 fw-semibold">{inst.name}</h5>
-                        <div className="text-muted small">
-                          {eduEmail || "No institutional email"}
-                        </div>
-                      </div>
-
-                      <div className="d-flex align-items-center gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-warning d-flex align-items-center justify-content-center text-white"
-                          onClick={() =>
-                            setEditingInstitutionId((prev) =>
-                              prev === instId ? "" : instId
-                            )
-                          }
-                          title={isEditing ? "Close" : "Edit"}
+                return (
+                  <React.Fragment key={instId}>
+                    <div className="card mc-card-shadow">
+                      <div className="card-body d-flex align-items-center gap-3">
+                        <div
+                          style={{
+                            width: 72,
+                            height: 72,
+                            borderRadius: 12,
+                            overflow: "hidden",
+                            background: "#f8f9fa",
+                            border: "1px solid #eee",
+                            flex: "0 0 auto",
+                          }}
+                          className="d-flex align-items-center justify-content-center text-muted"
                         >
-                          {isEditing ? CloseIcon : EditIcon}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                          {inst.logoUrl ? (
+                            <img
+                              src={inst.logoUrl}
+                              alt={`${inst.name} logo`}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          ) : (
+                            "LOGO"
+                          )}
+                        </div>
 
-                  {isEditing && (
-                    <div className="mt-2 border rounded p-2">
-                      <label
-                        className="form-label mb-1"
-                        style={{ fontSize: 12 }}
-                      >
-                        Institutional email
-                        {allowedDomains && allowedDomains.length > 0 && (
-                          <span className="text-muted ms-1">
-                            (allowed: {allowedDomains.join(", ")})
-                          </span>
-                        )}
-                      </label>
+                        <div className="flex-grow-1">
+                          <h5 className="m-0 fw-semibold">{inst.name}</h5>
+                          <div className="text-muted small">
+                            {eduEmail || "No institutional email"}
+                          </div>
+                        </div>
 
-                      <div className="d-flex gap-2">
-                        <input
-                          type="email"
-                          className="form-control form-control-sm"
-                          value={institutionEmails[instId] || ""}
-                          onChange={(e) =>
-                            handleInstitutionEmailChange(instId, e.target.value)
-                          }
-                          placeholder="john@youruniversity.edu"
-                        />
-
-                        {isNew && (
+                        <div className="d-flex align-items-center gap-2">
                           <button
                             type="button"
-                            className="btn btn-danger d-flex align-items-center justify-content-center text-white"
-                            onClick={() => removeInstitution(instId)}
-                            title="Discard"
+                            className="btn btn-warning d-flex align-items-center justify-content-center text-white"
+                            onClick={() =>
+                              setEditingInstitutionId((prev) =>
+                                prev === instId ? "" : instId
+                              )
+                            }
+                            title={isEditing ? "Close" : "Edit"}
                           >
-                            {DiscardIcon}
+                            {isEditing ? CloseIcon : EditIcon}
                           </button>
-                        )}
+                        </div>
                       </div>
                     </div>
-                  )}
-                </React.Fragment>
-              );
-            })
-          )}
-        </div>
 
-        <div className="row g-3 align-items-end">
-          <div className="col-md-8">
-            <label className="form-label">Select an institution</label>
-            <select
-              className="form-select"
-              value={selectedInstitutionId}
-              onChange={(e) => setSelectedInstitutionId(e.target.value)}
-            >
-              <option value="">— Select Institution —</option>
-              {remainingOptions.map((opt) => (
-                <option key={opt._id} value={opt._id}>
-                  {opt.name}
-                </option>
-              ))}
-            </select>
+                    {isEditing && (
+                      <div className="mc-soft-callout mt-2">
+                        <label
+                          className="form-label mb-1"
+                          style={{ fontSize: 12 }}
+                        >
+                          Institutional email
+                          {allowedDomains && allowedDomains.length > 0 && (
+                            <span className="text-muted ms-1">
+                              (allowed: {allowedDomains.join(", ")})
+                            </span>
+                          )}
+                        </label>
+
+                        <div className="d-flex gap-2">
+                          <input
+                            type="email"
+                            className="form-control form-control-sm"
+                            value={institutionEmails[instId] || ""}
+                            onChange={(e) =>
+                              handleInstitutionEmailChange(
+                                instId,
+                                e.target.value
+                              )
+                            }
+                            placeholder="john@youruniversity.edu"
+                          />
+
+                          {isNew && (
+                            <button
+                              type="button"
+                              className="btn btn-danger d-flex align-items-center justify-content-center text-white"
+                              onClick={() => removeInstitution(instId)}
+                              title="Discard"
+                            >
+                              {DiscardIcon}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })
+            )}
           </div>
 
-          <div className="col-md-4 d-grid">
-            <button
-              type="button"
-              className="btn btn-outline-memory"
-              onClick={addInstitution}
-              disabled={!selectedInstitutionId}
-            >
-              Add Institution
-            </button>
+          <div className="row g-3 align-items-end">
+            <div className="col-md-8">
+              <label className="form-label">Select an institution</label>
+
+              <div className="dropdown mc-filter-select mc-select">
+                <button
+                  className="btn btn-outline-secondary dropdown-toggle droptoogle-fix mc-dd-toggle"
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                >
+                  <span className="mc-filter-select-text">
+                    {selectedInstitutionId
+                      ? remainingOptions.find(
+                          (o) => o._id === selectedInstitutionId
+                        )?.name
+                      : "— Select Institution —"}
+                  </span>
+                </button>
+
+                <ul className="dropdown-menu mc-select">
+                  {remainingOptions.map((opt) => (
+                    <li key={opt._id}>
+                      <button
+                        type="button"
+                        className={`dropdown-item ${
+                          selectedInstitutionId === opt._id ? "active" : ""
+                        }`}
+                        onClick={() => setSelectedInstitutionId(opt._id)}
+                      >
+                        {opt.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="col-md-4 d-grid">
+              <button
+                type="button"
+                className="btn btn-outline-memory"
+                onClick={addInstitution}
+                disabled={!selectedInstitutionId}
+              >
+                Add Institution
+              </button>
+            </div>
           </div>
         </div>
       </section>
-
       {/* Acciones finales */}
-      <div className="mt-4 d-flex justify-content-end gap-2">
+      <div className="mt-4 d-flex justify-content-center gap-2">
         <button
           type="button"
           className="btn btn-outline-memory"

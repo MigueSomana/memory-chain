@@ -11,7 +11,7 @@ const RouteLoader = () => {
 
     const t = setTimeout(() => {
       setLoading(false);
-    }, 650); // duración del loader
+    }, 550); // duración del loader
 
     return () => clearTimeout(t);
   }, [location.pathname]);
@@ -36,8 +36,8 @@ const RouteLoader = () => {
             src={GifLoad}
             alt="Loading"
             style={{
-              width: 140,
-              height: 140,
+              width: 80,
+              height: 80,
               objectFit: "contain",
             }}
           />

@@ -64,7 +64,7 @@ const UserSchema = new Schema<IUser>(
     role: {
       type: String,
       enum: Object.values(UserRole),
-      default: UserRole.REGULAR,
+      default: UserRole.STUDENT,
     },
 
     // Estado de la cuenta (activa o desactivada)

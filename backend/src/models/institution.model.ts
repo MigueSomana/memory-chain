@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from "mongoose";
 
 // Tipos posibles de institución
-export type InstitutionType = "UNIVERSITY" | "INSTITUTE" | "OTHER";
+export type InstitutionType = "UNIVERSITY" | "INSTITUTE" | "COLLEGE" | "ACADEMIC" | "OTHER";
 
 // Interfaz TypeScript que define la estructura del documento
 export interface IInstitution extends Document {
@@ -73,7 +73,7 @@ const InstitutionSchema = new Schema<IInstitution>(
     // Tipo de institución
     type: {
       type: String,
-      enum: ["UNIVERSITY", "INSTITUTE", "OTHER"],
+      enum: ["UNIVERSITY" , "INSTITUTE" , "COLLEGE" , "ACADEMIC" , "OTHER"],
       default: "UNIVERSITY",
     },
 

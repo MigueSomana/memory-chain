@@ -117,8 +117,15 @@ export async function createThesis(req: AuthRequest, res: Response) {
       typeof body.field === "string" ? body.field.trim() : undefined;
     const department =
       typeof body.department === "string" ? body.department.trim() : undefined;
-    const doi = typeof body.doi === "string" ? body.doi.trim() : undefined;
-    const year = typeof body.year === "number" ? body.year : Number(body.year);
+    const dateRaw = body.date;
+    let date: Date | undefined = undefined;
+
+    if (typeof dateRaw === "string" || typeof dateRaw === "number") {
+      const d = new Date(dateRaw);
+      if (!Number.isNaN(d.getTime())) date = d;
+    } else if (dateRaw instanceof Date) {
+      if (!Number.isNaN(dateRaw.getTime())) date = dateRaw;
+    }
 
     // ID de institución (viene del cliente)
     const institution = body.institution;
@@ -148,10 +155,9 @@ export async function createThesis(req: AuthRequest, res: Response) {
       language,
       degree,
       field,
-      year,
+      date,
       institution,
       department,
-      doi,
       uploadedBy: req.user._id, // quien la subió
       fileHash,
       hashAlgorithm: "sha256",
@@ -208,9 +214,8 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       "language",
       "degree",
       "field",
-      "year",
+      "date",
       "department",
-      "doi",
       // NO permitimos status directo desde el estudiante
     ] as const;
 
@@ -219,6 +224,22 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       if (body[key] !== undefined) {
         updates[key] = body[key];
       }
+    }
+    // ✅ Parse date si viene como string/number
+    if (updates.date !== undefined) {
+      const raw = updates.date as unknown;
+      let d: Date | undefined;
+
+      if (typeof raw === "string" || typeof raw === "number") {
+        const dd = new Date(raw);
+        if (!Number.isNaN(dd.getTime())) d = dd;
+      } else if (raw instanceof Date) {
+        if (!Number.isNaN(raw.getTime())) d = raw;
+      }
+
+      // Si no es válida, la eliminamos para no guardar "Invalid Date"
+      if (!d) delete updates.date;
+      else updates.date = d;
     }
 
     // Parsear arrays si vienen como string (multipart/form-data)

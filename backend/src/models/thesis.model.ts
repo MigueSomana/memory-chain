@@ -34,14 +34,13 @@ export interface IThesis extends Document {
   language: string;
   degree: string;
   field?: string;
-  year?: number;
+  date?: Date; // fecha completa (día/mes/año)
 
   likes: number;
   likedBy: Types.ObjectId[];
 
   institution: Types.ObjectId;
   department?: string;
-  doi?: string;
   status: CertificationStatus;
   uploadedBy?: Types.ObjectId;
   createdAt: Date;
@@ -92,8 +91,8 @@ const ThesisSchema = new Schema<IThesis>(
     // Área o campo de estudio
     field: { type: String, trim: true },
 
-    // Año de publicación
-    year: { type: Number },
+    // Fecha de publicación (día/mes/año)
+date: { type: Date },
 
     // Contador de likes
     likes: { type: Number, default: 0 },
@@ -110,9 +109,6 @@ const ThesisSchema = new Schema<IThesis>(
 
     // Departamento o facultad
     department: { type: String, trim: true },
-
-    // DOI opcional si existe
-    doi: { type: String, trim: true },
 
     // Estado de certificación
     status: {

@@ -1,19 +1,20 @@
 export enum UserRole {
-  REGULAR = "REGULAR",
   STUDENT = "STUDENT",
-  INSTITUTION = "INSTITUTION"
+  INSTITUTION = "INSTITUTION",
 }
 
 export enum InstitutionType {
   UNIVERSITY = "UNIVERSITY",
   INSTITUTE = "INSTITUTE",
-  OTHER = "OTHER"
+  COLLEGE = "COLLEGE",
+  ACADEMIC = "ACADEMIC",
+  OTHER = "OTHER",
 }
 
 export enum CertificationStatus {
   PENDING = "PENDING",
   APPROVED = "APPROVED",
-  REJECTED = "REJECTED"
+  REJECTED = "REJECTED",
 }
 
 export type HashAlgorithm = "sha256" | "sha3" | "keccak256";

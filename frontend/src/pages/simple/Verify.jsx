@@ -11,10 +11,7 @@ import {
   CrossCircle,
   TimeCircle,
 } from "../../utils/icons";
-import Blockchainground from "../../assets/blockchainground.png";
-import SearchPNG from "../../assets/Search.png";
-import NotFoundPNG from "../../assets/NotFound.png";
-
+import Verifyground from "../../assets/verify.png";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import "react-pdf/dist/esm/Page/TextLayer.css";
@@ -59,33 +56,6 @@ const copyIconWrap = {
   cursor: "pointer",
   opacity: 0.85,
   userSelect: "none",
-};
-
-const PlaceholderArt = ({ src, alt = "" }) => {
-  const boxStyle = {
-    width: 320,
-    height: 320,
-    maxWidth: "75vw",
-    maxHeight: "55vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  };
-
-  const imgStyle = {
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-    display: "block",
-    userSelect: "none",
-    pointerEvents: "none",
-  };
-
-  return (
-    <div style={boxStyle}>
-      <img src={src} alt={alt} style={imgStyle} draggable={false} />
-    </div>
-  );
 };
 
 /* ===================== SINGLE PDF VIEWER (para Verify) ===================== */
@@ -167,7 +137,9 @@ function SinglePdfViewer({ url, height }) {
           height: "100%",
           overflow: "auto",
           padding: 12,
-          borderRadius: 5,
+          borderRadius: 12,
+          border: "1px solid rgba(0,0,0,.08)",
+          background: "rgba(255,255,255,0.85)",
         }}
       >
         <div style={{ display: "flex", justifyContent: "center" }}>
@@ -181,9 +153,13 @@ function SinglePdfViewer({ url, height }) {
             onLoadError={(e) => {
               console.error("PDF load error (Verify Single):", e);
             }}
-            loading={<div style={noticeStyleDark}>Loading PDF…</div>}
+            loading={
+              <div style={noticeStyleLight}>
+                Loading PDF… <span style={{ opacity: 0.7 }}>Please wait</span>
+              </div>
+            }
             error={
-              <div style={{ ...noticeStyleDark, borderColor: "#ff6b6b" }}>
+              <div style={{ ...noticeStyleLight, borderColor: "#ff6b6b" }}>
                 Could not open the PDF.
               </div>
             }
@@ -196,7 +172,7 @@ function SinglePdfViewer({ url, height }) {
                   <div
                     key={p}
                     ref={(el) => (pageRefs.current[p - 1] = el)}
-                    style={singlePageCardDark}
+                    style={singlePageCardLight}
                   >
                     <div style={pageCenter}>
                       <div style={pageFrame}>
@@ -213,18 +189,18 @@ function SinglePdfViewer({ url, height }) {
 
       {/* Controls bottom (single): paginación CENTRADA */}
       <div style={controlsDockCentered}>
-        <div style={pagerPill}>
+        <div style={pagerPillLight}>
           <button
             type="button"
             onClick={goPrev}
             disabled={!canPrev}
-            style={pillIconBtn(!canPrev)}
+            style={pillIconBtnLight(!canPrev)}
             title="Previous page"
           >
             ◀
           </button>
 
-          <div style={pagerTextSmallCentered}>
+          <div style={pagerTextSmallCenteredDark}>
             {numPages ? (
               <>
                 Page <b>{pageNumber}</b> / {numPages}
@@ -238,7 +214,7 @@ function SinglePdfViewer({ url, height }) {
             type="button"
             onClick={goNext}
             disabled={!canNext}
-            style={pillIconBtn(!canNext)}
+            style={pillIconBtnLight(!canNext)}
             title="Next page"
           >
             ▶
@@ -251,14 +227,14 @@ function SinglePdfViewer({ url, height }) {
 
 /* ===================== STYLES para viewer dentro de Verify ===================== */
 
-const darkPillBg = "rgba(15,15,16,0.55)";
-const darkPillBorder = "1px solid rgba(255,255,255,0.10)";
+const pillBorderLight = "1px solid rgba(0,0,0,.10)";
+const pillBgLight = "rgba(255,255,255,0.92)";
 
-function pillIconBtn(disabled) {
+function pillIconBtnLight(disabled) {
   return {
-    border: darkPillBorder,
-    background: darkPillBg,
-    color: "white",
+    border: pillBorderLight,
+    background: pillBgLight,
+    color: "#141416",
     fontSize: 14,
     fontWeight: 900,
     padding: "7px 9px",
@@ -270,18 +246,19 @@ function pillIconBtn(disabled) {
   };
 }
 
-const pagerPill = {
+const pagerPillLight = {
   display: "flex",
   alignItems: "center",
   gap: 8,
-  padding: "5px 8px",
+  padding: "6px 10px",
   borderRadius: 999,
-  background: darkPillBg,
-  border: darkPillBorder,
+  background: pillBgLight,
+  border: pillBorderLight,
+  boxShadow: "0 10px 25px rgba(0,0,0,0.10)",
 };
 
-const pagerTextSmallCentered = {
-  color: "white",
+const pagerTextSmallCenteredDark = {
+  color: "#141416",
   fontWeight: 900,
   fontSize: 12,
   minWidth: 120,
@@ -301,10 +278,10 @@ const controlsDockCentered = {
   justifyContent: "center",
 };
 
-const noticeStyleDark = {
-  color: "white",
-  border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(15,15,16,0.35)",
+const noticeStyleLight = {
+  color: "#141416",
+  border: "1px solid rgba(0,0,0,.14)",
+  background: "rgba(255,255,255,0.88)",
   borderRadius: 12,
   padding: 12,
   maxWidth: 520,
@@ -312,14 +289,15 @@ const noticeStyleDark = {
   textAlign: "center",
 };
 
-const singlePageCardDark = {
-  background: "rgba(15,15,16,0.25)",
+const singlePageCardLight = {
+  background: "rgba(255,255,255,0.88)",
   padding: 10,
   borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.10)",
+  border: "1px solid rgba(0,0,0,.10)",
   overflow: "hidden",
   margin: "0 auto",
   maxWidth: 980,
+  boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
 };
 
 const pageCenter = {
@@ -366,8 +344,6 @@ const Verify = () => {
     }, 450);
   };
 
-  const iframeH = 600;
-
   const statusUpper = useMemo(
     () => safeStr(selectedThesis?.status).toUpperCase(),
     [selectedThesis]
@@ -377,7 +353,6 @@ const Verify = () => {
   const isPending = statusUpper === "PENDING";
   const isRejected = statusUpper === "REJECTED";
 
-  // URL del PDF con gateway Pinata (SIN iframe)
   const pdfUrl = useMemo(() => {
     const cid = safeStr(selectedThesis?.ipfsCid);
     if (!cid || !gateway) return "";
@@ -396,8 +371,8 @@ const Verify = () => {
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
-    } catch {
-      // sin warnings
+    } catch (e) {
+      console.log(e);
     }
   };
 
@@ -479,7 +454,6 @@ const Verify = () => {
 
   const handleSearch = async (ev) => {
     ev?.preventDefault?.();
-
     setHasSearched(true);
 
     const q = safeStr(hashInput);
@@ -515,7 +489,7 @@ const Verify = () => {
         setSelectedThesis(null);
         setCertificateData(null);
         setRightMsg("No match found. Check the hash and try again.");
-        navigate("/verify", { replace: true }); // deja /verify pero sin reset
+        navigate("/verify", { replace: true });
         return;
       }
 
@@ -547,48 +521,36 @@ const Verify = () => {
     }
   };
 
-  const Step = ({ icon, title, subtitle }) => (
-    <div className="mb-3">
+  /* ✅ Step card: soporta "rightSlot" para alinear botón con el texto */
+  const StepCard = ({ icon, title, subtitle, children, rightSlot }) => (
+    <div className="mc-stepcard">
       <div className="d-flex align-items-start gap-3">
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 999,
-            background: "#20C997",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flex: "0 0 auto",
-          }}
-        >
-          <span
-            style={{
-              color: "#fff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {icon}
-          </span>
+        <div className="mc-stepcard__icon">
+          <span className="mc-stepcard__iconInner">{icon}</span>
         </div>
 
         <div className="flex-grow-1">
-          <div style={{ fontWeight: 800, fontSize: 17, lineHeight: 1.2 }}>
-            {title}
-          </div>
-          {subtitle ? (
-            <div className="text-muted mt-1" style={{ fontSize: 12 }}>
-              {subtitle}
+          {/* Header row: texto + slot derecho (botón) */}
+          <div className="mc-stepcard__head">
+            <div>
+              <div className="mc-stepcard__title">{title}</div>
+              {subtitle ? (
+                <div className="mc-stepcard__sub">{subtitle}</div>
+              ) : null}
             </div>
+
+            {rightSlot ? (
+              <div className="mc-stepcard__right">{rightSlot}</div>
+            ) : null}
+          </div>
+
+          {children ? (
+            <div className="mc-stepcard__content">{children}</div>
           ) : null}
         </div>
       </div>
     </div>
   );
-
-  const leftIsEmpty = !selectedThesis && !loading && !errorMsg;
 
   const CopyField = ({ label, value }) => {
     const v = safeStr(value);
@@ -669,20 +631,14 @@ const Verify = () => {
 
   return (
     <>
-      <div
-        style={{
-          backgroundImage: `url(${Blockchainground})`,
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "right bottom",
-          backgroundSize: "auto 100%",
-        }}
-      >
+      <div style={{ background: "#ffffff" }}>
         <NavbarInit />
-
         <div
           style={{
-            background:
-              "linear-gradient(90deg, rgba(255,255,255,0.70) 0%, rgba(255,255,255,0.3) 100%)",
+            backgroundImage: `url(${Verifyground})`,
+            backgroundPosition: "right center",
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "auto 100%",
           }}
         >
           <div className="container py-4">
@@ -694,214 +650,191 @@ const Verify = () => {
                   style={{ maxWidth: 560 }}
                 >
                   <h2 className="fw-bold mb-0">
-                    Verify your thesis in 3 steps
+                    Verify your thesis in{" "}
+                    <strong style={{ color: "#20C997" }}>3</strong> steps
                   </h2>
                 </div>
 
-                <div
-                  style={{ maxWidth: 560, paddingTop: leftIsEmpty ? 10 : 0 }}
-                >
-                  <Step
+                {/* ✅ Step cards stack */}
+                <div style={{ maxWidth: 560 }} className="mc-stepsStack">
+                  {/* STEP 1 (search adentro) */}
+                  <StepCard
                     icon={SearchIcon}
                     title="Step 1: Paste the hash"
                     subtitle="Use the file hash or the blockchain transaction hash."
-                  />
-
-                  <div
-                    className="d-flex justify-content-center"
-                    style={{ marginTop: leftIsEmpty ? 18 : 0 }}
                   >
-                    <div style={{ width: "100%", paddingInline: 12 }}>
-                      <form onSubmit={handleSearch}>
-                        <div className="input-group">
-                          <input
-                            type="text"
-                            className="form-control"
-                            placeholder="Paste fileHash or txHash…"
-                            value={hashInput}
-                            onChange={(e) => {
-                              markTyping();
-                              setHashInput(e.target.value);
-                            }}
-                            disabled={loading}
-                            autoComplete="off"
-                            spellCheck={false}
-                          />
-                          <button
-                            type="submit"
-                            className="btn btn-memory"
-                            disabled={loading}
-                            style={{ minWidth: 120 }}
-                          >
-                            {loading ? "Searching..." : "Search"}
-                          </button>
+                    <form onSubmit={handleSearch}>
+                      <div className="input-group">
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Paste fileHash or txHash…"
+                          value={hashInput}
+                          onChange={(e) => {
+                            markTyping();
+                            setHashInput(e.target.value);
+                          }}
+                          disabled={loading}
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                        <button
+                          type="submit"
+                          className="btn btn-memory"
+                          disabled={loading}
+                          style={{ minWidth: 120 }}
+                        >
+                          {loading ? "Searching..." : "Search"}
+                        </button>
+                      </div>
+
+                      {errorMsg ? (
+                        <div
+                          className="alert alert-danger mt-3 mb-0"
+                          role="alert"
+                        >
+                          {errorMsg}
                         </div>
+                      ) : null}
+                    </form>
+                  </StepCard>
 
-                        {errorMsg ? (
-                          <div
-                            className="alert alert-danger mt-3 mb-0"
-                            role="alert"
-                          >
-                            {errorMsg}
-                          </div>
-                        ) : null}
-                      </form>
-                    </div>
-                  </div>
-
-                  <div style={{ height: leftIsEmpty ? 26 : 16 }} />
-
-                  <Step
+                  {/* STEP 2 (solo el step; la tech card VA AFUERA) */}
+                  <StepCard
                     icon={EyeIcon}
                     title="Step 2: Check the status"
                     subtitle="Only approved theses can be previewed here."
                   />
+                </div>
 
-                  {showTechSheet ? (
-                    <div
-                      className="card shadow-sm my-3"
-                      style={{ borderRadius: 16, overflow: "hidden" }}
-                    >
-                      <div style={{ padding: "12px 14px 10px" }}>
-                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                          <span className="badge text-bg-light">
-                            ID:{" "}
-                            <strong className="ms-1">
-                              {selectedThesis._id}
-                            </strong>
-                          </span>
-                          <StatusPill />
-                        </div>
-
-                        {showFullTechSheet ? (
-                          <div className="row g-2 mt-0">
-                            <CopyField
-                              label="IPFS CID"
-                              value={selectedThesis?.ipfsCid}
-                            />
-                            <CopyField
-                              label="File hash"
-                              value={selectedThesis?.fileHash}
-                            />
-                            <CopyField
-                              label="Transaction hash"
-                              value={selectedThesis?.txHash}
-                            />
-                          </div>
-                        ) : null}
+                {/* ✅ Tech sheet card AFUERA del step (como estaba antes) */}
+                {showTechSheet ? (
+                  <div
+                    className="card shadow-sm mt-3"
+                    style={{
+                      borderRadius: 16,
+                      overflow: "hidden",
+                      maxWidth: 560,
+                    }}
+                  >
+                    <div style={{ padding: "12px 14px 10px" }}>
+                      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <span className="badge text-bg-light">
+                          ID:{" "}
+                          <strong className="ms-1">{selectedThesis._id}</strong>
+                        </span>
+                        <StatusPill />
                       </div>
+
+                      {showFullTechSheet ? (
+                        <div className="row g-2 mt-0">
+                          <CopyField
+                            label="IPFS CID"
+                            value={selectedThesis?.ipfsCid}
+                          />
+                          <CopyField
+                            label="File hash"
+                            value={selectedThesis?.fileHash}
+                          />
+                          <CopyField
+                            label="Transaction hash"
+                            value={selectedThesis?.txHash}
+                          />
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                  </div>
+                ) : null}
 
-                  <div style={{ height: leftIsEmpty ? 24 : 10 }} />
+                {/* ✅ separación simétrica: mismo gap visual antes del Step 3 */}
+                <div style={{ height: 14 }} />
 
-                  <Step
+                {/* STEP 3 con botón alineado horizontal con texto */}
+                <div style={{ maxWidth: 560 }} className="mc-stepsStack">
+                  <StepCard
                     icon={CheckCircle}
                     title="Step 3: Open the certificate"
                     subtitle="Available only for approved on-chain certificates."
-                  />
-
-                  <div
-                    className="d-flex justify-content-center"
-                    style={{ marginTop: leftIsEmpty ? 16 : 6 }}
-                  >
-                    <div style={{ width: "100%", paddingInline: 12 }}>
-                      {canShowCertificateBtn ? (
-                        <div className="d-flex justify-content-center">
-                          <button
-                            type="button"
-                            className="btn btn-memory"
-                            onClick={() => {
-                              if (!selectedThesis) return;
-                              openCertificateModal();
-                            }}
-                            style={{ minWidth: 220 }}
-                          >
-                            Open certificate
-                          </button>
-                        </div>
-                      ) : (
-                        <div
-                          className="text-muted text-center"
-                          style={{ fontSize: 12 }}
+                    rightSlot={
+                      canShowCertificateBtn ? (
+                        <button
+                          type="button"
+                          className="btn btn-memory"
+                          onClick={() => {
+                            if (!selectedThesis) return;
+                            openCertificateModal();
+                          }}
+                          style={{ minWidth: 120, paddingInline: 18 }}
                         >
-                          (This appears only when an approved on-chain
-                          certificate exists.)
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                          Open
+                        </button>
+                      ) : null
+                    }
+                  >
+                    {!canShowCertificateBtn ? (
+                      <div className="text-muted" style={{ fontSize: 12 }}>
+                        (This appears only when an approved on-chain certificate
+                        exists.)
+                      </div>
+                    ) : null}
+                  </StepCard>
                 </div>
               </div>
 
               {/* RIGHT */}
               <div className="col-12 col-lg-6">
-                <div style={{ minHeight: iframeH }}>
+                <div style={{ minHeight: 600 }}>
                   {rightBlockedByStatus ? (
-                    <div
-                      className="d-flex align-items-center justify-content-center text-center"
-                      style={{ minHeight: iframeH, padding: 24 }}
-                    >
-                      <div className="text-muted d-flex flex-column align-items-center justify-content-center">
-                        <PlaceholderArt src={NotFoundPNG} alt="Not approved" />
-                        <div className="mt-3" style={{ fontWeight: 600 }}>
-                          <div className="alert alert-warning" role="alert">
-                            Please verify and update your thesis so its status
-                            can be changed.
-                          </div>
+                    <div className="mc-rightState">
+                      <div className="mc-rightCard">
+                        <div className="mc-rightTitle">Preview locked</div>
+                        <div className="mc-rightText">
+                          This thesis is not approved yet. Ask the institution
+                          to verify and update the status so the preview can be
+                          enabled.
+                        </div>
+                        <div className="mc-rightHint">
+                          <span className="mc-dot" /> Status must be{" "}
+                          <b>APPROVED</b>
                         </div>
                       </div>
                     </div>
                   ) : !selectedThesis ? (
-                    <div
-                      className="d-flex align-items-center justify-content-center text-center"
-                      style={{ minHeight: iframeH, padding: 24 }}
-                    >
-                      <div className="text-muted d-flex flex-column align-items-center justify-content-center">
-                        {rightIsNotFound ? (
-                          <PlaceholderArt src={NotFoundPNG} alt="Not found" />
-                        ) : (
-                          <PlaceholderArt src={SearchPNG} alt="Search" />
-                        )}
-
-                        <div className="mt-3" style={{ fontWeight: 600 }}>
-                          {rightIsNotFound ? (
-                            <div className="alert alert-danger" role="alert">
-                              No thesis found. Please double-check the hash
-                            </div>
-                          ) : rightIsIdle ? (
-                            <div className="alert alert-light" role="alert">
-                              Start searching for certification now
-                            </div>
-                          ) : (
-                            rightMsg || (
-                              <div className="alert alert-light" role="alert">
-                                Start searching for certification now
-                              </div>
-                            )
-                          )}
+                    <div className="mc-rightState">
+                      <div className="mc-rightCard">
+                        <div className="mc-rightTitle">
+                          {rightIsNotFound
+                            ? "No match found"
+                            : "Ready to verify"}
+                        </div>
+                        <div className="mc-rightText">
+                          {rightIsNotFound
+                            ? "Please double-check the hash and try again."
+                            : rightIsIdle
+                            ? "Paste a file hash or transaction hash to start verification."
+                            : safeStr(rightMsg) ||
+                              "Paste a file hash or transaction hash."}
+                        </div>
+                        <div className="mc-rightHint">
+                          <span className="mc-dot" /> Tip: try a txHash too
                         </div>
                       </div>
                     </div>
                   ) : canPreview ? (
-                    <div style={{ height: iframeH }}>
-                      {/*  Viewer bonito con pdf.js (single) */}
-                      <SinglePdfViewer url={pdfUrl} height={iframeH} />
+                    <div style={{ height: 600 }}>
+                      <SinglePdfViewer url={pdfUrl} height={600} />
                     </div>
                   ) : (
-                    <div
-                      className="d-flex align-items-center justify-content-center text-center"
-                      style={{ minHeight: iframeH, padding: 24 }}
-                    >
-                      <div className="text-muted d-flex flex-column align-items-center justify-content-center">
-                        <PlaceholderArt
-                          src={NotFoundPNG}
-                          alt="Preview unavailable"
-                        />
-                        <div className="mt-3" style={{ fontWeight: 600 }}>
-                          <div className="alert alert-danger" role="alert">
-                            Preview unavailable. Please try again later.
-                          </div>
+                    <div className="mc-rightState">
+                      <div className="mc-rightCard">
+                        <div className="mc-rightTitle">Preview unavailable</div>
+                        <div className="mc-rightText">
+                          We couldn't load the PDF preview. This can happen due
+                          to gateway/CORS, missing CID, or a temporary network
+                          issue.
+                        </div>
+                        <div className="mc-rightHint">
+                          <span className="mc-dot" /> Try again in a moment
                         </div>
                       </div>
                     </div>

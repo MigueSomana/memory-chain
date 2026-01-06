@@ -42,7 +42,6 @@ const STATUS_CHANGE_OPTIONS = [
 
 // HELPERS (normalización de campos)
 const getInstitutionName = (thesis) => {
-  // thesis.institution puede venir como string (id) o como objeto populate
   const inst = thesis?.institution;
   if (!inst) return "";
   if (typeof inst === "string") return inst;
@@ -50,7 +49,6 @@ const getInstitutionName = (thesis) => {
 };
 
 const buildAuthorsSearchString = (authors) => {
-  // Convierte authors (strings u objetos) a un string buscable para el search
   if (!Array.isArray(authors)) return "";
   return authors
     .map((a) => {
@@ -70,11 +68,9 @@ const buildAuthorsSearchString = (authors) => {
     .toLowerCase();
 };
 
-// UI helper: mapea el status al estilo visual del botón
 function getStatusUI(statusRaw) {
   const status = String(statusRaw || "").toUpperCase();
 
-  // Aprobado: se “bloquea” para evitar cambios (requisito del flujo)
   if (status === "APPROVED") {
     return {
       btnClass: "btn btn-memory",
@@ -85,7 +81,6 @@ function getStatusUI(statusRaw) {
     };
   }
 
-  // Rechazado: editable
   if (status === "REJECTED") {
     return {
       btnClass: "btn btn-danger",
@@ -96,7 +91,6 @@ function getStatusUI(statusRaw) {
     };
   }
 
-  // Default: pendiente
   return {
     btnClass: "btn btn-warning",
     icon: TimeCircle,
@@ -108,37 +102,29 @@ function getStatusUI(statusRaw) {
 
 // COMPONENT: LibraryUSearch
 const LibraryUSearch = () => {
-  // Token e institución autenticada (memo para evitar recalcular en renders)
   const token = useMemo(() => getAuthToken(), []);
   const authInst = useMemo(() => getAuthInstitution(), []);
 
-  // ---------- Estado data ----------
   const [theses, setTheses] = useState([]);
 
-  // ---------- Estado UI ----------
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  // ---------- Search + filtros ----------
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("recent");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // ---------- Paginación ----------
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // Estado para ModalView
   const [selectedThesisView, setSelectedThesisView] = useState(null);
 
-  // Load: tesis de la institución logueada
   useEffect(() => {
     const fetchMyTheses = async () => {
       try {
         setLoading(true);
         setLoadError("");
 
-        // Si no hay institución logueada (o no llegó el _id), no hay nada que cargar
         if (!authInst?._id) {
           setTheses([]);
           return;
@@ -146,7 +132,6 @@ const LibraryUSearch = () => {
 
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-        // Endpoint: theses por institución (sub)
         const res = await axios.get(
           `${API_BASE_URL}/api/theses/sub/${authInst._id}`,
           headers ? { headers } : undefined
@@ -154,7 +139,6 @@ const LibraryUSearch = () => {
 
         const data = Array.isArray(res.data) ? res.data : [];
 
-        // Normaliza likes a número (evita NaN)
         const mapped = data.map((t) => ({
           ...t,
           likes: Number(t.likes ?? 0),
@@ -173,7 +157,6 @@ const LibraryUSearch = () => {
     fetchMyTheses();
   }, [token, authInst]);
 
-  // Filter: query + status filter
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const selectedStatus = String(statusFilter || "all").toUpperCase();
@@ -186,7 +169,6 @@ const LibraryUSearch = () => {
         ? t.keywords.map((k) => String(k).toLowerCase())
         : [];
 
-      // Search flexible: title / authors / keywords / institution
       const matchesQ =
         !q ||
         (t.title || "").toLowerCase().includes(q) ||
@@ -194,7 +176,6 @@ const LibraryUSearch = () => {
         keywordsSearch.some((k) => k.includes(q)) ||
         instName.toLowerCase().includes(q);
 
-      // Status filter (ALL o match exacto)
       const status = String(t.status || "").toUpperCase();
       const matchesStatus = selectedStatus === "ALL" || status === selectedStatus;
 
@@ -202,7 +183,6 @@ const LibraryUSearch = () => {
     });
   }, [theses, query, statusFilter]);
 
-  // Sort: por año o por título
   const filteredOrdered = useMemo(() => {
     const arr = [...filtered];
 
@@ -239,7 +219,6 @@ const LibraryUSearch = () => {
     return arr;
   }, [filtered, sortBy]);
 
-  // Pagination: slice items
   const totalPages = Math.max(1, Math.ceil(filteredOrdered.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const start = (currentPage - 1) * pageSize;
@@ -257,7 +236,6 @@ const LibraryUSearch = () => {
 
   const go = (p) => setPage(p);
 
-  // Actions: abrir PDF (gateway/ipfsCid)
   const handleView = (thesis) => {
     setSelectedThesisView(thesis);
 
@@ -271,12 +249,10 @@ const LibraryUSearch = () => {
     modal?.show();
   };
 
-  // Action placeholder: permiso (por ahora solo log)
   const handlePermission = async (thesis) => {
     console.log(thesis);
   };
 
-  // PATCH /api/theses/:id/status
   const handleChangeStatus = async (thesisId, newStatus) => {
     if (!token) return;
 
@@ -291,7 +267,6 @@ const LibraryUSearch = () => {
 
       const updated = res?.data?.thesis || res?.data || null;
 
-      // Actualiza SOLO la tesis afectada en el estado local
       setTheses((prev) =>
         prev.map((t) =>
           t._id === thesisId ? { ...t, status: updated?.status ?? newStatus } : t
@@ -303,7 +278,6 @@ const LibraryUSearch = () => {
     }
   };
 
-  // Render: loading / error / empty state
   if (loading) {
     return (
       <div className="container py-2">
@@ -322,14 +296,10 @@ const LibraryUSearch = () => {
     );
   }
 
-  // Si la institución no tiene tesis, muestra un empty state
   if (theses.length === 0) {
     return (
       <div className="container py-2">
-        <div
-          className="d-flex justify-content-center align-items-center"
-          style={{ minHeight: "55vh" }}
-        >
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "55vh" }}>
           <div className="text-center">
             {InboxMin}
             <h3 className="m-0" style={{ color: "#b6b7ba" }}>
@@ -341,45 +311,31 @@ const LibraryUSearch = () => {
     );
   }
 
-  // Flag: habilitación de verificación (membership activa / permiso backend)
   const canVerify = !!authInst?.canVerify;
 
-  // Label visible del filtro de status
   const statusFilterLabel =
     STATUS_FILTER_OPTIONS.find((o) => o.key === statusFilter)?.label ?? "—";
 
-  // Render: pantalla principal
   return (
-    <div className="container py-2">
-      {/* ModalView montado (recibe la tesis seleccionada) */}
+    <div className="container py-2 mc-thesis-page">
       <ModalView thesis={selectedThesisView} />
 
-      {/* Banner de advertencia si NO puede verificar */}
       {!canVerify && (
         <div className="row">
           <div className="col-12">
-            <div
-              className="alert alert-danger d-flex align-items-center gap-2"
-              role="alert"
-            >
+            <div className="alert alert-danger d-flex align-items-center gap-2" role="alert">
               {AlertDanger}
               <div>
-                Please activate your membership in order to certify those of
-                your institution.
+                Please activate your membership in order to certify those of your institution.
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Barra superior: Search + Status + Sort + Counter */}
       <div className="row g-3 align-items-center mb-3">
         <div className="col-12">
-          <div
-            className="d-flex gap-2 align-items-center flex-wrap"
-            style={{ overflow: "visible" }}
-          >
-            {/* Search */}
+          <div className="d-flex gap-2 align-items-center flex-wrap" style={{ overflow: "visible" }}>
             <input
               className="form-control"
               placeholder="Search theses by title, author, keyword or institution…"
@@ -391,10 +347,9 @@ const LibraryUSearch = () => {
               style={{ minWidth: 260, flex: "1 1 260px" }}
             />
 
-            {/* Status filter dropdown (estilo “select” como sort) */}
             <div className="dropdown mc-select" style={{ position: "relative" }}>
               <button
-                className="btn btn-outline-secondary dropdown-toggle"
+                className="btn btn-outline-secondary dropdown-toggle droptoogle-fixg"
                 type="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
@@ -402,13 +357,11 @@ const LibraryUSearch = () => {
                 Status: {statusFilterLabel}
               </button>
 
-              <ul className="dropdown-menu dropdown-menu-end">
+              <ul className="dropdown-menu dropdown-menu-end mc-select">
                 {STATUS_FILTER_OPTIONS.map((opt) => (
                   <li key={opt.key}>
                     <button
-                      className={`dropdown-item ${
-                        statusFilter === opt.key ? "active" : ""
-                      }`}
+                      className={`dropdown-item ${statusFilter === opt.key ? "active" : ""}`}
                       type="button"
                       onClick={() => {
                         setStatusFilter(opt.key);
@@ -422,25 +375,21 @@ const LibraryUSearch = () => {
               </ul>
             </div>
 
-            {/* Sort dropdown */}
             <div className="dropdown mc-sort mc-select" style={{ position: "relative" }}>
               <button
-                className="btn btn-outline-secondary dropdown-toggle"
+                className="btn btn-outline-secondary dropdown-toggle droptoogle-fixv"
                 type="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                Sort by:{" "}
-                {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
+                Sort by: {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
               </button>
 
-              <ul className="dropdown-menu dropdown-menu-end">
+              <ul className="dropdown-menu dropdown-menu-end mc-select">
                 {SORT_OPTIONS.map((opt) => (
                   <li key={opt.key}>
                     <button
-                      className={`dropdown-item ${
-                        sortBy === opt.key ? "active" : ""
-                      }`}
+                      className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
                       type="button"
                       onClick={() => {
                         setSortBy(opt.key);
@@ -454,11 +403,9 @@ const LibraryUSearch = () => {
               </ul>
             </div>
 
-            {/* Counter */}
             <div className="ms-auto text-nowrap">
               <span className="text-muted">
-                {filteredOrdered.length} result
-                {filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
+                {filteredOrdered.length} result{filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
                 {totalPages}
               </span>
             </div>
@@ -472,24 +419,22 @@ const LibraryUSearch = () => {
           {pageItems.map((t, idx) => {
             const rowKey = `${t._id}-${start + idx}`;
             const instName = getInstitutionName(t);
-
-            // Config visual del botón status (clase + icon + label + lock)
             const statusUI = getStatusUI(t.status);
 
             return (
-              <div key={rowKey} className="card shadow-sm">
-                <div className="card-body d-flex align-items-center gap-3">
-                  {/* Info principal */}
-                  <div className="flex-grow-1">
-                    <h5 className="m-0">{t.title}</h5>
+              <div key={rowKey} className="card mc-thesis-card shadow-sm">
+                <div className="card-body d-flex align-items-start gap-3 mc-thesis-card-body">
+                  {/* Info */}
+                  <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                    <h5 className="m-0 mc-thesis-title">{t.title}</h5>
 
-                    <div className="text-muted small">
-                      Institution:&nbsp;{instName}
-                      {t.department ? ` · ${t.department}` : " "}
+                    <div className="text-muted small mt-1">
+                      <span className="mc-label-muted">Institution:</span> {instName}
+                      {t.department ? ` · ${t.department}` : ""}
                     </div>
 
                     <div className="text-muted small">
-                      Autors:&nbsp;
+                      <span className="mc-label-muted">Authors:</span>{" "}
                       {Array.isArray(t.authors)
                         ? t.authors
                             .map((a) =>
@@ -502,27 +447,14 @@ const LibraryUSearch = () => {
                     </div>
 
                     <div className="text-muted small">
-                      File Hash: {t.fileHash ?? "—"}
+                      <span className="mc-label-muted">File Hash:</span> {t.fileHash ?? "—"}
                     </div>
 
-                    {t.keywords?.length ? (
-                      <div className="mt-1 d-flex flex-wrap gap-2">
-                        {t.keywords.map((k, kidx) => (
-                          <span
-                            key={`${rowKey}-kw-${kidx}`}
-                            className="badge text-bg-light"
-                          >
-                            {k}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
                   </div>
 
-                  {/* Actions (2 filas: acciones generales + status) */}
+                  {/* Actions */}
                   <div className="d-flex flex-column gap-2">
-                    {/* Row 1: view / permissions / likes */}
-                    <div className="d-flex align-items-center gap-2">
+                    <div className="d-flex align-items-center gap-2 justify-content-end">
                       <button
                         type="button"
                         className="btn btn-memory"
@@ -541,7 +473,6 @@ const LibraryUSearch = () => {
                         {KeyPermission}
                       </a>
 
-                      {/* Likes: visibles como métrica (no clickeable en modo institución) */}
                       <button
                         type="button"
                         className="btn btn-danger btn-fix-like d-flex align-items-center gap-1"
@@ -550,46 +481,34 @@ const LibraryUSearch = () => {
                         style={{ opacity: 1, cursor: "default" }}
                       >
                         {HeartFill}
-                        <span className="fw-semibold">{t.likes ?? 0}</span>
+                        <span className="mc-like-count">{t.likes ?? 0}</span>
                       </button>
                     </div>
 
-                    {/* Row 2: dropdown de status (solo si puede verificar) */}
                     {canVerify && (
-                      <div className="dropdown">
-                        <button
-                          type="button"
-                          className={`${statusUI.btnClass} w-100 d-flex align-items-center justify-content-center gap-2 dropdown-toggle droptoogle-fix`}
-                          data-bs-toggle="dropdown"
-                          aria-expanded="false"
-                          disabled={statusUI.disabled}
-                          title={
-                            statusUI.disabled
-                              ? "Status locked (Verified)"
-                              : "Change status"
-                          }
-                        >
-                          {statusUI.icon}
-                          <span className="fw-semibold t-white">
-                            {statusUI.label}
-                          </span>
-                        </button>
+                      <div className="dropdown mc-status-dd">
+                         <button
+    type="button"
+    className={`${statusUI.btnClass} w-100 d-flex align-items-center justify-content-center gap-2 dropdown-toggle droptoogle-fixx`}
+    data-bs-toggle="dropdown"
+    aria-expanded="false"
+    disabled={statusUI.disabled}
+    title={statusUI.disabled ? "Status locked (Verified)" : "Change status"}
+  >
+    {statusUI.icon}
+    <span className="fw-semibold t-white">{statusUI.label}</span>
+  </button>
 
-                        {/* Menú: solo si no está bloqueado */}
                         {!statusUI.disabled && (
-                          <ul className="dropdown-menu w-100 dropdown mc-select">
+                          <ul className="dropdown-menu w-100 dropdown-menu-end mc-select">
                             {STATUS_CHANGE_OPTIONS.map((opt) => {
                               const isCurrent = opt.key === statusUI.value;
                               return (
                                 <li key={opt.key}>
                                   <button
                                     type="button"
-                                    className={`dropdown-item ${
-                                      isCurrent ? "active" : ""
-                                    }`}
-                                    onClick={() =>
-                                      handleChangeStatus(t._id, opt.key)
-                                    }
+                                    className={`dropdown-item ${isCurrent ? "active" : ""}`}
+                                    onClick={() => handleChangeStatus(t._id, opt.key)}
                                     disabled={isCurrent}
                                   >
                                     {opt.label}
@@ -607,42 +526,28 @@ const LibraryUSearch = () => {
             );
           })}
 
-          {/* Empty state del listado (cuando filtras y no hay match) */}
           {pageItems.length === 0 && (
             <div className="text-muted text-center py-4">No theses found.</div>
           )}
 
-          {/* Pagination */}
           {filteredOrdered.length > 0 && (
-            <nav
-              aria-label="Theses pagination"
-              className="mt-3 d-flex justify-content-center"
-            >
+            <nav aria-label="Theses pagination" className="mt-3 d-flex justify-content-center">
               <ul className="pagination mc-pagination">
-                <li
-                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-                >
+                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
                   <button className="page-link" onClick={() => go(1)}>
                     First
                   </button>
                 </li>
 
                 {pagesArray.map((p) => (
-                  <li
-                    key={`p-${p}`}
-                    className={`page-item ${p === currentPage ? "active" : ""}`}
-                  >
+                  <li key={`p-${p}`} className={`page-item ${p === currentPage ? "active" : ""}`}>
                     <button className="page-link" onClick={() => go(p)}>
                       {p}
                     </button>
                   </li>
                 ))}
 
-                <li
-                  className={`page-item ${
-                    currentPage === totalPages ? "disabled" : ""
-                  }`}
-                >
+                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
                   <button className="page-link" onClick={() => go(totalPages)}>
                     Last
                   </button>

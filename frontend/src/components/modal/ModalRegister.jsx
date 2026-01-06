@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import axios from "axios";
 import { EyeIcon, EyeSlashIcon } from "../../utils/icons";
+import ModalRegisterInstitution from "./ModalRegisterInstitution";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -25,6 +26,7 @@ function hideModal(id) {
 const ModalRegister = ({
   modalId = "registerModal",
   loginModalId = "modalLogin",
+  institutionRegisterModalId = "registerInstitutionModal", // ✅ NUEVO
   onRegistered,
 }) => {
   // form fields
@@ -69,7 +71,7 @@ const ModalRegister = ({
     return () => el.removeEventListener("hidden.bs.modal", onHidden);
   }, [modalId]);
 
-  // live validation (like your profile form)
+  // live validation
   const validate = (opts = { showAll: false }) => {
     const showAll = !!opts.showAll;
     const shouldShow = (k) => showAll || touched[k];
@@ -86,7 +88,8 @@ const ModalRegister = ({
     if (!ln && shouldShow("lastname")) e.lastname = "Last name is required.";
 
     if (!em && shouldShow("email")) e.email = "Email is required.";
-    else if (em && !EMAIL_RE.test(em) && shouldShow("email")) e.email = "Invalid email format.";
+    else if (em && !EMAIL_RE.test(em) && shouldShow("email"))
+      e.email = "Invalid email format.";
 
     if (!pwd.trim() && shouldShow("password")) e.password = "Password is required.";
     else if (pwd.trim() && shouldShow("password")) {
@@ -101,13 +104,13 @@ const ModalRegister = ({
     }
 
     if (!conf.trim() && shouldShow("confirm")) e.confirm = "Please confirm your password.";
-    if (pwd && conf && pwd !== conf && shouldShow("confirm")) e.confirm = "Passwords do not match.";
+    if (pwd && conf && pwd !== conf && shouldShow("confirm"))
+      e.confirm = "Passwords do not match.";
 
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  // revalidate while typing after touch
   useEffect(() => {
     validate({ showAll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,11 +123,16 @@ const ModalRegister = ({
     setTimeout(() => showModal(loginModalId), 150);
   };
 
+  // ✅ NUEVO: abrir modal de institución
+  const openInstitutionRegister = () => {
+    hideModal(modalId);
+    setTimeout(() => showModal(institutionRegisterModalId), 150);
+  };
+
   const handleSubmit = async (ev) => {
     ev.preventDefault();
     setErrorMsg("");
 
-    // show all errors on submit
     setTouched({
       name: true,
       lastname: true,
@@ -154,7 +162,9 @@ const ModalRegister = ({
       setTimeout(() => showModal(loginModalId), 150);
     } catch (err) {
       console.error(err);
-      setErrorMsg(err?.response?.data?.message || "Registration failed. Please try again.");
+      setErrorMsg(
+        err?.response?.data?.message || "Registration failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -163,6 +173,7 @@ const ModalRegister = ({
   const hasErr = (k) => !!errors[k];
 
   return (
+    <>
     <div
       className="modal fade"
       id={modalId}
@@ -189,7 +200,9 @@ const ModalRegister = ({
               <div className="col-12 px-5">
                 <div className="text-center spaced-fix">
                   <h1 className="h3 mb-2 font-weight-normal mt-2">Create account</h1>
-                  <p className="text-white-50 mb-0">Join MemoryChain and protect your research</p>
+                  <p className="text-white-50 mb-0">
+                    Join MemoryChain and protect your research
+                  </p>
                 </div>
 
                 {errorMsg ? (
@@ -212,7 +225,9 @@ const ModalRegister = ({
                         autoComplete="given-name"
                         required
                       />
-                      {hasErr("name") ? <div className="invalid-feedback">{errors.name}</div> : null}
+                      {hasErr("name") ? (
+                        <div className="invalid-feedback">{errors.name}</div>
+                      ) : null}
                     </div>
 
                     <div className="col-md-6">
@@ -245,7 +260,9 @@ const ModalRegister = ({
                         autoComplete="email"
                         required
                       />
-                      {hasErr("email") ? <div className="invalid-feedback">{errors.email}</div> : null}
+                      {hasErr("email") ? (
+                        <div className="invalid-feedback">{errors.email}</div>
+                      ) : null}
                     </div>
                   </div>
 
@@ -315,7 +332,8 @@ const ModalRegister = ({
                     </div>
                   </div>
 
-                  <div className="my-4 d-flex justify-content-center gap-3">
+                  {/* ✅ BOTONES */}
+                  <div className="my-4 d-flex justify-content-center gap-3 flex-wrap">
                     <button
                       type="submit"
                       className="btn btn-memory"
@@ -334,6 +352,17 @@ const ModalRegister = ({
                     >
                       Back to login
                     </button>
+
+                    {/* ✅ NUEVO: Register Institution */}
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={openInstitutionRegister}
+                      disabled={loading}
+                      style={{ minWidth: 220 }}
+                    >
+                      Register Institution
+                    </button>
                   </div>
                 </form>
               </div>
@@ -342,6 +371,9 @@ const ModalRegister = ({
         </div>
       </div>
     </div>
+    
+    <ModalRegisterInstitution modalId="registerInstitutionModal" userRegisterModalId="registerModal" />
+    </>
   );
 };
 

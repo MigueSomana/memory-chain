@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import NavbarReal from "../../components/navbar/NavbarReal";
 import Layout from "../../components/layout/LayoutPrivado";
 import { getAuthRole, getAuthToken } from "../../utils/authSession";
+import ModalView from "../../components/modal/ModalView";
 import axios from "axios";
 import {
   EyeFillIcon,
@@ -17,7 +18,7 @@ const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
 const role = getAuthRole();
 const token = getAuthToken();
 
-// ===================== Opciones de ordenamiento =====================
+// ===================== Opciones de ordenamiento (idénticas a ThesisSearch) =====================
 const SORT_OPTIONS = [
   { key: "recent", label: "Most recent" },
   { key: "oldest", label: "Oldest" },
@@ -27,17 +28,14 @@ const SORT_OPTIONS = [
   { key: "ratings_least", label: "Least ratings" },
 ];
 
-// ===================== Helpers =====================
-
-// Obtiene el nombre de la institución aunque venga como string u objeto populate
+// ===================== Helpers (idénticos a ThesisSearch) =====================
 const getInstitutionName = (thesis) => {
   const inst = thesis?.institution;
   if (!inst) return "";
-  if (typeof inst === "string") return inst;
+  if (typeof inst === "string") return inst; // ✅ NO tocamos esto
   return inst?.name || "";
 };
 
-// Convierte authors (strings u objetos) en un string "buscable"
 const buildAuthorsSearchString = (authors) => {
   if (!Array.isArray(authors)) return "";
   return authors
@@ -55,19 +53,45 @@ const buildAuthorsSearchString = (authors) => {
     .toLowerCase();
 };
 
-// Normaliza status a MAYÚSCULAS
 const normalizeStatus = (s) => String(s || "").toUpperCase();
 
-// Clipboard
-async function copyToClipboard(text) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return true;
+const getYearFromThesis = (t) => {
+  if (t?.date) {
+    const dt = new Date(t.date);
+    const y = dt.getFullYear();
+    if (!Number.isNaN(y) && y > 0) return y;
   }
-  return false;
-}
 
-// ===================== APA helpers (igual que tu lógica) =====================
+  const yLegacy = Number(t?.year);
+  if (Number.isFinite(yLegacy) && yLegacy > 0) return yLegacy;
+
+  if (t?.createdAt) {
+    const dt = new Date(t.createdAt);
+    const y = dt.getFullYear();
+    if (!Number.isNaN(y) && y > 0) return y;
+  }
+
+  return NaN;
+};
+
+const getTimeForSort = (t) => {
+  if (t?.date) {
+    const ms = new Date(t.date).getTime();
+    if (!Number.isNaN(ms)) return ms;
+  }
+  if (t?.createdAt) {
+    const ms = new Date(t.createdAt).getTime();
+    if (!Number.isNaN(ms)) return ms;
+  }
+  const y = Number(t?.year);
+  if (Number.isFinite(y) && y > 0) {
+    const ms = new Date(`${y}-01-01T00:00:00.000Z`).getTime();
+    if (!Number.isNaN(ms)) return ms;
+  }
+  return 0;
+};
+
+// ===================== APA helpers (misma lógica base) =====================
 function toTitleCaseSentenceCase(title = "") {
   const t = String(title).trim();
   if (!t) return "";
@@ -118,9 +142,16 @@ function formatAuthorsAPA(authors = []) {
   return `${first19}, … ${last}`;
 }
 
-function buildThesisApa7Citation(thesis, gatewayDomain) {
+/**
+ * Nota: En ThesisSearch tu cita usa URL interna:
+ * const url = `http://localhost:3000/view/${thesis._id}`;
+ * Aquí lo dejamos igual para que sea idéntico al comportamiento.
+ */
+function buildThesisApa7Citation_ThesisSearchStyle(thesis) {
   const authors = formatAuthorsAPA(thesis?.authors);
-  const year = thesis?.year ? String(thesis.year) : "n.d.";
+  const y = getYearFromThesis(thesis);
+  const year = Number.isNaN(y) ? "n.d." : String(y);
+
   const title = toTitleCaseSentenceCase(thesis?.title || "Untitled thesis");
 
   const degreeRaw = String(thesis?.degree || "").toLowerCase();
@@ -136,27 +167,25 @@ function buildThesisApa7Citation(thesis, gatewayDomain) {
       ? thesis.institution.name || ""
       : "";
 
-  const cid = thesis?.ipfsCid;
-  const url =
-    cid && gatewayDomain ? `https://${gatewayDomain}/ipfs/${cid}` : "";
-
+  const url = `http://localhost:3000/view/${thesis?._id}`;
   const bracket = instName ? `[${thesisType}, ${instName}]` : `[${thesisType}]`;
-
   const base = `${authors} (${year}). ${title} ${bracket}`;
   return url ? `${base}. ${url}` : `${base}.`;
 }
 
-// ===================== Componente: lista de tesis likeadas =====================
+// ===================== Componente principal: LikedThesesList (UI = ThesisSearch) =====================
 const LikedThesesList = () => {
-  // Data principal
+  // ---------- Estado principal ----------
   const [theses, setTheses] = useState([]);
   const [liked, setLiked] = useState({});
+  const [institutions, setInstitutions] = useState([]); // para filtro idéntico
+  const [selectedForView, setSelectedForView] = useState(null);
 
-  // loading/error
+  // ---------- Estados de carga/errores ----------
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  // filtros
+  // ---------- Búsqueda + Filtros ----------
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState("all");
   const [degree, setDegree] = useState("all");
@@ -166,16 +195,14 @@ const LikedThesesList = () => {
   const [maxYear, setMaxYear] = useState(now);
 
   const [institutionFilter, setInstitutionFilter] = useState("all");
-
-  // status: All = Approved+Pending (Rejected siempre oculto)
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "APPROVED" | "PENDING"
 
-  // orden/paginación
+  // ---------- Orden + Paginación ----------
   const [sortBy, setSortBy] = useState("recent");
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // ===================== Load: mis likes =====================
+  // ===================== Carga inicial: MIS LIKES (ÚNICO CAMBIO vs ThesisSearch) =====================
   useEffect(() => {
     const fetchMyLikes = async () => {
       try {
@@ -190,14 +217,14 @@ const LikedThesesList = () => {
 
         const headers = { Authorization: `Bearer ${token}` };
 
-        // ✅ este endpoint ya lo tienes: /api/users/me/likes
+        // ✅ SOLO cambia el origen de datos (likes)
         const res = await axios.get(`${API_BASE_URL}/api/users/me/likes`, {
           headers,
         });
 
         const data = Array.isArray(res.data) ? res.data : [];
 
-        // user actual para mapear "liked"
+        // user actual (para likes)
         let currentUserId = null;
         try {
           const rawUser = localStorage.getItem("memorychain_user");
@@ -210,23 +237,25 @@ const LikedThesesList = () => {
         }
 
         const mapped = data.map((t) => {
-          const likesCount = t.likes ?? 0;
+          const likes = t.likes ?? 0;
 
           const userLiked =
             Array.isArray(t.likedBy) && currentUserId
               ? t.likedBy.some(
                   (u) => String(u?._id ?? u) === String(currentUserId)
                 )
-              : true; // si viene de /me/likes, normalmente es true
+              : true; // si viene de /me/likes normalmente es true
 
-          return { ...t, likes: likesCount, userLiked };
+          const derivedYear = getYearFromThesis(t);
+
+          return { ...t, likes, userLiked, derivedYear };
         });
 
         setTheses(mapped);
 
         const likedMap = {};
         mapped.forEach((t) => {
-          likedMap[t._id] = true; // están en favoritos
+          likedMap[t._id] = !!t.userLiked;
         });
         setLiked(likedMap);
       } catch (err) {
@@ -241,32 +270,51 @@ const LikedThesesList = () => {
     fetchMyLikes();
   }, []);
 
-  // ===================== institution options (desde las tesis likeadas) =====================
+  // ===================== Carga: instituciones (para filtro idéntico a ThesisSearch) =====================
+  useEffect(() => {
+    const fetchInstitutions = async () => {
+      try {
+        const tokenLocal = localStorage.getItem("memorychain_token");
+        const headers = tokenLocal
+          ? { Authorization: `Bearer ${tokenLocal}` }
+          : undefined;
+
+        const res = await axios.get(
+          `${API_BASE_URL}/api/institutions`,
+          headers ? { headers } : undefined
+        );
+
+        const data = Array.isArray(res.data) ? res.data : [];
+        setInstitutions(data);
+      } catch (err) {
+        console.error("Error loading institutions for filter:", err);
+        setInstitutions([]);
+      }
+    };
+
+    fetchInstitutions();
+  }, []);
+
+  // ===================== Opciones del filtro institución (idéntico a ThesisSearch) =====================
   const institutionOptions = useMemo(() => {
-    const names = theses.map(getInstitutionName).filter(Boolean);
+    const names = institutions.map((i) => i.name).filter(Boolean);
     const unique = Array.from(new Set(names)).sort((a, b) =>
       a.localeCompare(b)
     );
     return ["all", ...unique];
-  }, [theses]);
+  }, [institutions]);
 
-  // ===================== Filter principal =====================
+  // ===================== Filtrado principal (idéntico a ThesisSearch) =====================
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const selectedInst = String(institutionFilter || "all").toLowerCase();
-    const selectedStatus = normalizeStatus(statusFilter); // ALL / APPROVED / PENDING
+    const selectedInst = institutionFilter.toLowerCase();
+    const selectedStatus = normalizeStatus(statusFilter);
 
     return theses.filter((t) => {
       const status = normalizeStatus(t.status);
 
-      // ✅ ocultar REJECTED siempre
+      // REGLA BASE: ocultar REJECTED SIEMPRE
       if (status === "REJECTED") return false;
-
-      // status filter
-      const matchesStatus =
-        selectedStatus === "ALL"
-          ? status === "APPROVED" || status === "PENDING"
-          : status === selectedStatus;
 
       const instName = getInstitutionName(t);
       const authorsSearch = buildAuthorsSearchString(t.authors);
@@ -288,7 +336,10 @@ const LikedThesesList = () => {
       const matchesDegree =
         degree === "all" || String(t.degree || "") === degree;
 
-      const yearNum = Number(t.year);
+      const yearNum = Number.isFinite(Number(t.derivedYear))
+        ? Number(t.derivedYear)
+        : getYearFromThesis(t);
+
       const inYearRange =
         !Number.isNaN(yearNum) &&
         yearNum >= Number(minYear) &&
@@ -296,6 +347,11 @@ const LikedThesesList = () => {
 
       const matchesInst =
         selectedInst === "all" || instName.toLowerCase() === selectedInst;
+
+      const matchesStatus =
+        selectedStatus === "ALL"
+          ? status === "APPROVED" || status === "PENDING"
+          : status === selectedStatus;
 
       return (
         matchesQ &&
@@ -317,25 +373,26 @@ const LikedThesesList = () => {
     statusFilter,
   ]);
 
-  // ===================== Sort =====================
+  // ===================== Ordenamiento (idéntico a ThesisSearch) =====================
   const filteredOrdered = useMemo(() => {
     const arr = [...filtered];
 
     arr.sort((a, b) => {
       const byTitle = (a.title || "").localeCompare(b.title || "");
       const byId = String(a._id ?? "").localeCompare(String(b._id ?? ""));
-      const ya = Number(a.year);
-      const yb = Number(b.year);
       const ra = Number(a.likes ?? 0);
       const rb = Number(b.likes ?? 0);
 
+      const ta = getTimeForSort(a);
+      const tb = getTimeForSort(b);
+
       switch (sortBy) {
         case "recent":
-          if (yb !== ya) return yb - ya;
+          if (tb !== ta) return tb - ta;
           if (byTitle !== 0) return byTitle;
           return byId;
         case "oldest":
-          if (ya !== yb) return ya - yb;
+          if (ta !== tb) return ta - tb;
           if (byTitle !== 0) return byTitle;
           return byId;
         case "title_az":
@@ -360,7 +417,7 @@ const LikedThesesList = () => {
     return arr;
   }, [filtered, sortBy]);
 
-  // ===================== Pagination =====================
+  // ===================== Paginación (idéntico a ThesisSearch) =====================
   const totalPages = Math.max(1, Math.ceil(filteredOrdered.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const start = (currentPage - 1) * pageSize;
@@ -378,21 +435,36 @@ const LikedThesesList = () => {
 
   const go = (p) => setPage(p);
 
-  // ===================== Actions =====================
+  // ===================== Acción: ver modal (COPIADO de ThesisSearch) =====================
   const handleView = (thesis) => {
-    const cid = thesis.ipfsCid;
-    if (!cid) {
-      alert("This thesis does not have a downloadable file.");
-      return;
-    }
-    const url = `https://${gateway}/ipfs/${cid}#toolbar=0&navpanes=0&scrollbar=0`;
-    window.open(url, "_blank");
+    setSelectedForView(thesis);
+
+    const el = document.getElementById("modalView");
+    if (!el) return;
+
+    const modal = window.bootstrap?.Modal?.getOrCreateInstance(el, {
+      backdrop: "static",
+      keyboard: false,
+    });
+    modal?.show();
   };
+
+  // ===================== Acción: cita APA + Clipboard (COPIADO estilo ThesisSearch) =====================
+  async function copyToClipboardLocal(text) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    return false;
+  }
 
   const handleQuote = async (thesis) => {
     try {
-      const citation = buildThesisApa7Citation(thesis, gateway);
-      const ok = await copyToClipboard(citation);
+      const citation = buildThesisApa7Citation_ThesisSearchStyle(
+        thesis,
+        gateway
+      );
+      const ok = await copyToClipboardLocal(citation);
       if (ok) alert("Bibliographic Citation Copied ✅");
       else alert("Failed Copied ❌");
     } catch (e) {
@@ -401,12 +473,9 @@ const LikedThesesList = () => {
     }
   };
 
-  // Like/unlike -> si se deslikea, se remueve del listado
+  // ===================== Acción: Like (COPIADO estilo ThesisSearch, pero en likes removemos si unlike) =====================
   const handleToggleLike = async (id) => {
-    if (!token) {
-      console.warn("No auth token, no se puede hacer like");
-      return;
-    }
+    if (!token) return;
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
@@ -414,49 +483,58 @@ const LikedThesesList = () => {
       const res = await axios.post(
         `${API_BASE_URL}/api/theses/${id}/like`,
         null,
-        {
-          headers,
-        }
+        { headers }
       );
 
       const { thesis, liked: isLiked } = res.data || {};
+      if (!thesis || !thesis._id) return;
 
-      // si ya no está likeada -> quitarla del listado (porque es la pestaña de likes)
-      if (!isLiked) {
-        setTheses((prev) => prev.filter((t) => String(t._id) !== String(id)));
-        setLiked((prev) => ({ ...prev, [id]: false }));
-        return;
-      }
+      setTheses((prev) =>
+        prev.map((t) => {
+          if (String(t._id) !== String(thesis._id)) return t;
 
-      // si sigue likeada -> actualizar likes count
-      if (thesis && thesis._id) {
-        setTheses((prev) =>
-          prev.map((t) =>
-            String(t._id) === String(thesis._id)
-              ? { ...t, likes: thesis.likes ?? 0, userLiked: true }
-              : t
-          )
-        );
-      }
+          // 🔒 Preserva datos poblados del estado actual
+          const preservedInstitution = t.institution;
+          const preservedDepartment = t.department;
 
-      setLiked((prev) => ({ ...prev, [id]: true }));
+          return {
+            ...t,
+            // ✅ SOLO lo necesario
+            likes: thesis.likes ?? t.likes ?? 0,
+            likedBy: thesis.likedBy ?? t.likedBy,
+            userLiked: !!isLiked,
+            derivedYear: getYearFromThesis({ ...t, ...thesis }),
+
+            // 🔒 NO dejes que institution se convierta en string id
+            institution:
+              typeof thesis.institution === "object" && thesis.institution
+                ? thesis.institution
+                : preservedInstitution,
+
+            // opcional: si tu backend a veces manda department vacío
+            department: thesis.department ?? preservedDepartment,
+          };
+        })
+      );
+
+      setLiked((prev) => ({ ...prev, [id]: !!isLiked }));
     } catch (err) {
       console.error("Error toggling like:", err);
     }
   };
 
-  // ===================== Render load/error =====================
+  // ===================== Render: estados de carga/errores (idéntico) =====================
   if (loading) {
     return (
-      <div className="container py-2">
-        <div className="text-muted">Loading liked theses…</div>
+      <div className="container py-3">
+        <div className="text-muted">Loading theses…</div>
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="container py-2">
+      <div className="container py-3">
         <div className="alert alert-danger" role="alert">
           {loadError}
         </div>
@@ -464,16 +542,18 @@ const LikedThesesList = () => {
     );
   }
 
-  // ===================== Render principal =====================
+  // ===================== Render principal (idéntico a ThesisSearch) =====================
   return (
-    <div className="container py-2">
-      {/* Top bar: Search + Sort */}
+    <div className="container py-3 mc-thesis-page">
+      <ModalView thesis={selectedForView} />
+
+      {/* Top bar */}
       <div className="row g-3 align-items-center mb-3">
         <div className="col-lg-8">
           <div className="d-flex gap-2">
             <input
               className="form-control"
-              placeholder="Search liked theses by title, author, keyword or institution…"
+              placeholder="Search theses by title, author, keyword or institution…"
               value={query}
               onChange={(e) => {
                 setPage(1);
@@ -481,9 +561,10 @@ const LikedThesesList = () => {
               }}
             />
 
-            <div className="dropdown mc-sort">
+            {/* Sort mantiene theming (mc-sort / mc-select) */}
+            <div className="dropdown mc-sort mc-select">
               <button
-                className="btn btn-outline-secondary dropdown-toggle"
+                className="btn btn-outline-secondary dropdown-toggle droptoogle-fixv"
                 type="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
@@ -492,7 +573,7 @@ const LikedThesesList = () => {
                 {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
               </button>
 
-              <ul className="dropdown-menu dropdown-menu-end">
+              <ul className="dropdown-menu dropdown-menu-end mc-select">
                 {SORT_OPTIONS.map((opt) => (
                   <li key={opt.key}>
                     <button
@@ -524,43 +605,28 @@ const LikedThesesList = () => {
       </div>
 
       <div className="row">
-        {/* LEFT: list */}
+        {/* LEFT */}
         <div className="col-lg-8 d-flex flex-column gap-3">
           {pageItems.map((t, idx) => {
             const rowKey = `${t._id}-${start + idx}`;
-            const isLiked = liked[t._id] ?? true;
+            const isLiked = liked[t._id] ?? t.userLiked ?? false;
             const instName = getInstitutionName(t);
 
             return (
-              <div key={rowKey} className="card shadow-sm">
-                <div className="card-body d-flex align-items-center gap-3">
-                  {/* Thumbnail */}
-                  <div
-                    style={{
-                      width: 72,
-                      height: 72,
-                      borderRadius: 12,
-                      overflow: "hidden",
-                      background: "#f8f9fa",
-                      border: "1px solid #eee",
-                      flex: "0 0 auto",
-                    }}
-                    className="d-flex align-items-center justify-content-center text-muted"
-                  >
-                    PDF
-                  </div>
-
+              <div key={rowKey} className="card mc-thesis-card shadow-sm">
+                <div className="card-body d-flex align-items-start gap-3 mc-thesis-card-body">
                   {/* Main info */}
-                  <div className="flex-grow-1">
-                    <h5 className="m-0">{t.title}</h5>
+                  <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                    <h5 className="m-0 mc-thesis-title">{t.title}</h5>
 
-                    <div className="text-muted small">
-                      Institution:&nbsp;{instName}
-                      {t.department ? ` · ${t.department}` : ""}{" "}
+                    <div className="text-muted small mt-1">
+                      <span className="mc-label-muted">Institution:</span>{" "}
+                      {instName}
+                      {t.department ? ` · ${t.department}` : ""}
                     </div>
 
                     <div className="text-muted small">
-                      Autors:&nbsp;
+                      <span className="mc-label-muted">Authors:</span>{" "}
                       {Array.isArray(t.authors)
                         ? t.authors
                             .map((a) =>
@@ -570,19 +636,14 @@ const LikedThesesList = () => {
                             )
                             .join(", ")
                         : ""}
-                      {" · "}
-                    </div>
-
-                    <div className="text-muted small">
-                      CID: {t.ipfsCid ?? "—"}
                     </div>
 
                     {t.keywords?.length ? (
-                      <div className="mt-1 d-flex flex-wrap gap-2">
+                      <div className="mt-2 d-flex flex-wrap gap-2">
                         {t.keywords.map((k, kidx) => (
                           <span
                             key={`${rowKey}-kw-${kidx}`}
-                            className="badge text-bg-light"
+                            className="mc-kw-pill"
                           >
                             {k}
                           </span>
@@ -591,12 +652,12 @@ const LikedThesesList = () => {
                     ) : null}
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions (colores como los tuyos) */}
                   <div className="d-flex align-items-center gap-2">
                     <button
                       type="button"
                       className="btn btn-memory"
-                      title="Download"
+                      title="View"
                       onClick={() => handleView(t)}
                     >
                       {EyeFillIcon}
@@ -611,7 +672,6 @@ const LikedThesesList = () => {
                       {QuoteFill}
                     </button>
 
-                    {/* en Likes siempre debería ser user (no institution), pero lo dejamos igual */}
                     {role !== "INSTITUTION" && (
                       <button
                         type="button"
@@ -620,7 +680,7 @@ const LikedThesesList = () => {
                         onClick={() => handleToggleLike(t._id)}
                       >
                         {isLiked ? HeartFill : HeartOutline}
-                        <span className="fw-semibold">{t.likes ?? 0}</span>
+                        <span className="mc-like-count">{t.likes ?? 0}</span>
                       </button>
                     )}
                   </div>
@@ -630,7 +690,7 @@ const LikedThesesList = () => {
           })}
 
           {pageItems.length === 0 && (
-            <div className="text-muted">No liked theses found.</div>
+            <div className="text-muted">No theses found.</div>
           )}
 
           {/* Pagination */}
@@ -683,25 +743,31 @@ const LikedThesesList = () => {
           </nav>
         </div>
 
-        {/* RIGHT: filters (desktop) */}
+        {/* RIGHT: filters (idéntico a ThesisSearch) */}
         <div className="col-lg-4 d-none d-lg-block">
-          <div className="card mc-filters sticky-top" style={{ top: "1rem" }}>
-            <div className="card-header">Filters</div>
+          <div
+            className="card mc-filters mc-filters-card sticky-top"
+            style={{ top: "1rem" }}
+          >
+            <div className="mc-filters-header-dark">
+              <span className="mc-filters-title">Filters</span>
+            </div>
 
-            <div className="card-body">
+            <div className="card-body mc-filters-body">
               {/* Status */}
               <div className="mb-3">
-                <label className="form-label">Status</label>
+                <label className="form-label mc-filter-label">Status</label>
+
                 <div className="row">
                   {[
-                    { key: "all", label: "All" },
+                    { key: "all", label: "All Status" },
                     { key: "APPROVED", label: "Approved" },
                     { key: "PENDING", label: "Pending" },
                   ].map((s) => (
                     <div key={s.key} className="col-6 col-md-4">
-                      <label className="form-check">
+                      <label className="form-check mc-filter-check">
                         <input
-                          className="form-check-input"
+                          className="form-check-input mc-check"
                           type="radio"
                           name="status"
                           value={s.key}
@@ -721,11 +787,12 @@ const LikedThesesList = () => {
               {/* Year range */}
               <div className="mb-3">
                 <div className="d-flex justify-content-between align-items-center">
-                  <label className="form-label m-0">
-                    From year: <strong>{minYear}</strong>
+                  <label className="form-label m-0 mc-filter-label">
+                    From year:{" "}
+                    <strong className="mc-filter-strong">{minYear}</strong>
                   </label>
                   <span className="small text-muted">
-                    To: <strong>{maxYear}</strong>
+                    To: <strong className="mc-filter-strong">{maxYear}</strong>
                   </span>
                 </div>
 
@@ -773,14 +840,14 @@ const LikedThesesList = () => {
 
               {/* Language */}
               <div className="mb-3">
-                <label className="form-label">Language</label>
+                <label className="form-label mc-filter-label">Language</label>
                 <div className="row">
                   {["all", "en", "es", "fr", "pt", "ch", "ko", "ru"].map(
                     (l) => (
                       <div key={l} className="col-6 col-md-3">
-                        <label className="form-check">
+                        <label className="form-check mc-filter-check">
                           <input
-                            className="form-check-input"
+                            className="form-check-input mc-check"
                             type="radio"
                             name="lang"
                             value={l}
@@ -800,11 +867,11 @@ const LikedThesesList = () => {
                 </div>
               </div>
 
-              {/* Degree */}
+              {/* Degree (mc-select) */}
               <div className="mb-3">
-                <label className="form-label">Degree</label>
+                <label className="form-label mc-filter-label">Degree</label>
                 <select
-                  className="form-select"
+                  className="form-select mc-select"
                   value={degree}
                   onChange={(e) => {
                     setPage(1);
@@ -819,11 +886,13 @@ const LikedThesesList = () => {
                 </select>
               </div>
 
-              {/* Institution */}
+              {/* Institution (mc-select) */}
               <div className="mb-3">
-                <label className="form-label">Institution</label>
+                <label className="form-label mc-filter-label">
+                  Institution
+                </label>
                 <select
-                  className="form-select"
+                  className="form-select mc-select"
                   value={institutionFilter}
                   onChange={(e) => {
                     setPage(1);
@@ -862,6 +931,8 @@ const LikedThesesList = () => {
           </div>
         </div>
       </div>
+
+      <div style={{ height: 10 }} />
     </div>
   );
 };
@@ -883,11 +954,11 @@ const ListLike = () => {
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="currentColor"
-              class="nav-icon"
+              className="nav-icon"
               viewBox="0 0 16 16"
             >
               <path
-                fill-rule="evenodd"
+                fillRule="evenodd"
                 d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314"
               />
             </svg>

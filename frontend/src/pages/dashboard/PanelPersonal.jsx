@@ -247,7 +247,6 @@ const PanelPersonal = () => {
       });
     }
 
-    // Si top3 tiene 0 likes, igual se verá 0; pero el donut no debe colapsar si total = 0
     return final;
   }, [thesesSortedByLikesDesc]);
 
@@ -299,7 +298,7 @@ const PanelPersonal = () => {
     );
   }
 
-  // estilos suaves
+  // estilos suaves (NO tocamos, solo sombra en className)
   const cardStyle = { borderRadius: 16, minHeight: 140 };
   const titleStyle = { fontWeight: 700, fontSize: 18, color: "#495057" };
   const iconRow = {
@@ -332,7 +331,7 @@ const PanelPersonal = () => {
         <div className="col-12 col-md-6 col-xl-3">
           <a
             href="/my-list-like"
-            className="btn btn-danger w-100 shadow-sm"
+            className="btn btn-danger w-100 mc-card-shadow"
             style={{ ...cardStyle, padding: 16 }}
           >
             <div className="t-white" style={{ fontWeight: 700, fontSize: 18 }}>
@@ -341,8 +340,9 @@ const PanelPersonal = () => {
             <div style={iconRow}>{renderIcon(HeartFill, 45)}</div>
           </a>
         </div>
+
         <div className="col-12 col-md-6 col-xl-3">
-          <div className="card shadow-sm" style={cardStyle}>
+          <div className="card mc-card-shadow" style={cardStyle}>
             <div className="card-body text-center">
               <div style={titleStyle}>Total Thesis</div>
               <div style={iconRow}>
@@ -352,8 +352,9 @@ const PanelPersonal = () => {
             </div>
           </div>
         </div>
+
         <div className="col-12 col-md-6 col-xl-3">
-          <div className="card shadow-sm" style={cardStyle}>
+          <div className="card mc-card-shadow" style={cardStyle}>
             <div className="card-body text-center">
               <div style={titleStyle}>Verified Thesis</div>
               <div style={iconRow}>
@@ -363,8 +364,9 @@ const PanelPersonal = () => {
             </div>
           </div>
         </div>
+
         <div className="col-12 col-md-6 col-xl-3">
-          <div className="card shadow-sm" style={cardStyle}>
+          <div className="card mc-card-shadow" style={cardStyle}>
             <div className="card-body text-center">
               <div style={titleStyle}>Total Likes</div>
               <div style={iconRow}>
@@ -380,7 +382,7 @@ const PanelPersonal = () => {
       <div className="row g-3 mt-1">
         {/* LEFT: Donut Status */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
               <div
                 className="text-center"
@@ -482,7 +484,7 @@ const PanelPersonal = () => {
 
         {/* RIGHT: Table Status */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
               <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                 <div
@@ -627,11 +629,11 @@ const PanelPersonal = () => {
         </div>
       </div>
 
-      {/* ======== 2) LIKES SECTION (NEW) ======== */}
+      {/* ======== 2) LIKES SECTION ======== */}
       <div className="row g-3 mt-1">
         {/* LEFT: Donut Likes */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
               <div
                 className="text-center"
@@ -727,7 +729,7 @@ const PanelPersonal = () => {
 
         {/* RIGHT: Table Likes */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
               {/* Header: Title + Sort + Micro arrows */}
               <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
@@ -856,6 +858,7 @@ const PanelPersonal = () => {
             </div>
           </div>
         </div>
+
         <div className=" d-flex justify-content-center align-items-center mt-6">
           <button
             type="button"

@@ -6,13 +6,25 @@ import {
   EyeSlashIcon,
   CheckCircle,
   CrossCircle,
+  BasicIIcon,
+  SecurePIcon,
+  ContactIIcon,
+  DepartmentIIcon,
 } from "../../utils/icons";
 
 // Configuración base (API + sesión)
 const API_BASE_URL = "http://localhost:4000/api";
 const token = getAuthToken();
 
-// Componente: Perfil de Institución
+// ✅ Opciones del tipo de institución (ajusta si tu backend usa otro enum)
+const TYPE_OPTIONS = [
+  { value: "UNIVERSITY", label: "University" },
+  { value: "COLLEGE", label: "College" },
+  { value: "INSTITUTE", label: "Institute" },
+  { value: "ACADEMIC", label: "Academic" },
+  { value: "OTHER", label: "Other" },
+];
+
 const FormProfileU = ({ initialData: initialDataProp }) => {
   // Estado base (datos iniciales / carga / errores)
   const [initialData, setInitialData] = useState(initialDataProp || null);
@@ -28,13 +40,10 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
   const [logoFile, setLogoFile] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Abre el selector de archivos
   const pickLogo = () => fileInputRef.current?.click();
 
-  // Bandera para indicar que se desea eliminar el logo en backend
   const [removeImgFlag, setRemoveImgFlag] = useState(false);
 
-  // Elimina logo localmente y marca para remover
   const removeLogo = () => {
     setLogoPreview("");
     setLogoFile(null);
@@ -42,7 +51,6 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // Maneja el cambio de logo (validación + preview)
   const onLogoChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -70,7 +78,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
   const [website, setWebsite] = useState("");
   const [type, setType] = useState("");
 
-  // Departamentos (lista + input + alertas)
+  // Departamentos
   const [departments, setDepartments] = useState([]);
   const [deptInput, setDeptInput] = useState("");
 
@@ -79,9 +87,8 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (!val) return;
 
     const exists = departments.some(
-      (d) => d.name.toLowerCase() === val.toLowerCase()
+      (d) => String(d?.name || "").toLowerCase() === val.toLowerCase()
     );
-
     if (exists) {
       setDeptAlert(`The department "${val}" is already in the list.`);
       return;
@@ -92,11 +99,11 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     setDeptAlert("");
   };
 
-  const removeDepartment = (name) => {
-    setDepartments((prev) => prev.filter((d) => d.name !== name));
+  const removeDepartment = (nameToRemove) => {
+    setDepartments((prev) => prev.filter((d) => d.name !== nameToRemove));
   };
 
-  // Email principal + dominios permitidos
+  // Email + dominios
   const [email, setEmail] = useState("");
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -108,7 +115,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (!val) return;
 
     const exists = emailDomains.some(
-      (d) => d.value.toLowerCase() === val.toLowerCase()
+      (d) => String(d?.value || "").toLowerCase() === val.toLowerCase()
     );
     if (exists) return;
 
@@ -116,22 +123,20 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     setDomainInput("");
   };
 
-  const removeDomain = (value) => {
-    setEmailDomains((prev) => prev.filter((d) => d.value !== value));
+  const removeDomain = (valueToRemove) => {
+    setEmailDomains((prev) => prev.filter((d) => d.value !== valueToRemove));
   };
 
-  // Seguridad (cambio de contraseña)
+  // Seguridad
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Errores de validación
   const [errors, setErrors] = useState({});
 
-  // Carga inicial de institución (si no llega por props)
+  // Carga inicial (si no llega por props)
   useEffect(() => {
-    // Si ya nos pasan los datos, no hacemos fetch
     if (initialDataProp) {
       setInitialData(initialDataProp);
       setLoading(false);
@@ -146,7 +151,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
           return;
         }
 
-        // Extrae institutionId del JWT (payload)
+        // Extrae institutionId del JWT
         let institutionId = null;
         try {
           const [, payloadB64] = token.split(".");
@@ -166,12 +171,9 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
           return;
         }
 
-        // Trae los datos de la institución
         const res = await axios.get(
           `${API_BASE_URL}/institutions/${institutionId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
 
         setInitialData(res.data);
@@ -186,7 +188,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     fetchInstitution();
   }, [initialDataProp]);
 
-  // Sincroniza estados del formulario cuando initialData cambia
+  // Sync estados cuando initialData cambia
   useEffect(() => {
     if (!initialData) return;
 
@@ -198,20 +200,18 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     setType(initialData.type || "");
     setEmail(initialData.email || "");
 
-    // Normaliza departamentos a objetos { name }
     const instDepts = (initialData.departments || []).map((d) =>
       typeof d === "string" ? { name: d } : d
     );
     setDepartments(instDepts);
 
-    // Normaliza dominios a objetos { value }
     const instDomains = (initialData.emailDomains || []).map((d) =>
       typeof d === "string" ? { value: d } : d
     );
     setEmailDomains(instDomains);
   }, [initialData]);
 
-  // Validación del formulario (requeridos + formato)
+  // Validación
   const validate = () => {
     const e = {};
 
@@ -221,11 +221,8 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (!email.trim()) e.email = "Primary email is required.";
     if (!website.trim()) e.website = "Website is required.";
 
-    if (email && !EMAIL_RE.test(email)) {
-      e.email = "Invalid email.";
-    }
+    if (email && !EMAIL_RE.test(email)) e.email = "Invalid email.";
 
-    // Valida URL (acepta "example.edu" agregando https://)
     if (website) {
       try {
         new URL(website.startsWith("http") ? website : `https://${website}`);
@@ -234,7 +231,6 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
       }
     }
 
-    // Si se cambia password, valida reglas básicas
     if (password || confirm) {
       if (password.length < 8) e.password = "At least 8 characters.";
       if (password !== confirm) e.confirm = "Passwords do not match.";
@@ -244,9 +240,9 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     return Object.keys(e).length === 0;
   };
 
-  // Guardar cambios (PUT con FormData)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Submit
+  const handleSubmit = async (ev) => {
+    ev.preventDefault();
     if (!validate()) return;
 
     if (!initialData?._id) {
@@ -260,10 +256,8 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
         return;
       }
 
-      // Payload tipo multipart para soportar logo (archivo)
       const form = new FormData();
 
-      // Logo: subir nuevo o marcar eliminación
       if (logoFile) {
         form.append("logo", logoFile);
         form.append("removeImg", "0");
@@ -271,7 +265,6 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
         if (removeImgFlag) form.append("removeImg", "1");
       }
 
-      // Campos básicos
       form.append("name", name.trim());
       form.append("description", description.trim());
       form.append("country", country.trim());
@@ -279,80 +272,54 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
       form.append("type", type);
       form.append("email", email.trim().toLowerCase());
 
-      // Listas (departamentos + dominios)
-      form.append(
-        "departments",
-        JSON.stringify(departments.map((d) => d.name))
-      );
+      form.append("departments", JSON.stringify(departments.map((d) => d.name)));
       form.append(
         "emailDomains",
         JSON.stringify(emailDomains.map((d) => d.value))
       );
 
-      // Flags de estado (solo lectura desde UI, se manda tal cual)
       form.append("isMember", String(Boolean(initialData.isMember)));
       form.append("canVerify", String(Boolean(initialData.canVerify)));
 
-      // Password opcional
       if (password) form.append("password", password);
 
-      // Enviar actualización
       const res = await axios.put(
         `${API_BASE_URL}/institutions/${initialData._id}`,
         form,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       alert("Institution profile updated successfully.");
-
-      // Refresca estado local
       const updated = res.data;
       setInitialData(updated);
 
-      // Resetea logo local si el backend devolvió logoUrl
       if (updated.logoUrl) {
         setLogoPreview(updated.logoUrl);
         setLogoFile(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
 
-      // Limpia campos de password
       setPassword("");
       setConfirm("");
     } catch (err) {
       console.error("Update institution error:", err?.response?.data || err);
-      alert(
-        err?.response?.data?.message || "Error updating institution profile."
-      );
+      alert(err?.response?.data?.message || "Error updating institution profile.");
     }
   };
 
-  // Estados de carga / error
-  if (loading) {
+  if (loading)
     return <div className="container mt-4">Loading institution profile...</div>;
-  }
-
-  if (loadError) {
+  if (loadError)
     return <div className="container mt-4 text-danger">{loadError}</div>;
-  }
 
-  // Render del formulario
   return (
-    <form className="container" onSubmit={handleSubmit}>
+    <form className="container mb-3" onSubmit={handleSubmit}>
       {/* Banner de membresía */}
       {isMember ? (
         <div
           className="alert border-0"
           role="alert"
-          style={{
-            backgroundColor: "#20c997",
-            color: "#fff",
-            fontWeight: 600,
-          }}
+          style={{ backgroundColor: "#20c997", color: "#fff", fontWeight: 600 }}
         >
           <span className="mx-2">{CheckCircle}</span> Your membership plan is{" "}
           <strong>active</strong>.
@@ -361,323 +328,377 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
         <div
           className="alert border-0"
           role="alert"
-          style={{
-            backgroundColor: "#dc3545",
-            color: "#fff",
-            fontWeight: 600,
-          }}
+          style={{ backgroundColor: "#dc3545", color: "#fff", fontWeight: 600 }}
         >
           <span className="mx-2">{CrossCircle}</span> Your membership plan is{" "}
           <strong>inactive</strong>.
         </div>
       )}
 
-      <section className="mb-4">
-        <h5 className="mb-3">Basic information</h5>
-
-        <div className="row g-4">
-          <div className="col-md-4 d-flex align-items-center gap-3">
-            <div
-              className="overflow-hidden border"
-              style={{
-                width: 112,
-                height: 112,
-                background: "#f2f2f2",
-                borderRadius: 12,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              {logoPreview ? (
-                <img
-                  src={logoPreview}
-                  alt="logo preview"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
-              ) : (
-                <span className="text-muted" style={{ fontSize: 12 }}>
-                  No logo
-                </span>
-              )}
-            </div>
-
-            <div className="d-flex flex-column gap-2">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-memory"
-                onClick={pickLogo}
-              >
-                Upload logo
-              </button>
-
-              {logoPreview && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-danger"
-                  onClick={removeLogo}
-                >
-                  Remove
-                </button>
-              )}
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                onChange={onLogoChange}
-                hidden
-              />
-            </div>
+      {/* ✅ CARD 1: BASIC INFORMATION */}
+      <section className="card mc-card-shadow mb-4">
+        <div className="card-body">
+          <div className="mc-card-header mb-3">
+            <h5 className="m-0">Basic information</h5>
+            <span>{BasicIIcon}</span>
           </div>
 
-          <div className="col-md-8">
-            <div className="mb-3">
-              <label className="form-label">Name</label>
-              <input
-                className={`form-control ${errors.name ? "is-invalid" : ""}`}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Institution name"
-              />
-              {errors.name && (
-                <div className="invalid-feedback">{errors.name}</div>
-              )}
-            </div>
-
-            <div className="row g-3">
-              <div className="col-12">
-                <label className="form-label">Country</label>
-                <input
-                  className={`form-control ${
-                    errors.country ? "is-invalid" : ""
-                  }`}
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  placeholder="Country"
-                />
-                {errors.country && (
-                  <div className="invalid-feedback">{errors.country}</div>
+          <div className="row g-4">
+            <div className="col-md-4 d-flex align-items-center gap-3 px-5">
+              <div
+                className="mc-media-frame"
+                style={{
+                  width: 100,
+                  height: 100,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {logoPreview ? (
+                  <img
+                    src={logoPreview}
+                    alt="logo preview"
+                    className="mc-media-img"
+                  />
+                ) : (
+                  <span className="text-muted" style={{ fontSize: 12 }}>
+                    No logo
+                  </span>
                 )}
               </div>
-            </div>
-          </div>
 
-          <div className="col-12 mt-3">
-            <label className="form-label">Description</label>
-            <textarea
-              className="form-control"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Short description"
-              rows={3}
-            />
-          </div>
-        </div>
-      </section>
-
-      <hr />
-
-      <section className="mb-4">
-        <h5 className="mb-3">Email</h5>
-
-        <div className="row g-3">
-          <div className="col-md-6">
-            <label className="form-label">Email Institutional</label>
-            <input
-              className={`form-control ${errors.email ? "is-invalid" : ""}`}
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="info@institution.edu"
-            />
-            {errors.email && (
-              <div className="invalid-feedback">{errors.email}</div>
-            )}
-          </div>
-
-          <div className="col-md-6">
-            <label className="form-label">Website</label>
-            <input
-              className={`form-control ${errors.website ? "is-invalid" : ""}`}
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              placeholder="example.edu"
-            />
-            {errors.website && (
-              <div className="invalid-feedback">{errors.website}</div>
-            )}
-          </div>
-        </div>
-
-        {/* Gestión de dominios permitidos */}
-        <div className="row g-3 align-items-end mt-3">
-          <div className="col-md-8">
-            <label className="form-label">Add email domain</label>
-            <input
-              className="form-control"
-              value={domainInput}
-              onChange={(e) => setDomainInput(e.target.value)}
-              placeholder="e.g., university.edu"
-            />
-          </div>
-          <div className="col-md-4 d-grid">
-            <button
-              type="button"
-              className="btn btn-outline-memory"
-              onClick={addDomain}
-              disabled={!domainInput.trim()}
-            >
-              Add domain
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-3 d-flex flex-wrap gap-2">
-          {emailDomains.length === 0 ? (
-            <span className="text-muted">No email domains added.</span>
-          ) : (
-            emailDomains.map((d, idx) => (
-              <span
-                key={`${d.value}-${idx}`}
-                className="badge text-bg-light d-flex align-items-center gap-2"
-              >
-                {d.value}
+              <div className="d-flex flex-column gap-2">
                 <button
                   type="button"
-                  className="btn btn-sm btn-link text-danger p-0"
-                  onClick={() => removeDomain(d.value)}
+                  className="btn btn-sm btn-outline-memory"
+                  onClick={pickLogo}
                 >
-                  ×
+                  Upload logo
                 </button>
-              </span>
-            ))
-          )}
+
+                {logoPreview && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={removeLogo}
+                  >
+                    Remove
+                  </button>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={onLogoChange}
+                  hidden
+                />
+              </div>
+            </div>
+
+            <div className="col-md-8">
+              <div className="mb-3">
+                <label className="form-label">Name</label>
+                <input
+                  className={`form-control ${errors.name ? "is-invalid" : ""}`}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Institution name"
+                />
+                {errors.name && (
+                  <div className="invalid-feedback">{errors.name}</div>
+                )}
+              </div>
+
+              {/* ✅ Country + Type mitad/mitad */}
+              <div className="row g-3">
+                <div className="col-12 col-md-6">
+                  <label className="form-label">Country</label>
+                  <input
+                    className={`form-control ${
+                      errors.country ? "is-invalid" : ""
+                    }`}
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    placeholder="Country"
+                  />
+                  {errors.country && (
+                    <div className="invalid-feedback">{errors.country}</div>
+                  )}
+                </div>
+
+                <div className="col-12 col-md-6">
+  <label className="form-label">Institution type</label>
+
+  <div className="dropdown mc-filter-select mc-select">
+    <button
+  className={`btn btn-outline-secondary dropdown-toggle droptoogle-fix mc-dd-toggle
+    ${errors.type ? "is-invalid" : ""}`}
+  type="button"
+  data-bs-toggle="dropdown"
+  aria-expanded="false"
+>
+      <span className="mc-filter-select-text">
+        {TYPE_OPTIONS.find((o) => o.value === type)?.label ?? "Select…"}
+      </span>
+    </button>
+
+    <ul className="dropdown-menu mc-select">
+      {TYPE_OPTIONS.map((opt) => (
+        <li key={opt.value}>
+          <button
+            type="button"
+            className={`dropdown-item ${type === opt.value ? "active" : ""}`}
+            onClick={() => setType(opt.value)}
+          >
+            {opt.label}
+          </button>
+        </li>
+      ))}
+    </ul>
+  </div>
+
+  {errors.type && <div className="invalid-feedback d-block">{errors.type}</div>}
+</div>
+
+              </div>
+            </div>
+
+            <div className="col-12 mt-3">
+              <label className="form-label">Description</label>
+              <textarea
+                className="form-control"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Short description"
+                rows={3}
+              />
+            </div>
+          </div>
         </div>
       </section>
 
-      <hr />
+      {/* ✅ CARD 2: CONTACT / EMAIL */}
+      <section className="card mc-card-shadow mb-4">
+        <div className="card-body">
+          <div className="mc-card-header mb-3">
+            <h5 className="m-0">Contact</h5>
+            <span>{ContactIIcon}</span>
+          </div>
 
-      <section className="mb-4">
-        <h5 className="mb-3">Security</h5>
-
-        <div className="row g-3">
-          <div className="col-md-6">
-            <label className="form-label">New password</label>
-            <div className="input-group">
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label">Email Institutional</label>
               <input
-                className={`form-control ${
-                  errors.password ? "is-invalid" : ""
-                }`}
-                type={showPass ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 8 characters"
-                autoComplete="new-password"
+                className={`form-control ${errors.email ? "is-invalid" : ""}`}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="info@institution.edu"
               />
-              <button
-                type="button"
-                className="btn password-toggle-btn d-flex align-items-center"
-                onClick={() => setShowPass((v) => !v)}
-                tabIndex={-1}
-                aria-label={showPass ? "Hide password" : "Show password"}
-                title={showPass ? "Hide password" : "Show password"}
-              >
-                {showPass ? EyeSlashIcon : EyeIcon}
-              </button>
+              {errors.email && (
+                <div className="invalid-feedback">{errors.email}</div>
+              )}
             </div>
-            {errors.password && (
-              <div className="invalid-feedback d-block">{errors.password}</div>
-            )}
-          </div>
 
-          <div className="col-md-6">
-            <label className="form-label">Confirm password</label>
-            <div className="input-group">
+            <div className="col-md-6">
+              <label className="form-label">Website</label>
               <input
-                className={`form-control ${errors.confirm ? "is-invalid" : ""}`}
-                type={showConfirm ? "text" : "password"}
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                placeholder="Repeat the password"
-                autoComplete="new-password"
+                className={`form-control ${errors.website ? "is-invalid" : ""}`}
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                placeholder="example.edu"
               />
-              <button
-                type="button"
-                className="btn password-toggle-btn d-flex align-items-center"
-                onClick={() => setShowConfirm((v) => !v)}
-                tabIndex={-1}
-                aria-label={showConfirm ? "Hide password" : "Show password"}
-                title={showConfirm ? "Hide password" : "Show password"}
-              >
-                {showConfirm ? EyeSlashIcon : EyeIcon}
-              </button>
+              {errors.website && (
+                <div className="invalid-feedback">{errors.website}</div>
+              )}
             </div>
-            {errors.confirm && (
-              <div className="invalid-feedback d-block">{errors.confirm}</div>
-            )}
           </div>
-        </div>
-      </section>
 
-      <hr />
-
-      <section className="mb-4">
-        <h5 className="mb-3">Departments</h5>
-
-        {/* Gestión de departamentos */}
-        <div className="row g-3 align-items-end">
-          <div className="col-md-8">
-            <label className="form-label">Add a department</label>
-            <input
-              className="form-control"
-              value={deptInput}
-              onChange={(e) => setDeptInput(e.target.value)}
-              placeholder="e.g., Computer Science"
-            />
-          </div>
-          <div className="col-md-4 d-grid">
-            <button
-              type="button"
-              className="btn btn-outline-memory"
-              onClick={addDepartment}
-              disabled={!deptInput.trim()}
-            >
-              Add Deparment
-            </button>
-          </div>
-        </div>
-
-        {deptAlert && (
-          <div className="mt-3 alert alert-warning py-2">{deptAlert}</div>
-        )}
-
-        <div className="mt-3 d-flex flex-wrap gap-2">
-          {departments.length === 0 ? (
-            <span className="text-muted">No departments added.</span>
-          ) : (
-            departments.map((d, idx) => (
-              <span
-                key={`${d.name}-${idx}`}
-                className="badge text-bg-light d-flex align-items-center gap-2"
-              >
-                {d.name}
+          <div className="mt-3">
+            <div className="row g-3 align-items-end">
+              <div className="col-md-8">
+                <label className="form-label">Add email domain</label>
+                <input
+                  className="form-control"
+                  value={domainInput}
+                  onChange={(e) => setDomainInput(e.target.value)}
+                  placeholder="e.g., university.edu"
+                />
+              </div>
+              <div className="col-md-4 d-grid">
                 <button
                   type="button"
-                  className="btn btn-sm btn-link text-danger p-0"
-                  onClick={() => removeDepartment(d.name)}
+                  className="btn btn-outline-memory"
+                  onClick={addDomain}
+                  disabled={!domainInput.trim()}
                 >
-                  ×
+                  Add domain
                 </button>
-              </span>
-            ))
+              </div>
+            </div>
+
+            <div className="mt-3 d-flex flex-wrap gap-2">
+              {emailDomains.length === 0 ? (
+                <span className="text-muted">No email domains added.</span>
+              ) : (
+                emailDomains.map((d, idx) => (
+                  <span
+                    key={`${d.value}-${idx}`}
+                    className="badge text-bg-light d-flex align-items-center gap-2"
+                    style={{ border: "1px solid rgba(0,0,0,.08)" }}
+                  >
+                    {d.value}
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-link text-danger p-0"
+                      onClick={() => removeDomain(d.value)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ✅ CARD 3: SECURITY */}
+      <section className="card mc-card-shadow mb-4">
+        <div className="card-body">
+          <div className="mc-card-header mb-3">
+            <h5 className="m-0">Security</h5>
+            <span>{SecurePIcon}</span>
+          </div>
+
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label">New password</label>
+              <div className="input-group">
+                <input
+                  className={`form-control ${
+                    errors.password ? "is-invalid" : ""
+                  }`}
+                  type={showPass ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="btn password-toggle-btn d-flex align-items-center"
+                  onClick={() => setShowPass((v) => !v)}
+                  tabIndex={-1}
+                  aria-label={showPass ? "Hide password" : "Show password"}
+                  title={showPass ? "Hide password" : "Show password"}
+                >
+                  {showPass ? EyeSlashIcon : EyeIcon}
+                </button>
+              </div>
+              {errors.password && (
+                <div className="invalid-feedback d-block">
+                  {errors.password}
+                </div>
+              )}
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label">Confirm password</label>
+              <div className="input-group">
+                <input
+                  className={`form-control ${
+                    errors.confirm ? "is-invalid" : ""
+                  }`}
+                  type={showConfirm ? "text" : "password"}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  placeholder="Repeat the password"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="btn password-toggle-btn d-flex align-items-center"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  tabIndex={-1}
+                  aria-label={showConfirm ? "Hide password" : "Show password"}
+                  title={showConfirm ? "Hide password" : "Show password"}
+                >
+                  {showConfirm ? EyeSlashIcon : EyeIcon}
+                </button>
+              </div>
+              {errors.confirm && (
+                <div className="invalid-feedback d-block">{errors.confirm}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ✅ CARD 4: DEPARTMENTS */}
+      <section className="card mc-card-shadow mb-4">
+        <div className="card-body">
+          <div className="mc-card-header mb-3">
+            <h5 className="m-0">Departments</h5>
+            <span>{DepartmentIIcon}</span>
+          </div>
+
+          <div className="row g-3 align-items-end">
+            <div className="col-md-8">
+              <label className="form-label">Add a department</label>
+              <input
+                className="form-control"
+                value={deptInput}
+                onChange={(e) => setDeptInput(e.target.value)}
+                placeholder="e.g., Computer Science"
+              />
+            </div>
+            <div className="col-md-4 d-grid">
+              <button
+                type="button"
+                className="btn btn-outline-memory"
+                onClick={addDepartment}
+                disabled={!deptInput.trim()}
+              >
+                Add Deparment
+              </button>
+            </div>
+          </div>
+
+          {deptAlert && (
+            <div className="mt-3 alert alert-warning py-2">{deptAlert}</div>
           )}
+
+          <div className="mt-3 d-flex flex-wrap gap-2">
+            {departments.length === 0 ? (
+              <span className="text-muted">No departments added.</span>
+            ) : (
+              departments.map((d, idx) => (
+                <span
+                  key={`${d.name}-${idx}`}
+                  className="badge text-bg-light d-flex align-items-center gap-2"
+                  style={{ border: "1px solid rgba(0,0,0,.08)" }}
+                >
+                  {d.name}
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-link text-danger p-0"
+                    onClick={() => removeDepartment(d.name)}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
         </div>
       </section>
 
       {/* Acciones finales */}
-      <div className="mt-4 d-flex justify-content-end gap-2">
+      <div className="mt-4 d-flex justify-content-center gap-2">
         <button
           type="button"
           className="btn btn-outline-memory"

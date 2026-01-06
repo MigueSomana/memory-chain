@@ -1,6 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { EyeFillIcon, CheckCircle, CrossCircle, TimeCircle } from "../../utils/icons";
+import {
+  EyeFillIcon,
+  CheckCircle,
+  CrossCircle,
+  TimeCircle,
+} from "../../utils/icons";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 const safeStr = (v) => String(v ?? "").trim();
@@ -9,7 +15,7 @@ const joinPeople = (arr) => {
   return arr
     .map((p) => `${safeStr(p?.name)} ${safeStr(p?.lastname)}`.trim())
     .filter(Boolean)
-    .join("\n"); 
+    .join("\n");
 };
 
 const joinKeywords = (arr) => {
@@ -23,6 +29,7 @@ const toSentenceCase = (v) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
+// ✅ Formato tipo "Account created" (month long + day 2-digit + year)
 const formatDateShort = (d) => {
   if (!d) return "—";
   try {
@@ -109,11 +116,12 @@ function ModalView({ thesis }) {
   const t = thesis || {};
 
   const keywords = useMemo(() => joinKeywords(t?.keywords), [t?.keywords]);
-
   const authors = useMemo(() => joinPeople(t?.authors), [t?.authors]);
   const tutors = useMemo(() => joinPeople(t?.tutors), [t?.tutors]);
-
   const langHuman = useMemo(() => languageLabel(t?.language), [t?.language]);
+
+  // ✅ Fecha de publicación (nuevo campo date) formateada igual que "Account created"
+  const thesisDate = useMemo(() => formatDateShort(t?.date), [t?.date]);
 
   // Extraer institutionId desde Thesis (porque en Thesis el campo es ObjectId)
   const institutionId = useMemo(() => {
@@ -318,6 +326,7 @@ function ModalView({ thesis }) {
                             </div>
                           )}
                         </div>
+
                         <div className="row mt-3">
                           <div className="col-3">
                             <div
@@ -364,23 +373,25 @@ function ModalView({ thesis }) {
                             </div>
                           </div>
 
+                          {/* ✅ CAMBIO: YEAR -> DATE con mismo formato que account created */}
                           <div className="col-3 text-end">
                             <div
                               className="text-white-50"
                               style={{ fontSize: 11 }}
                             >
-                              YEAR
+                              DATE
                             </div>
                             <div
                               className="fw-semibold"
                               style={{ fontSize: 13 }}
                             >
-                              {t?.year ?? "—"}
+                              {thesisDate}
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
+
                     {/* RIGHT COLUMN (Institution card) */}
                     <div className="col-12 col-lg-4">
                       {/* INSTITUTION CARD */}
@@ -505,6 +516,7 @@ function ModalView({ thesis }) {
                           </div>
                         </div>
                       </div>
+
                       <div
                         className="p-3 mt-3"
                         style={{
@@ -523,7 +535,7 @@ function ModalView({ thesis }) {
                             </div>
                             <div
                               className="fw-semibold"
-                              style={{ fontSize: 13, whiteSpace: "pre-line" }} 
+                              style={{ fontSize: 13, whiteSpace: "pre-line" }}
                             >
                               {authors}
                             </div>
@@ -538,7 +550,7 @@ function ModalView({ thesis }) {
                             </div>
                             <div
                               className="fw-semibold"
-                              style={{ fontSize: 13, whiteSpace: "pre-line" }} 
+                              style={{ fontSize: 13, whiteSpace: "pre-line" }}
                             >
                               {tutors}
                             </div>
@@ -554,10 +566,26 @@ function ModalView({ thesis }) {
                       href={`http://localhost:3000/view/${t?._id}`}
                       target="_blank"
                       type="button"
-                      className="btn btn-memory d-flex align-items-center justify-content-center"
-                      style={{ width: 72, height: 44, borderRadius: 10 }}
+                      className="btn btn-memory d-flex align-items-center justify-content-center gap-2"
+                      style={{
+                        width: 110,
+                        height: 44,
+                        borderRadius: 10,
+                      }}
+                      rel="noreferrer"
                     >
-                      {EyeFillIcon}
+                      <span className="d-flex align-items-center">
+                        {EyeFillIcon}
+                      </span>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 14,
+                          lineHeight: 1,
+                        }}
+                      >
+                        Read
+                      </span>
                     </a>
 
                     <button

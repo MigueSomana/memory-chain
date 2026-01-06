@@ -45,7 +45,7 @@ export async function register(req: Request, res: Response) {
       role:
         role && Object.values(UserRole).includes(role)
           ? role
-          : UserRole.REGULAR, // rol por defecto
+          : UserRole.STUDENT, // rol por defecto
     });
 
     return res.status(201).json(user); // password ya viene oculto por toJSON

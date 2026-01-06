@@ -37,7 +37,7 @@ function App() {
             <Route path="/verify" element={<Verify />} />
             <Route path="/verify/:id" element={<Verify />} />
             <Route path="/about-us" element={<About />} />
-          </Route>
+          
 
           <Route path="/explore" element={<Search />} />
           <Route path="/new-upload" element={<UploadThesis />} />
@@ -55,7 +55,7 @@ function App() {
 
           <Route path="/view/:id" element={<ViewerPDF />} />
           <Route path="*" element={<NotFound />} />
-
+</Route>
         </Routes>
 
         <Modal />

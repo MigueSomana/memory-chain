@@ -30,13 +30,11 @@ const SORT_OPTIONS = [
 
 // HELPERS (normalización de strings y campos display)
 const norm = (v) =>
-  // Normaliza para comparaciones “case-insensitive” y robustas
   String(v ?? "")
     .trim()
     .toLowerCase();
 
 const getInstitutionName = (thesis) => {
-  // institution puede venir como string (id) o populate (objeto)
   const inst = thesis?.institution;
   if (!inst) return "";
   if (typeof inst === "string") return inst;
@@ -44,7 +42,6 @@ const getInstitutionName = (thesis) => {
 };
 
 const buildAuthorsSearchString = (authors) => {
-  // Convierte authors a un string indexable para el search (soporta string u objeto)
   if (!Array.isArray(authors)) return "";
   return authors
     .map((a) => {
@@ -64,7 +61,6 @@ const buildAuthorsSearchString = (authors) => {
     .toLowerCase();
 };
 
-// Determina si una thesis “pertenece” al usuario comparando con authors
 function thesisBelongsToUserByAuthor(thesis, user) {
   const uName = norm(user?.name);
   const uLast = norm(user?.lastname);
@@ -73,7 +69,6 @@ function thesisBelongsToUserByAuthor(thesis, user) {
   const authors = Array.isArray(thesis?.authors) ? thesis.authors : [];
 
   return authors.some((a) => {
-    // Caso 1: author viene como string (ej: "John Doe - mail@x.com")
     if (typeof a === "string") {
       const s = norm(a);
 
@@ -83,12 +78,9 @@ function thesisBelongsToUserByAuthor(thesis, user) {
         (uLast && s.includes(uLast));
 
       const byEmail = uEmail && s.includes(uEmail);
-
-      // Si el usuario tiene email, lo priorizamos como match más confiable
       return uEmail ? byEmail || byNameLast : byNameLast;
     }
 
-    // Caso 2: author viene como objeto {name, lastname, email}
     const aName = norm(a?.name);
     const aLast = norm(a?.lastname);
     const aEmail = norm(a?.email);
@@ -96,53 +88,40 @@ function thesisBelongsToUserByAuthor(thesis, user) {
     const nameLastMatch =
       uName && uLast ? aName === uName && aLast === uLast : false;
 
-    // Si ambos tienen email, match exacto por email
     if (uEmail && aEmail) return aEmail === uEmail;
-
-    // Fallback: match exacto por name+lastname
     return nameLastMatch;
   });
 }
 
 // COMPONENT: LibraryPSearch
 const LibraryPSearch = () => {
-  // Token y usuario autenticado (memo para no recalcular en cada render)
   const token = useMemo(() => getAuthToken(), []);
   const authUser = useMemo(() => getAuthUser(), []);
 
-  // ---------- Data ----------
   const [theses, setTheses] = useState([]);
-  const [liked, setLiked] = useState({}); // mapa: thesisId -> boolean
+  const [liked, setLiked] = useState({});
 
-  // ---------- UI ----------
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  // ---------- Search & sort ----------
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("recent");
 
-  // ---------- Pagination ----------
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // ---------- Certificate modal ----------
   const [certificateData, setCertificateData] = useState(null);
   const [selectedThesis, setSelectedThesis] = useState(null);
 
-  // -------------- View modal ----------
   const [selectedThesisView, setSelectedThesisView] = useState(null);
 
-  // Load: trae TODAS las theses y filtra las que “pertenecen” al usuario
   useEffect(() => {
     const fetchMyTheses = async () => {
       try {
         setLoading(true);
         setLoadError("");
 
-        const headers = token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses`,
@@ -151,12 +130,8 @@ const LibraryPSearch = () => {
 
         const data = Array.isArray(res.data) ? res.data : [];
 
-        // Filtra solo las tesis donde el usuario aparece como author
-        const onlyMine = data.filter((t) =>
-          thesisBelongsToUserByAuthor(t, authUser)
-        );
+        const onlyMine = data.filter((t) => thesisBelongsToUserByAuthor(t, authUser));
 
-        // Normaliza likes + detecta si el usuario ya dio like
         const currentUserId = authUser?._id || authUser?.id || null;
 
         const mapped = onlyMine.map((t) => {
@@ -164,9 +139,7 @@ const LibraryPSearch = () => {
 
           const userLiked =
             Array.isArray(t.likedBy) && currentUserId
-              ? t.likedBy.some(
-                  (u) => String(u?._id ?? u) === String(currentUserId)
-                )
+              ? t.likedBy.some((u) => String(u?._id ?? u) === String(currentUserId))
               : false;
 
           return { ...t, likes: likesCount, userLiked };
@@ -174,7 +147,6 @@ const LibraryPSearch = () => {
 
         setTheses(mapped);
 
-        // Construye el mapa liked inicial para la UI
         const likedMap = {};
         mapped.forEach((t) => (likedMap[t._id] = !!t.userLiked));
         setLiked(likedMap);
@@ -191,7 +163,6 @@ const LibraryPSearch = () => {
     fetchMyTheses();
   }, [token, authUser]);
 
-  // Filter: search (title/authors/keywords/institution)
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
@@ -212,7 +183,6 @@ const LibraryPSearch = () => {
     });
   }, [query, theses]);
 
-  // Sort: year/title/likes
   const filteredOrdered = useMemo(() => {
     const arr = [...filtered];
 
@@ -261,7 +231,6 @@ const LibraryPSearch = () => {
     return arr;
   }, [filtered, sortBy]);
 
-  // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredOrdered.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const start = (currentPage - 1) * pageSize;
@@ -279,7 +248,6 @@ const LibraryPSearch = () => {
 
   const go = (p) => setPage(p);
 
-  // Actions: abrir PDF en gateway
   const handleView = (thesis) => {
     setSelectedThesisView(thesis);
 
@@ -293,7 +261,6 @@ const LibraryPSearch = () => {
     modal?.show();
   };
 
-  // Placeholder: permiso / edición (por ahora logs)
   const handlePermission = async (thesis) => {
     console.log("Permission thesis:", thesis);
   };
@@ -302,10 +269,8 @@ const LibraryPSearch = () => {
     console.log("Edit thesis:", thesis);
   };
 
-  // Certificate: consulta al backend y abre modal
   const handleCertificate = async (thesis) => {
     try {
-      // Guarda la tesis seleccionada para mostrar contexto en el modal
       setSelectedThesis(thesis);
 
       const res = await axios.get(
@@ -313,10 +278,7 @@ const LibraryPSearch = () => {
         token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
       );
 
-      // Guarda data del certificado (lo usa ModalCertificate)
       setCertificateData(res.data);
-
-      // Abre modal (Bootstrap 5)
       openCertificateModal();
     } catch (e) {
       console.error(e);
@@ -326,7 +288,6 @@ const LibraryPSearch = () => {
     }
   };
 
-  // Like: sincroniza con backend y actualiza lista + mapa liked
   const handleToggleLike = async (id) => {
     if (!token) return;
 
@@ -341,7 +302,6 @@ const LibraryPSearch = () => {
 
       const { thesis, liked: isLiked } = res.data || {};
 
-      // Actualiza likes y estado en la lista principal
       if (thesis && thesis._id) {
         setTheses((prev) =>
           prev.map((t) =>
@@ -352,14 +312,12 @@ const LibraryPSearch = () => {
         );
       }
 
-      // Actualiza mapa liked para UI instantánea
       setLiked((prev) => ({ ...prev, [id]: !!isLiked }));
     } catch (err) {
       console.error("Error toggling like:", err);
     }
   };
 
-  // Bootstrap Modal helper
   const openCertificateModal = () => {
     const el = document.getElementById("modalCertificate");
     if (!el) return;
@@ -368,7 +326,6 @@ const LibraryPSearch = () => {
     modal?.show();
   };
 
-  // Render: loading / error / empty state
   if (loading) {
     return (
       <div className="container py-2">
@@ -387,14 +344,10 @@ const LibraryPSearch = () => {
     );
   }
 
-  // Empty state: el usuario no tiene tesis (antes de filtrar por query)
   if (theses.length === 0) {
     return (
       <div className="container py-2">
-        <div
-          className="d-flex justify-content-center align-items-center"
-          style={{ minHeight: "55vh" }}
-        >
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "55vh" }}>
           <div className="text-center">
             {InboxMin}
             <h3 className="m-0" style={{ color: "#b6b7ba" }}>
@@ -406,10 +359,8 @@ const LibraryPSearch = () => {
     );
   }
 
-  // Render: UI principal
   return (
-    <div className="container py-2">
-      {/* ModalView montado (recibe la tesis seleccionada) */}
+    <div className="container py-2 mc-thesis-page">
       <ModalView thesis={selectedThesisView} />
 
       {/* Search + Sort */}
@@ -426,25 +377,22 @@ const LibraryPSearch = () => {
               }}
             />
 
-            {/* Sort dropdown (Bootstrap) */}
             <div className="dropdown mc-sort mc-select">
               <button
-                className="btn btn-outline-secondary dropdown-toggle"
+                className="btn btn-outline-secondary dropdown-toggle droptoogle-fixv"
                 type="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                Sort by:{" "}
-                {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
+                Sort by: {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
               </button>
 
               <ul className="dropdown-menu dropdown-menu-end mc-select">
                 {SORT_OPTIONS.map((opt) => (
                   <li key={opt.key}>
                     <button
-                      className={`dropdown-item ${
-                        sortBy === opt.key ? "active" : ""
-                      }`}
+                      type="button"
+                      className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
                       onClick={() => {
                         setSortBy(opt.key);
                         setPage(1);
@@ -459,12 +407,9 @@ const LibraryPSearch = () => {
           </div>
         </div>
 
-        {/* Counter */}
         <div className="col-lg-4 text-lg-end">
           <span className="text-muted">
-            {filteredOrdered.length} result
-            {filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
-            {totalPages}
+            {filteredOrdered.length} result{filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of {totalPages}
           </span>
         </div>
       </div>
@@ -478,20 +423,19 @@ const LibraryPSearch = () => {
             const instName = getInstitutionName(t);
 
             return (
-              <div key={rowKey} className="card shadow-sm">
-                <div className="card-body d-flex align-items-center gap-3">
-
+              <div key={rowKey} className="card mc-thesis-card shadow-sm">
+                <div className="card-body d-flex align-items-start gap-3 mc-thesis-card-body">
                   {/* Info */}
-                  <div className="flex-grow-1">
-                    <h5 className="m-0">{t.title}</h5>
+                  <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                    <h5 className="m-0 mc-thesis-title">{t.title}</h5>
 
-                    <div className="text-muted small">
-                      Institution:&nbsp;{instName}
-                      {t.department ? ` · ${t.department}` : " "}
+                    <div className="text-muted small mt-1">
+                      <span className="mc-label-muted">Institution:</span> {instName}
+                      {t.department ? ` · ${t.department}` : ""}
                     </div>
 
                     <div className="text-muted small">
-                      Autors:&nbsp;
+                      <span className="mc-label-muted">Authors:</span>{" "}
                       {Array.isArray(t.authors)
                         ? t.authors
                             .map((a) =>
@@ -504,27 +448,14 @@ const LibraryPSearch = () => {
                     </div>
 
                     <div className="text-muted small">
-                      File Hash: {t.fileHash ?? "—"}
+                      <span className="mc-label-muted">File Hash:</span> {t.fileHash ?? "—"}
                     </div>
-
-                    {t.keywords?.length ? (
-                      <div className="mt-1 d-flex flex-wrap gap-2">
-                        {t.keywords.map((k, kidx) => (
-                          <span
-                            key={`${rowKey}-kw-${kidx}`}
-                            className="badge text-bg-light"
-                          >
-                            {k}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
                   </div>
 
-                  {/* Actions: 2 filas (acciones + status/certificado) */}
+                  {/* Actions */}
                   <div className="d-flex flex-column gap-2">
-                    {/* Row 1: view / edit-permission / like */}
-                    <div className="d-flex align-items-center gap-2">
+                    {/* Row 1 */}
+                    <div className="d-flex align-items-center gap-2 justify-content-end">
                       <button
                         type="button"
                         className="btn btn-memory"
@@ -534,7 +465,6 @@ const LibraryPSearch = () => {
                         {EyeFillIcon}
                       </button>
 
-                      {/* Si está APPROVED: muestra permission. Si no: muestra edit */}
                       {(() => {
                         const status = String(t.status || "").toUpperCase();
                         const isApproved = status === "APPROVED";
@@ -564,7 +494,6 @@ const LibraryPSearch = () => {
                         );
                       })()}
 
-                      {/* Like toggle */}
                       <button
                         type="button"
                         className="btn btn-danger btn-fix-like d-flex align-items-center gap-1"
@@ -572,11 +501,11 @@ const LibraryPSearch = () => {
                         onClick={() => handleToggleLike(t._id)}
                       >
                         {isLiked ? HeartFill : HeartOutline}
-                        <span className="fw-semibold">{t.likes ?? 0}</span>
+                        <span className="mc-like-count">{t.likes ?? 0}</span>
                       </button>
                     </div>
 
-                    {/* Row 2: certificado (depende del status) */}
+                    {/* Row 2 */}
                     {(() => {
                       const status = String(t.status || "").toUpperCase();
                       const isApproved = status === "APPROVED";
@@ -590,9 +519,7 @@ const LibraryPSearch = () => {
                             onClick={() => handleCertificate(t)}
                           >
                             {CheckCircle}
-                            <span className="fw-semibold t-white">
-                              See Certification
-                            </span>
+                            <span className="fw-semibold t-white">See Certification</span>
                           </button>
                         );
                       }
@@ -604,23 +531,18 @@ const LibraryPSearch = () => {
                             className="btn btn-danger w-100 d-flex align-items-center justify-content-center gap-2"
                           >
                             {CrossCircle}
-                            <span className="fw-semibold t-white">
-                              Not available
-                            </span>
+                            <span className="fw-semibold t-white">Not available</span>
                           </button>
                         );
                       }
 
-                      // Pending (default)
                       return (
                         <button
                           type="button"
                           className="btn btn-warning w-100 d-flex align-items-center justify-content-center gap-2"
                         >
                           {TimeCircle}
-                          <span className="fw-semibold t-white">
-                            Under Review
-                          </span>
+                          <span className="fw-semibold t-white">Under Review</span>
                         </button>
                       );
                     })()}
@@ -630,43 +552,29 @@ const LibraryPSearch = () => {
             );
           })}
 
-          {/* Empty state por filtros/search */}
           {pageItems.length === 0 && (
             <div className="text-muted text-center py-4">No theses found.</div>
           )}
 
-          {/* Pagination */}
           {filteredOrdered.length > 0 && (
-            <nav
-              aria-label="Theses pagination"
-              className="mt-3 d-flex justify-content-center"
-            >
+            <nav aria-label="Theses pagination" className="mt-3 d-flex justify-content-center">
               <ul className="pagination mc-pagination">
-                <li
-                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-                >
-                  <button className="page-link" onClick={() => go(1)}>
+                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={() => go(1)} type="button">
                     First
                   </button>
                 </li>
 
                 {pagesArray.map((p) => (
-                  <li
-                    key={`p-${p}`}
-                    className={`page-item ${p === currentPage ? "active" : ""}`}
-                  >
-                    <button className="page-link" onClick={() => go(p)}>
+                  <li key={`p-${p}`} className={`page-item ${p === currentPage ? "active" : ""}`}>
+                    <button className="page-link" onClick={() => go(p)} type="button">
                       {p}
                     </button>
                   </li>
                 ))}
 
-                <li
-                  className={`page-item ${
-                    currentPage === totalPages ? "disabled" : ""
-                  }`}
-                >
-                  <button className="page-link" onClick={() => go(totalPages)}>
+                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={() => go(totalPages)} type="button">
                     Last
                   </button>
                 </li>
@@ -676,7 +584,7 @@ const LibraryPSearch = () => {
         </div>
       </div>
 
-      {/* Modal: se mantiene montado, se alimenta con thesis + certificate */}
+      {/* ModalCertificate */}
       <ModalCertificate
         thesis={selectedThesis}
         certificate={certificateData}

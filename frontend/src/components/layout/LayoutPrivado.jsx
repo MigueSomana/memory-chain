@@ -1,6 +1,10 @@
 import React, { useState } from "react";
-import { BackIcon, PlusIcon } from "../../utils/icons";
-import { getAuthActor } from "../../utils/authSession";
+import { BackIcon, PlusIcon, CopyIcon } from "../../utils/icons";
+import {
+  getAuthActor,
+  getIdUser,
+  getIdInstitution,
+} from "../../utils/authSession";
 
 const Segmented = ({ options, value, onChange }) => (
   <div className="btn-group" role="group" aria-label="Segmented switch">
@@ -29,6 +33,7 @@ const LayoutPrivado = ({
   showButton = false, // Botón de "Add Thesis"
   showBack = false, // Botón de "Back"
   showBackDashboard = false, // Botón de "Back" a Dashboard
+  showID = false, // Banda de ID (badge copiable)
 
   activeKey: controlledKey,
   onChange,
@@ -46,15 +51,57 @@ const LayoutPrivado = ({
     else setUncontrolledKey(key);
   };
 
+  // ✅ ID del actor logueado (user o institution)
+  const actor = getAuthActor();
+  const actorId =
+    actor === "institution" ? getIdInstitution() : actor === "user" ? getIdUser() : null;
+
+  // ✅ Copiar al portapapeles
+  const copyToClipboard = async (text) => {
+    if (!text) return;
+    try {
+      // Preferido (moderno)
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      // Fallback antiguo
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      ta.style.top = "-9999px";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch {
+      // si falla, no hacemos nada (evita alerts raros)
+    }
+  };
+
+  // UI del badge (turquesa + texto blanco)
+  const idBadgeStyle = {
+    background: "#20C997",
+    color: "#fff",
+    fontSize: 12,
+    padding: "10px 12px",
+    borderRadius: 12,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+  };
+
   return (
     <>
       <div
         className="min-vh-100 d-flex flex-column"
         style={{ backgroundColor: "#fff" }}
       >
-        <header className="py-4 px-4 border-bottom d-flex">
-          <div className="container d-flex flex-row d-grid column-gap-2">
-            <span className="d-block mb-1">{icon}</span>
+        <header className="py-3 px-4 border-bottom d-flex">
+          <div className="container d-flex flex-row d-grid column-gap-2 align-items-center">
+            <span className="d-block">{icon}</span>
             <h1 className="h2 m-0 font-weight-bold">{title}</h1>
 
             {showSwitch && (
@@ -66,6 +113,7 @@ const LayoutPrivado = ({
                 />
               </div>
             )}
+
             {showButton && (
               <div className="d-flex" style={{ marginLeft: "auto" }}>
                 <a
@@ -78,6 +126,7 @@ const LayoutPrivado = ({
                 </a>
               </div>
             )}
+
             {showBack && (
               <div className="d-flex" style={{ marginLeft: "auto" }}>
                 <a
@@ -94,6 +143,7 @@ const LayoutPrivado = ({
                 </a>
               </div>
             )}
+
             {showBackDashboard && (
               <div className="d-flex" style={{ marginLeft: "auto" }}>
                 <a
@@ -108,6 +158,29 @@ const LayoutPrivado = ({
                   {BackIcon}
                   <span className="t-white"> Back</span>
                 </a>
+              </div>
+            )}
+
+            {/* ✅ SHOW ID: Badge copiable */}
+            {showID && (
+              <div className="d-flex" style={{ marginLeft: "auto" }}>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  title={actorId ? "Click to copy ID" : "No ID available"}
+                  style={idBadgeStyle}
+                  onClick={() => copyToClipboard(actorId)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") copyToClipboard(actorId);
+                  }}
+
+                >
+                  <span>
+                    <strong>ID:</strong>
+                  </span>
+                  <span>{actorId}</span>
+                  <span>{CopyIcon}</span>
+                </div>
               </div>
             )}
           </div>
@@ -125,3 +198,4 @@ const LayoutPrivado = ({
 };
 
 export default LayoutPrivado;
+

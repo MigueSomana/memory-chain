@@ -35,7 +35,6 @@ function formatJoined(dateIso) {
   }
 }
 
-// Intenta obtener institutionId actual si hay institution logueada
 function getCurrentInstitutionId() {
   try {
     const raw = localStorage.getItem("memorychain_institution");
@@ -49,7 +48,6 @@ function getCurrentInstitutionId() {
   return localStorage.getItem("memorychain_institutionId") || null;
 }
 
-// (opcional) nombre del usuario
 function getUserDisplayName(u) {
   const name = safeStr(u?.name);
   const lastname = safeStr(u?.lastname);
@@ -70,7 +68,6 @@ const MembersSearch = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  // search + sort + pagination
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("name_az");
   const [page, setPage] = useState(1);
@@ -78,7 +75,6 @@ const MembersSearch = () => {
 
   const institutionId = useMemo(() => getCurrentInstitutionId(), []);
 
-  // ===================== Load: users + theses (conteo por institución y status) =====================
   useEffect(() => {
     const fetchUsersAndCounts = async () => {
       try {
@@ -106,16 +102,15 @@ const MembersSearch = () => {
         const usersData = Array.isArray(usersRes.data) ? usersRes.data : [];
         setUsers(usersData);
 
-        // 2) Tesis (para contar por uploadedBy, dentro de esta institución)
+        // 2) Tesis (conteo por uploadedBy dentro de esta institución)
         const thesesRes = await axios.get(`${API_BASE_URL}/api/theses`, {
           headers,
         });
         const theses = Array.isArray(thesesRes.data) ? thesesRes.data : [];
 
-        const counts = {}; // { userId: { APPROVED, PENDING, REJECTED } }
+        const counts = {};
 
         for (const t of theses) {
-          // institución de la tesis
           const instField = t?.institution;
           const instId =
             typeof instField === "string"
@@ -126,7 +121,6 @@ const MembersSearch = () => {
 
           if (!instId || String(instId) !== String(institutionId)) continue;
 
-          // usuario que subió
           const uploadedBy = t?.uploadedBy;
           const userId =
             typeof uploadedBy === "string"
@@ -138,13 +132,11 @@ const MembersSearch = () => {
           if (!userId) continue;
 
           const status = normalizeStatus(t?.status);
-          if (!counts[userId])
-            counts[userId] = { APPROVED: 0, PENDING: 0, REJECTED: 0 };
+          if (!counts[userId]) counts[userId] = { APPROVED: 0, PENDING: 0, REJECTED: 0 };
 
           if (status === "APPROVED") counts[userId].APPROVED += 1;
           else if (status === "PENDING") counts[userId].PENDING += 1;
           else if (status === "REJECTED") counts[userId].REJECTED += 1;
-          // si aparece otro status raro, lo ignoramos
         }
 
         setStatusCountsByUser(counts);
@@ -161,7 +153,6 @@ const MembersSearch = () => {
     fetchUsersAndCounts();
   }, [token, institutionId]);
 
-  // ===================== Filter =====================
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
@@ -172,7 +163,6 @@ const MembersSearch = () => {
     });
   }, [users, query]);
 
-  // helpers para conteos
   const getCounts = (userId) => {
     const c = statusCountsByUser[userId];
     return {
@@ -182,7 +172,6 @@ const MembersSearch = () => {
     };
   };
 
-  // ===================== Sort =====================
   const filteredOrdered = useMemo(() => {
     const arr = [...filtered];
 
@@ -225,7 +214,6 @@ const MembersSearch = () => {
     return arr;
   }, [filtered, sortBy, statusCountsByUser]);
 
-  // ===================== Pagination =====================
   const totalPages = Math.max(1, Math.ceil(filteredOrdered.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const start = (currentPage - 1) * pageSize;
@@ -243,7 +231,6 @@ const MembersSearch = () => {
 
   const go = (p) => setPage(p);
 
-  // ===================== Render load/error =====================
   if (loading) {
     return (
       <div className="container py-2">
@@ -262,9 +249,8 @@ const MembersSearch = () => {
     );
   }
 
-  // ===================== Render principal =====================
   return (
-    <div className="container py-2">
+    <div className="container py-2 mc-members-page">
       {/* Top bar: Search + Sort */}
       <div className="row g-3 align-items-center mb-3">
         <div className="col-lg-8">
@@ -279,24 +265,21 @@ const MembersSearch = () => {
               }}
             />
 
-            <div className="dropdown mc-sort">
+            <div className="dropdown mc-sort mc-select">
               <button
                 className="btn btn-outline-secondary dropdown-toggle"
                 type="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                Sort by:{" "}
-                {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
+                Sort by: {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
               </button>
 
-              <ul className="dropdown-menu dropdown-menu-end">
+              <ul className="dropdown-menu dropdown-menu-end mc-select">
                 {SORT_OPTIONS.map((opt) => (
                   <li key={opt.key}>
                     <button
-                      className={`dropdown-item ${
-                        sortBy === opt.key ? "active" : ""
-                      }`}
+                      className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
                       onClick={() => {
                         setSortBy(opt.key);
                         setPage(1);
@@ -314,8 +297,7 @@ const MembersSearch = () => {
 
         <div className="col-lg-4 text-lg-end">
           <span className="text-muted">
-            {filteredOrdered.length} result
-            {filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
+            {filteredOrdered.length} result{filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
             {totalPages}
           </span>
         </div>
@@ -329,56 +311,44 @@ const MembersSearch = () => {
           const email = safeStr(u?.email) || "—";
           const joined = formatJoined(u?.createdAt);
 
-          // 👇 Imagen: usa imgUrl si lo tienes (como ya estabas usando)
           const imgSrc = u?.imgUrl || null;
-
           const c = getCounts(userId);
 
           return (
-            <div key={`${userId}-${start + idx}`} className="card shadow-sm">
-              <div className="card-body d-flex align-items-center gap-3">
-                {/* Avatar */}
-                <div
-                  style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 12,
-                    overflow: "hidden",
-                    background: "#f8f9fa",
-                    border: "1px solid #eee",
-                    flex: "0 0 auto",
-                  }}
-                  className="d-flex align-items-center justify-content-center text-muted"
-                >
+            <div
+              key={`${userId}-${start + idx}`}
+              className="card mc-thesis-card mc-member-card shadow-sm"
+            >
+              <div className="card-body d-flex align-items-start gap-3 mc-thesis-card-body">
+                {/* Avatar (mismo estilo thumbnail) */}
+                <div className="mc-thumb d-flex align-items-center justify-content-center">
                   {imgSrc ? (
                     <img
                       src={imgSrc}
                       alt={name}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   ) : (
-                    <div className="small">No photo</div>
+                    <div className="small text-muted">No photo</div>
                   )}
                 </div>
 
                 {/* Main info */}
-                <div className="flex-grow-1">
-                  <h5 className="m-0">{name}</h5>
+                <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                  <h5 className="m-0 mc-thesis-title">{name}</h5>
 
-                  <div className="text-muted small">
-                    Email: <span className="fw-semibold">{email}</span>
+                  <div className="text-muted small mt-1">
+                    <span className="mc-label-muted">Email:</span>{" "}
+                    <span className="fw-semibold">{email}</span>
                   </div>
 
                   <div className="text-muted small">
-                    Joined: <span className="fw-semibold">{joined}</span>
+                    <span className="mc-label-muted">Joined:</span>{" "}
+                    <span className="fw-semibold">{joined}</span>
                   </div>
                 </div>
 
-                {/* Actions: pegados a la derecha como thesis */}
+                {/* Stats / Actions (igual a las acciones de tesis, a la derecha) */}
                 <div className="d-flex align-items-center gap-2 ms-auto">
                   <button
                     type="button"
@@ -412,15 +382,10 @@ const MembersSearch = () => {
           );
         })}
 
-        {pageItems.length === 0 && (
-          <div className="text-muted">No members found.</div>
-        )}
+        {pageItems.length === 0 && <div className="text-muted">No members found.</div>}
 
         {/* Pagination */}
-        <nav
-          aria-label="Members pagination"
-          className="mt-3 d-flex justify-content-center"
-        >
+        <nav aria-label="Members pagination" className="mt-3 d-flex justify-content-center">
           <ul className="pagination mc-pagination">
             <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
               <button className="page-link" onClick={() => go(1)} type="button">
@@ -429,30 +394,15 @@ const MembersSearch = () => {
             </li>
 
             {pagesArray.map((p) => (
-              <li
-                key={`p-${p}`}
-                className={`page-item ${p === currentPage ? "active" : ""}`}
-              >
-                <button
-                  className="page-link"
-                  onClick={() => go(p)}
-                  type="button"
-                >
+              <li key={`p-${p}`} className={`page-item ${p === currentPage ? "active" : ""}`}>
+                <button className="page-link" onClick={() => go(p)} type="button">
                   {p}
                 </button>
               </li>
             ))}
 
-            <li
-              className={`page-item ${
-                currentPage === totalPages ? "disabled" : ""
-              }`}
-            >
-              <button
-                className="page-link"
-                onClick={() => go(totalPages)}
-                type="button"
-              >
+            <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+              <button className="page-link" onClick={() => go(totalPages)} type="button">
                 Last
               </button>
             </li>
@@ -466,10 +416,7 @@ const MembersSearch = () => {
 // ===================== Página: ListMember =====================
 const ListMember = () => {
   return (
-    <div
-      className="d-flex"
-      style={{ minHeight: "100vh", background: "#f6f7f9" }}
-    >
+    <div className="d-flex" style={{ minHeight: "100vh", background: "#f6f7f9" }}>
       <NavbarReal />
 
       <div className="flex-grow-1">
@@ -480,7 +427,7 @@ const ListMember = () => {
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="currentColor"
-              class="nav-icon"
+              className="nav-icon"
               viewBox="0 0 16 16"
             >
               <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />

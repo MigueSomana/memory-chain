@@ -136,7 +136,9 @@ const PanelUniversity = () => {
         // Si no viene nada, intentamos refrescar institution del backend y re-evaluar
         if (!active && institutionId) {
           try {
-            const res = await axios.get(`${API_BASE_URL}/api/institutions/${institutionId}`);
+            const res = await axios.get(
+              `${API_BASE_URL}/api/institutions/${institutionId}`
+            );
             const inst = res.data || null;
             setInstitution(inst);
 
@@ -151,7 +153,10 @@ const PanelUniversity = () => {
 
             setIsMember(!!active2);
           } catch (e) {
-            console.error("Error fetching institution for membership check:", e);
+            console.error(
+              "Error fetching institution for membership check:",
+              e
+            );
             setIsMember(!!active);
           }
         } else {
@@ -171,7 +176,9 @@ const PanelUniversity = () => {
     const fetchInstitutionIfNeeded = async () => {
       if (institution?.email || !institutionId) return;
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/institutions/${institutionId}`);
+        const res = await axios.get(
+          `${API_BASE_URL}/api/institutions/${institutionId}`
+        );
         setInstitution(res.data || null);
       } catch (e) {
         console.error("Error fetching institution:", e);
@@ -206,7 +213,9 @@ const PanelUniversity = () => {
         setLoading(true);
         setLoadError("");
 
-        const res = await axios.get(`${API_BASE_URL}/api/theses/sub/${institutionId}`);
+        const res = await axios.get(
+          `${API_BASE_URL}/api/theses/sub/${institutionId}`
+        );
         const data = Array.isArray(res.data) ? res.data : [];
         setTheses(data);
       } catch (err) {
@@ -387,7 +396,8 @@ const PanelUniversity = () => {
       .reduce((acc, t) => acc + safeNum(t.likes), 0);
 
     const final = [...top3];
-    if (othersSum > 0) final.push({ key: "OTHERS", name: "Others", value: othersSum });
+    if (othersSum > 0)
+      final.push({ key: "OTHERS", name: "Others", value: othersSum });
     return final;
   }, [thesesSortedByLikesDesc]);
 
@@ -398,7 +408,9 @@ const PanelUniversity = () => {
 
   const likesTableSorted = useMemo(() => {
     const dir = String(likesOrder || "DESC").toUpperCase();
-    const sorted = [...theses].sort((a, b) => safeNum(a.likes) - safeNum(b.likes));
+    const sorted = [...theses].sort(
+      (a, b) => safeNum(a.likes) - safeNum(b.likes)
+    );
     return dir === "ASC" ? sorted : sorted.reverse();
   }, [theses, likesOrder]);
 
@@ -452,7 +464,9 @@ const PanelUniversity = () => {
       if (typeof a0 === "string") {
         inc(counts, a0, 1);
       } else {
-        const key = a0?.email || [a0?.name, a0?.lastname].filter(Boolean).join(" ").trim();
+        const key =
+          a0?.email ||
+          [a0?.name, a0?.lastname].filter(Boolean).join(" ").trim();
         if (key) inc(counts, key, 1);
       }
     });
@@ -470,7 +484,9 @@ const PanelUniversity = () => {
   }, [studentThesisCountsObj, studentLabelById]);
 
   const studentSortedDesc = useMemo(() => {
-    return [...studentThesisRows].sort((a, b) => safeNum(b.value) - safeNum(a.value));
+    return [...studentThesisRows].sort(
+      (a, b) => safeNum(b.value) - safeNum(a.value)
+    );
   }, [studentThesisRows]);
 
   const studentDonutData = useMemo(() => {
@@ -480,9 +496,12 @@ const PanelUniversity = () => {
       name: trimLabel(x.name, 22),
       value: safeNum(x.value),
     }));
-    const othersSum = studentSortedDesc.slice(3).reduce((acc, x) => acc + safeNum(x.value), 0);
+    const othersSum = studentSortedDesc
+      .slice(3)
+      .reduce((acc, x) => acc + safeNum(x.value), 0);
     const final = [...top3];
-    if (othersSum > 0) final.push({ key: "STU_OTHERS", name: "Others", value: othersSum });
+    if (othersSum > 0)
+      final.push({ key: "STU_OTHERS", name: "Others", value: othersSum });
     return final;
   }, [studentSortedDesc]);
 
@@ -493,7 +512,9 @@ const PanelUniversity = () => {
 
   const studentTableSorted = useMemo(() => {
     const dir = String(studentOrder || "DESC").toUpperCase();
-    const sorted = [...studentThesisRows].sort((a, b) => safeNum(a.value) - safeNum(b.value));
+    const sorted = [...studentThesisRows].sort(
+      (a, b) => safeNum(a.value) - safeNum(b.value)
+    );
     return dir === "ASC" ? sorted : sorted.reverse();
   }, [studentThesisRows, studentOrder]);
 
@@ -501,7 +522,10 @@ const PanelUniversity = () => {
     () => Math.max(1, Math.ceil(studentTableSorted.length / studentPageSize)),
     [studentTableSorted.length]
   );
-  const studentCurrentPage = Math.min(Math.max(1, studentPage), studentTotalPages);
+  const studentCurrentPage = Math.min(
+    Math.max(1, studentPage),
+    studentTotalPages
+  );
 
   useEffect(() => setStudentPage(1), [studentOrder]);
   useEffect(() => {
@@ -547,9 +571,12 @@ const PanelUniversity = () => {
       name: trimLabel(x.name, 22),
       value: safeNum(x.value),
     }));
-    const othersSum = deptSortedDesc.slice(3).reduce((acc, x) => acc + safeNum(x.value), 0);
+    const othersSum = deptSortedDesc
+      .slice(3)
+      .reduce((acc, x) => acc + safeNum(x.value), 0);
     const final = [...top3];
-    if (othersSum > 0) final.push({ key: "DEPT_OTHERS", name: "Others", value: othersSum });
+    if (othersSum > 0)
+      final.push({ key: "DEPT_OTHERS", name: "Others", value: othersSum });
     return final;
   }, [deptSortedDesc]);
 
@@ -560,7 +587,9 @@ const PanelUniversity = () => {
 
   const deptTableSorted = useMemo(() => {
     const dir = String(deptOrder || "DESC").toUpperCase();
-    const sorted = [...deptRows].sort((a, b) => safeNum(a.value) - safeNum(b.value));
+    const sorted = [...deptRows].sort(
+      (a, b) => safeNum(a.value) - safeNum(b.value)
+    );
     return dir === "ASC" ? sorted : sorted.reverse();
   }, [deptRows, deptOrder]);
 
@@ -618,7 +647,9 @@ const PanelUniversity = () => {
   // Render: loading/error base
   // =========================
   if (!memberChecked) {
-    return <div className="container py-3 text-muted">Checking membership…</div>;
+    return (
+      <div className="container py-3 text-muted">Checking membership…</div>
+    );
   }
 
   // ✅ siempre mostramos el banner
@@ -664,7 +695,8 @@ const PanelUniversity = () => {
   }
 
   // ✅ miembro: seguimos como siempre
-  if (loading) return <div className="container py-3 text-muted">Loading dashboard…</div>;
+  if (loading)
+    return <div className="container py-3 text-muted">Loading dashboard…</div>;
 
   if (loadError) {
     return (
@@ -684,18 +716,17 @@ const PanelUniversity = () => {
         <div className="col-12 col-md-6 col-xl-3">
           <a
             href="/members-institution"
-            className="btn btn-memory w-100 shadow-sm"
+            className="btn btn-memory w-100 mc-card-shadow"
             style={{ ...cardStyle, padding: 16 }}
           >
             <div className="t-white" style={{ fontWeight: 700, fontSize: 18 }}>
-              List of Members
+              List of Member
             </div>
             <div style={iconRow}>{renderIcon(PersonIcon, 45)}</div>
           </a>
         </div>
-
         <div className="col-12 col-md-6 col-xl-3">
-          <div className="card shadow-sm" style={cardStyle}>
+          <div className="card shadow-sm mc-card-shadow" style={cardStyle}>
             <div className="card-body text-center">
               <div style={titleStyle}>Total Thesis</div>
               <div style={iconRow}>
@@ -707,7 +738,7 @@ const PanelUniversity = () => {
         </div>
 
         <div className="col-12 col-md-6 col-xl-3">
-          <div className="card shadow-sm" style={cardStyle}>
+          <div className="card shadow-sm mc-card-shadow" style={cardStyle}>
             <div className="card-body text-center">
               <div style={titleStyle}>Verified Thesis</div>
               <div style={iconRow}>
@@ -719,7 +750,7 @@ const PanelUniversity = () => {
         </div>
 
         <div className="col-12 col-md-6 col-xl-3">
-          <div className="card shadow-sm" style={cardStyle}>
+          <div className="card shadow-sm mc-card-shadow" style={cardStyle}>
             <div className="card-body text-center">
               <div style={titleStyle}>Total Likes</div>
               <div style={iconRow}>
@@ -734,7 +765,7 @@ const PanelUniversity = () => {
       {/* TOP CARDS - fila 2 */}
       <div className="row g-3 pt-3">
         <div className="col-12 col-md-6 col-xl-3">
-          <div className="card shadow-sm" style={cardStyle}>
+          <div className="card shadow-sm mc-card-shadow" style={cardStyle}>
             <div className="card-body text-center">
               <div style={titleStyle}>Verification Rate</div>
               <div style={iconRow}>
@@ -746,7 +777,7 @@ const PanelUniversity = () => {
         </div>
 
         <div className="col-12 col-md-6 col-xl-3">
-          <div className="card shadow-sm" style={cardStyle}>
+          <div className="card shadow-sm mc-card-shadow" style={cardStyle}>
             <div className="card-body text-center">
               <div style={titleStyle}>Rejected Rate</div>
               <div style={iconRow}>
@@ -758,7 +789,7 @@ const PanelUniversity = () => {
         </div>
 
         <div className="col-12 col-md-6 col-xl-3">
-          <div className="card shadow-sm" style={cardStyle}>
+          <div className="card shadow-sm mc-card-shadow" style={cardStyle}>
             <div className="card-body text-center">
               <div style={titleStyle}>AVG Verification Days</div>
               <div style={iconRow}>
@@ -770,7 +801,7 @@ const PanelUniversity = () => {
         </div>
 
         <div className="col-12 col-md-6 col-xl-3">
-          <div className="card shadow-sm" style={cardStyle}>
+          <div className="card shadow-sm mc-card-shadow" style={cardStyle}>
             <div className="card-body text-center">
               <div style={titleStyle}>Total Members</div>
               <div style={iconRow}>
@@ -786,9 +817,12 @@ const PanelUniversity = () => {
       <div className="row g-3 mt-1">
         {/* Donut */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
-              <div className="text-center" style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}>
+              <div
+                className="text-center"
+                style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
+              >
                 Thesis Status Distribution
               </div>
 
@@ -810,17 +844,26 @@ const PanelUniversity = () => {
                         stroke="transparent"
                       >
                         {statusDonutData.map((entry) => (
-                          <Cell key={entry.key} fill={STATUS_COLORS[entry.key] || "#6c757d"} />
+                          <Cell
+                            key={entry.key}
+                            fill={STATUS_COLORS[entry.key] || "#6c757d"}
+                          />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value, name) => [`${value}`, `${name}`]} />
+                      <Tooltip
+                        formatter={(value, name) => [`${value}`, `${name}`]}
+                      />
 
                       <text
                         x="50%"
                         y="50%"
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        style={{ fontSize: 20, fontWeight: 800, fill: "#212529" }}
+                        style={{
+                          fontSize: 20,
+                          fontWeight: 800,
+                          fill: "#212529",
+                        }}
                       >
                         {statusDonutTotal}
                       </text>
@@ -872,12 +915,25 @@ const PanelUniversity = () => {
 
         {/* Table */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
               <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                <div style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, lineHeight: 1 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center" }}>{StatusIcon}</span>
+                <div
+                  style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      lineHeight: 1,
+                    }}
+                  >
+                    <span
+                      style={{ display: "inline-flex", alignItems: "center" }}
+                    >
+                      {StatusIcon}
+                    </span>
                     Thesis Status
                   </span>
                 </div>
@@ -895,7 +951,11 @@ const PanelUniversity = () => {
                     <option value="REJECTED">Rejected</option>
                   </select>
 
-                  <div className="btn-group" role="group" aria-label="Status pagination">
+                  <div
+                    className="btn-group"
+                    role="group"
+                    aria-label="Status pagination"
+                  >
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
@@ -908,7 +968,9 @@ const PanelUniversity = () => {
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
-                      onClick={() => setStatusPage((p) => Math.min(statusTotalPages, p + 1))}
+                      onClick={() =>
+                        setStatusPage((p) => Math.min(statusTotalPages, p + 1))
+                      }
                       disabled={!statusCanNext}
                       title="Next"
                     >
@@ -958,12 +1020,21 @@ const PanelUniversity = () => {
                               >
                                 {t.title || "—"}
                               </div>
-                              <div className="text-muted" style={{ fontSize: 12 }}>
-                                {t?.institution?.name ? `${t.institution.name} - ${t.department || ""}` : ""}
+                              <div
+                                className="text-muted"
+                                style={{ fontSize: 12 }}
+                              >
+                                {t?.institution?.name
+                                  ? `${t.institution.name} - ${
+                                      t.department || ""
+                                    }`
+                                  : ""}
                               </div>
                             </td>
                             <td className="text-end">
-                              <span className={`badge ${badgeClass}`}>{prettyStatus(st)}</span>
+                              <span className={`badge ${badgeClass}`}>
+                                {prettyStatus(st)}
+                              </span>
                             </td>
                           </tr>
                         );
@@ -975,9 +1046,15 @@ const PanelUniversity = () => {
 
               <div className="text-muted mt-2" style={{ fontSize: 12 }}>
                 Showing{" "}
-                {statusTableSorted.length === 0 ? 0 : (statusCurrentPage - 1) * statusPageSize + 1}–{" "}
-                {Math.min(statusCurrentPage * statusPageSize, statusTableSorted.length)} of{" "}
-                {statusTableSorted.length}
+                {statusTableSorted.length === 0
+                  ? 0
+                  : (statusCurrentPage - 1) * statusPageSize + 1}
+                –{" "}
+                {Math.min(
+                  statusCurrentPage * statusPageSize,
+                  statusTableSorted.length
+                )}{" "}
+                of {statusTableSorted.length}
               </div>
             </div>
           </div>
@@ -988,9 +1065,12 @@ const PanelUniversity = () => {
       <div className="row g-3 mt-1">
         {/* Donut */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
-              <div className="text-center" style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}>
+              <div
+                className="text-center"
+                style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
+              >
                 Likes Distribution
               </div>
 
@@ -1012,17 +1092,30 @@ const PanelUniversity = () => {
                         stroke="transparent"
                       >
                         {likesTop3DonutData.map((entry, idx) => (
-                          <Cell key={entry.key} fill={["#0d6efd", "#20c997", "#6f42c1", "#adb5bd"][idx] || "#adb5bd"} />
+                          <Cell
+                            key={entry.key}
+                            fill={
+                              ["#0d6efd", "#20c997", "#6f42c1", "#adb5bd"][
+                                idx
+                              ] || "#adb5bd"
+                            }
+                          />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value, name) => [`${value}`, `${name}`]} />
+                      <Tooltip
+                        formatter={(value, name) => [`${value}`, `${name}`]}
+                      />
 
                       <text
                         x="50%"
                         y="50%"
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        style={{ fontSize: 20, fontWeight: 800, fill: "#212529" }}
+                        style={{
+                          fontSize: 20,
+                          fontWeight: 800,
+                          fill: "#212529",
+                        }}
                       >
                         {likesDonutTotal}
                       </text>
@@ -1054,11 +1147,14 @@ const PanelUniversity = () => {
                         width: 10,
                         height: 10,
                         borderRadius: 999,
-                        background: ["#0d6efd", "#20c997", "#6f42c1", "#adb5bd"][idx] || "#adb5bd",
+                        background:
+                          ["#0d6efd", "#20c997", "#6f42c1", "#adb5bd"][idx] ||
+                          "#adb5bd",
                         verticalAlign: "middle",
                       }}
                     />
-                    &nbsp;&nbsp;{trimLabel(d.name, 18)}: <strong>{safeNum(d.value)}</strong>
+                    &nbsp;&nbsp;{trimLabel(d.name, 18)}:{" "}
+                    <strong>{safeNum(d.value)}</strong>
                   </span>
                 ))}
               </div>
@@ -1068,12 +1164,25 @@ const PanelUniversity = () => {
 
         {/* Table */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
               <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                <div style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, lineHeight: 1 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center" }}>{HeartIcon}</span>
+                <div
+                  style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      lineHeight: 1,
+                    }}
+                  >
+                    <span
+                      style={{ display: "inline-flex", alignItems: "center" }}
+                    >
+                      {HeartIcon}
+                    </span>
                     Thesis Likes
                   </span>
                 </div>
@@ -1089,7 +1198,11 @@ const PanelUniversity = () => {
                     <option value="ASC">Likes: Low → High</option>
                   </select>
 
-                  <div className="btn-group" role="group" aria-label="Likes pagination">
+                  <div
+                    className="btn-group"
+                    role="group"
+                    aria-label="Likes pagination"
+                  >
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
@@ -1102,7 +1215,9 @@ const PanelUniversity = () => {
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
-                      onClick={() => setLikesPage((p) => Math.min(likesTotalPages, p + 1))}
+                      onClick={() =>
+                        setLikesPage((p) => Math.min(likesTotalPages, p + 1))
+                      }
                       disabled={!likesCanNext}
                       title="Next"
                     >
@@ -1143,8 +1258,15 @@ const PanelUniversity = () => {
                             >
                               {t.title || "—"}
                             </div>
-                            <div className="text-muted" style={{ fontSize: 12 }}>
-                              {t?.institution?.name ? `${t.institution.name} - ${t.department || ""}` : ""}
+                            <div
+                              className="text-muted"
+                              style={{ fontSize: 12 }}
+                            >
+                              {t?.institution?.name
+                                ? `${t.institution.name} - ${
+                                    t.department || ""
+                                  }`
+                                : ""}
                             </div>
                           </td>
                           <td className="text-end" style={{ fontWeight: 800 }}>
@@ -1159,9 +1281,15 @@ const PanelUniversity = () => {
 
               <div className="text-muted mt-2" style={{ fontSize: 12 }}>
                 Showing{" "}
-                {likesTableSorted.length === 0 ? 0 : (likesCurrentPage - 1) * likesPageSize + 1}–{" "}
-                {Math.min(likesCurrentPage * likesPageSize, likesTableSorted.length)} of{" "}
-                {likesTableSorted.length}
+                {likesTableSorted.length === 0
+                  ? 0
+                  : (likesCurrentPage - 1) * likesPageSize + 1}
+                –{" "}
+                {Math.min(
+                  likesCurrentPage * likesPageSize,
+                  likesTableSorted.length
+                )}{" "}
+                of {likesTableSorted.length}
               </div>
             </div>
           </div>
@@ -1172,9 +1300,12 @@ const PanelUniversity = () => {
       <div className="row g-3 mt-1">
         {/* Donut */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
-              <div className="text-center" style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}>
+              <div
+                className="text-center"
+                style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
+              >
                 Students Thesis Distribution
               </div>
 
@@ -1196,17 +1327,30 @@ const PanelUniversity = () => {
                         stroke="transparent"
                       >
                         {studentDonutData.map((entry, idx) => (
-                          <Cell key={entry.key} fill={["#0dcaf0", "#198754", "#6f42c1", "#adb5bd"][idx] || "#adb5bd"} />
+                          <Cell
+                            key={entry.key}
+                            fill={
+                              ["#0dcaf0", "#198754", "#6f42c1", "#adb5bd"][
+                                idx
+                              ] || "#adb5bd"
+                            }
+                          />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value, name) => [`${value}`, `${name}`]} />
+                      <Tooltip
+                        formatter={(value, name) => [`${value}`, `${name}`]}
+                      />
 
                       <text
                         x="50%"
                         y="50%"
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        style={{ fontSize: 20, fontWeight: 800, fill: "#212529" }}
+                        style={{
+                          fontSize: 20,
+                          fontWeight: 800,
+                          fill: "#212529",
+                        }}
                       >
                         {studentDonutTotal}
                       </text>
@@ -1238,11 +1382,14 @@ const PanelUniversity = () => {
                         width: 10,
                         height: 10,
                         borderRadius: 999,
-                        background: ["#0dcaf0", "#198754", "#6f42c1", "#adb5bd"][idx] || "#adb5bd",
+                        background:
+                          ["#0dcaf0", "#198754", "#6f42c1", "#adb5bd"][idx] ||
+                          "#adb5bd",
                         verticalAlign: "middle",
                       }}
                     />
-                    &nbsp;&nbsp;{trimLabel(d.name, 18)}: <strong>{safeNum(d.value)}</strong>
+                    &nbsp;&nbsp;{trimLabel(d.name, 18)}:{" "}
+                    <strong>{safeNum(d.value)}</strong>
                   </span>
                 ))}
               </div>
@@ -1252,12 +1399,25 @@ const PanelUniversity = () => {
 
         {/* Table */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
               <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                <div style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, lineHeight: 1 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center" }}>{PersonIcon}</span>
+                <div
+                  style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      lineHeight: 1,
+                    }}
+                  >
+                    <span
+                      style={{ display: "inline-flex", alignItems: "center" }}
+                    >
+                      {PersonIcon}
+                    </span>
                     Thesis by Students
                   </span>
                 </div>
@@ -1273,7 +1433,11 @@ const PanelUniversity = () => {
                     <option value="ASC">Theses: Low → High</option>
                   </select>
 
-                  <div className="btn-group" role="group" aria-label="Students pagination">
+                  <div
+                    className="btn-group"
+                    role="group"
+                    aria-label="Students pagination"
+                  >
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
@@ -1286,7 +1450,11 @@ const PanelUniversity = () => {
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
-                      onClick={() => setStudentPage((p) => Math.min(studentTotalPages, p + 1))}
+                      onClick={() =>
+                        setStudentPage((p) =>
+                          Math.min(studentTotalPages, p + 1)
+                        )
+                      }
                       disabled={!studentCanNext}
                       title="Next"
                     >
@@ -1327,8 +1495,13 @@ const PanelUniversity = () => {
                             >
                               {row.name || "—"}
                             </div>
-                            <div className="text-muted" style={{ fontSize: 12 }}>
-                              {institution?.name ? ` Students of ${institution.name}` : ""}
+                            <div
+                              className="text-muted"
+                              style={{ fontSize: 12 }}
+                            >
+                              {institution?.name
+                                ? ` Students of ${institution.name}`
+                                : ""}
                             </div>
                           </td>
                           <td className="text-end" style={{ fontWeight: 800 }}>
@@ -1343,9 +1516,15 @@ const PanelUniversity = () => {
 
               <div className="text-muted mt-2" style={{ fontSize: 12 }}>
                 Showing{" "}
-                {studentTableSorted.length === 0 ? 0 : (studentCurrentPage - 1) * studentPageSize + 1}–{" "}
-                {Math.min(studentCurrentPage * studentPageSize, studentTableSorted.length)} of{" "}
-                {studentTableSorted.length}
+                {studentTableSorted.length === 0
+                  ? 0
+                  : (studentCurrentPage - 1) * studentPageSize + 1}
+                –{" "}
+                {Math.min(
+                  studentCurrentPage * studentPageSize,
+                  studentTableSorted.length
+                )}{" "}
+                of {studentTableSorted.length}
               </div>
             </div>
           </div>
@@ -1356,9 +1535,12 @@ const PanelUniversity = () => {
       <div className="row g-3 mt-1">
         {/* Donut */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
-              <div className="text-center" style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}>
+              <div
+                className="text-center"
+                style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
+              >
                 Departments Thesis Distribution
               </div>
 
@@ -1380,17 +1562,30 @@ const PanelUniversity = () => {
                         stroke="transparent"
                       >
                         {deptDonutData.map((entry, idx) => (
-                          <Cell key={entry.key} fill={["#fd7e14", "#0d6efd", "#20c997", "#adb5bd"][idx] || "#adb5bd"} />
+                          <Cell
+                            key={entry.key}
+                            fill={
+                              ["#fd7e14", "#0d6efd", "#20c997", "#adb5bd"][
+                                idx
+                              ] || "#adb5bd"
+                            }
+                          />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value, name) => [`${value}`, `${name}`]} />
+                      <Tooltip
+                        formatter={(value, name) => [`${value}`, `${name}`]}
+                      />
 
                       <text
                         x="50%"
                         y="50%"
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        style={{ fontSize: 20, fontWeight: 800, fill: "#212529" }}
+                        style={{
+                          fontSize: 20,
+                          fontWeight: 800,
+                          fill: "#212529",
+                        }}
                       >
                         {deptDonutTotal}
                       </text>
@@ -1422,11 +1617,14 @@ const PanelUniversity = () => {
                         width: 10,
                         height: 10,
                         borderRadius: 999,
-                        background: ["#fd7e14", "#0d6efd", "#20c997", "#adb5bd"][idx] || "#adb5bd",
+                        background:
+                          ["#fd7e14", "#0d6efd", "#20c997", "#adb5bd"][idx] ||
+                          "#adb5bd",
                         verticalAlign: "middle",
                       }}
                     />
-                    &nbsp;&nbsp;{trimLabel(d.name, 18)}: <strong>{safeNum(d.value)}</strong>
+                    &nbsp;&nbsp;{trimLabel(d.name, 18)}:{" "}
+                    <strong>{safeNum(d.value)}</strong>
                   </span>
                 ))}
               </div>
@@ -1436,12 +1634,25 @@ const PanelUniversity = () => {
 
         {/* Table */}
         <div className="col-12 col-lg-6">
-          <div className="card shadow-sm" style={{ borderRadius: 16 }}>
+          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
               <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                <div style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, lineHeight: 1 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center" }}>{DepartmentIcon}</span>
+                <div
+                  style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      lineHeight: 1,
+                    }}
+                  >
+                    <span
+                      style={{ display: "inline-flex", alignItems: "center" }}
+                    >
+                      {DepartmentIcon}
+                    </span>
                     Thesis by Department
                   </span>
                 </div>
@@ -1457,7 +1668,11 @@ const PanelUniversity = () => {
                     <option value="ASC">Theses: Low → High</option>
                   </select>
 
-                  <div className="btn-group" role="group" aria-label="Departments pagination">
+                  <div
+                    className="btn-group"
+                    role="group"
+                    aria-label="Departments pagination"
+                  >
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
@@ -1470,7 +1685,9 @@ const PanelUniversity = () => {
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
-                      onClick={() => setDeptPage((p) => Math.min(deptTotalPages, p + 1))}
+                      onClick={() =>
+                        setDeptPage((p) => Math.min(deptTotalPages, p + 1))
+                      }
                       disabled={!deptCanNext}
                       title="Next"
                     >
@@ -1511,8 +1728,13 @@ const PanelUniversity = () => {
                             >
                               {row.name || "—"}
                             </div>
-                            <div className="text-muted" style={{ fontSize: 12 }}>
-                              {institution?.name ? ` Departments of ${institution.name}` : ""}
+                            <div
+                              className="text-muted"
+                              style={{ fontSize: 12 }}
+                            >
+                              {institution?.name
+                                ? ` Departments of ${institution.name}`
+                                : ""}
                             </div>
                           </td>
                           <td className="text-end" style={{ fontWeight: 800 }}>
@@ -1527,9 +1749,15 @@ const PanelUniversity = () => {
 
               <div className="text-muted mt-2" style={{ fontSize: 12 }}>
                 Showing{" "}
-                {deptTableSorted.length === 0 ? 0 : (deptCurrentPage - 1) * deptPageSize + 1}–{" "}
-                {Math.min(deptCurrentPage * deptPageSize, deptTableSorted.length)} of{" "}
-                {deptTableSorted.length}
+                {deptTableSorted.length === 0
+                  ? 0
+                  : (deptCurrentPage - 1) * deptPageSize + 1}
+                –{" "}
+                {Math.min(
+                  deptCurrentPage * deptPageSize,
+                  deptTableSorted.length
+                )}{" "}
+                of {deptTableSorted.length}
               </div>
             </div>
           </div>
@@ -1540,7 +1768,12 @@ const PanelUniversity = () => {
           <button
             type="button"
             className="btn btn-memory w-100"
-            style={{ maxWidth: 420, height: 46, borderRadius: 14, fontWeight: 700 }}
+            style={{
+              maxWidth: 420,
+              height: 46,
+              borderRadius: 14,
+              fontWeight: 700,
+            }}
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           >
             Scroll Top

@@ -14,6 +14,7 @@ const ProfilePersonal = () => {
       <div className="flex-grow-1">
         <Layout
           title="Profile"
+          showID
           icon={
             <svg
               xmlns="http://www.w3.org/2000/svg"
