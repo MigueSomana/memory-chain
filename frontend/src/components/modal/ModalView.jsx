@@ -118,6 +118,10 @@ function ModalView({ thesis }) {
   const keywords = useMemo(() => joinKeywords(t?.keywords), [t?.keywords]);
   const authors = useMemo(() => joinPeople(t?.authors), [t?.authors]);
   const tutors = useMemo(() => joinPeople(t?.tutors), [t?.tutors]);
+  const hasTutors = useMemo(
+    () => Array.isArray(t?.tutors) && t.tutors.length > 0,
+    [t?.tutors]
+  );
   const langHuman = useMemo(() => languageLabel(t?.language), [t?.language]);
 
   // ✅ Fecha de publicación (nuevo campo date) formateada igual que "Account created"
@@ -131,6 +135,9 @@ function ModalView({ thesis }) {
     // por si en algún lado viene populate
     return safeStr(inst?._id) || "";
   }, [t?.institution]);
+
+  // ✅ ocultar el bloque completo si NO hay institución
+  const hasInstitution = useMemo(() => Boolean(safeStr(institutionId)), [institutionId]);
 
   // Estado institución (se llena con axios)
   const [instData, setInstData] = useState(null);
@@ -253,7 +260,11 @@ function ModalView({ thesis }) {
                   {/* CONTENT GRID */}
                   <div className="row g-3">
                     {/* LEFT COLUMN (solo Title + Summary) */}
-                    <div className="col-12 col-lg-8">
+                    <div
+                      className={
+                        hasInstitution ? "col-12 col-lg-8" : "col-12 col-lg-8"
+                      }
+                    >
                       {/* TITLE + SUMMARY */}
                       <div
                         className="p-3"
@@ -392,172 +403,237 @@ function ModalView({ thesis }) {
                       </div>
                     </div>
 
-                    {/* RIGHT COLUMN (Institution card) */}
-                    <div className="col-12 col-lg-4">
-                      {/* INSTITUTION CARD */}
-                      <div
-                        className="p-3"
-                        style={{
-                          borderRadius: 14,
-                          background: "rgba(255,255,255,0.06)",
-                          border: "1px solid rgba(255,255,255,0.10)",
-                          position: "relative",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div className="d-flex align-items-start justify-content-between gap-3">
-                          <div>
-                            <div className="fw-bold" style={{ fontSize: 16 }}>
-                              {safeStr(instData?.name) || "—"}
+                    {/* ✅ RIGHT COLUMN: solo si hay institución */}
+                    {hasInstitution ? (
+                      <div className="col-12 col-lg-4">
+                        {/* INSTITUTION CARD */}
+                        <div
+                          className="p-3"
+                          style={{
+                            borderRadius: 14,
+                            background: "rgba(255,255,255,0.06)",
+                            border: "1px solid rgba(255,255,255,0.10)",
+                            position: "relative",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div className="d-flex align-items-start justify-content-between gap-3">
+                            <div>
+                              <div className="fw-bold" style={{ fontSize: 16 }}>
+                                {safeStr(instData?.name) || "—"}
+                              </div>
+                              <div
+                                className="fw-semibold"
+                                style={{ fontSize: 13 }}
+                              >
+                                {safeStr(instData?.country) || "—"}
+                              </div>
                             </div>
+
+                            {/* Logo esquina superior derecha */}
                             <div
-                              className="fw-semibold"
-                              style={{ fontSize: 13 }}
+                              style={{
+                                width: 56,
+                                height: 56,
+                                borderRadius: 12,
+                                overflow: "hidden",
+                                background: "rgba(255,255,255,0.08)",
+                                border: "1px solid rgba(255,255,255,0.10)",
+                                flex: "0 0 auto",
+                              }}
+                              title={safeStr(instData?.name) || ""}
                             >
-                              {safeStr(instData?.country) || "—"}
+                              {instData?.logoUrl ? (
+                                <img
+                                  src={instData.logoUrl}
+                                  alt={safeStr(instData?.name) || "Institution"}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                  }}
+                                  draggable={false}
+                                />
+                              ) : (
+                                <div
+                                  className="w-100 h-100 d-flex align-items-center justify-content-center text-white-50"
+                                  style={{ fontSize: 11 }}
+                                >
+                                  No logo
+                                </div>
+                              )}
                             </div>
                           </div>
 
-                          {/* Logo esquina superior derecha */}
-                          <div
-                            style={{
-                              width: 56,
-                              height: 56,
-                              borderRadius: 12,
-                              overflow: "hidden",
-                              background: "rgba(255,255,255,0.08)",
-                              border: "1px solid rgba(255,255,255,0.10)",
-                              flex: "0 0 auto",
-                            }}
-                            title={safeStr(instData?.name) || ""}
-                          >
-                            {instData?.logoUrl ? (
-                              <img
-                                src={instData.logoUrl}
-                                alt={safeStr(instData?.name) || "Institution"}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                }}
-                                draggable={false}
-                              />
-                            ) : (
+                          <div className="mt-3" />
+
+                          <div className="row g-2">
+                            <div className="col-12">
                               <div
-                                className="w-100 h-100 d-flex align-items-center justify-content-center text-white-50"
+                                className="text-white-50"
                                 style={{ fontSize: 11 }}
                               >
-                                No logo
+                                DEPARTMENT
                               </div>
-                            )}
+                              <div
+                                className="fw-semibold"
+                                style={{ fontSize: 13 }}
+                              >
+                                {dept}
+                              </div>
+                            </div>
+                            <div className="col-12">
+                              <div
+                                className="text-white-50"
+                                style={{ fontSize: 11 }}
+                              >
+                                TYPE
+                              </div>
+                              <div
+                                className="fw-semibold"
+                                style={{ fontSize: 13 }}
+                              >
+                                {toSentenceCase(typ)}
+                              </div>
+                            </div>
+
+                            <div className="col-6">
+                              <div
+                                className="text-white-50"
+                                style={{ fontSize: 11 }}
+                              >
+                                ACCOUNT CREATED
+                              </div>
+                              <div
+                                className="fw-semibold"
+                                style={{ fontSize: 13 }}
+                              >
+                                {instCreated}
+                              </div>
+                            </div>
+
+                            <div className="col-6 text-end">
+                              <div
+                                className="text-white-50"
+                                style={{ fontSize: 11 }}
+                              >
+                                APPROVED THESES
+                              </div>
+                              <div
+                                className="fw-semibold"
+                                style={{ fontSize: 13 }}
+                              >
+                                {instApprovedCount}
+                              </div>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="mt-3" />
+                        {/* AUTHORS/TUTORS CARD */}
+                        <div
+                          className="p-3 mt-3"
+                          style={{
+                            borderRadius: 14,
+                            background: "rgba(255,255,255,0.06)",
+                            border: "1px solid rgba(255,255,255,0.10)",
+                          }}
+                        >
+                          <div className="row g-3">
+                            <div className="col-12 text-center">
+                              <div
+                                className="text-white-50"
+                                style={{ fontSize: 11 }}
+                              >
+                                AUTHORS
+                              </div>
+                              <div
+                                className="fw-semibold"
+                                style={{
+                                  fontSize: 13,
+                                  whiteSpace: "pre-line",
+                                }}
+                              >
+                                {authors}
+                              </div>
+                            </div>
 
-                        <div className="row g-2">
-                          <div className="col-12">
-                            <div
-                              className="text-white-50"
-                              style={{ fontSize: 11 }}
-                            >
-                              DEPARTMENT
-                            </div>
-                            <div
-                              className="fw-semibold"
-                              style={{ fontSize: 13 }}
-                            >
-                              {dept}
-                            </div>
-                          </div>
-                          <div className="col-12">
-                            <div
-                              className="text-white-50"
-                              style={{ fontSize: 11 }}
-                            >
-                              TYPE
-                            </div>
-                            <div
-                              className="fw-semibold"
-                              style={{ fontSize: 13 }}
-                            >
-                              {toSentenceCase(typ)}
-                            </div>
-                          </div>
-
-                          <div className="col-6">
-                            <div
-                              className="text-white-50"
-                              style={{ fontSize: 11 }}
-                            >
-                              ACCOUNT CREATED
-                            </div>
-                            <div
-                              className="fw-semibold"
-                              style={{ fontSize: 13 }}
-                            >
-                              {instCreated}
-                            </div>
-                          </div>
-
-                          <div className="col-6 text-end">
-                            <div
-                              className="text-white-50"
-                              style={{ fontSize: 11 }}
-                            >
-                              APPROVED THESES
-                            </div>
-                            <div
-                              className="fw-semibold"
-                              style={{ fontSize: 13 }}
-                            >
-                              {instApprovedCount}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className="p-3 mt-3"
-                        style={{
-                          borderRadius: 14,
-                          background: "rgba(255,255,255,0.06)",
-                          border: "1px solid rgba(255,255,255,0.10)",
-                        }}
-                      >
-                        <div className="row g-3">
-                          <div className="col-12 text-center">
-                            <div
-                              className="text-white-50"
-                              style={{ fontSize: 11 }}
-                            >
-                              AUTHORS
-                            </div>
-                            <div
-                              className="fw-semibold"
-                              style={{ fontSize: 13, whiteSpace: "pre-line" }}
-                            >
-                              {authors}
-                            </div>
-                          </div>
-
-                          <div className="col-12 text-center">
-                            <div
-                              className="text-white-50"
-                              style={{ fontSize: 11 }}
-                            >
-                              TUTORS
-                            </div>
-                            <div
-                              className="fw-semibold"
-                              style={{ fontSize: 13, whiteSpace: "pre-line" }}
-                            >
-                              {tutors}
-                            </div>
+                            {/* ✅ ocultar TUTORS si no hay */}
+                            {hasTutors ? (
+                              <div className="col-12 text-center">
+                                <div
+                                  className="text-white-50"
+                                  style={{ fontSize: 11 }}
+                                >
+                                  TUTORS
+                                </div>
+                                <div
+                                  className="fw-semibold"
+                                  style={{
+                                    fontSize: 13,
+                                    whiteSpace: "pre-line",
+                                  }}
+                                >
+                                  {tutors}
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      // ✅ si NO hay institution, mostramos SOLO el card de Authors/Tutors en la derecha
+                      <div className="col-12 col-lg-4">
+                        <div
+                          className="p-3"
+                          style={{
+                            borderRadius: 14,
+                            background: "rgba(255,255,255,0.06)",
+                            border: "1px solid rgba(255,255,255,0.10)",
+                          }}
+                        >
+                          <div className="row g-3">
+                            <div className="col-12 text-center">
+                              <div
+                                className="text-white-50"
+                                style={{ fontSize: 11 }}
+                              >
+                                AUTHORS
+                              </div>
+                              <div
+                                className="fw-semibold"
+                                style={{
+                                  fontSize: 13,
+                                  whiteSpace: "pre-line",
+                                }}
+                              >
+                                {authors}
+                              </div>
+                            </div>
+
+                            {/* ✅ ocultar TUTORS si no hay */}
+                            {hasTutors ? (
+                              <div className="col-12 text-center">
+                                <div
+                                  className="text-white-50"
+                                  style={{ fontSize: 11 }}
+                                >
+                                  TUTORS
+                                </div>
+                                <div
+                                  className="fw-semibold"
+                                  style={{
+                                    fontSize: 13,
+                                    whiteSpace: "pre-line",
+                                  }}
+                                >
+                                  {tutors}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* FOOTER BUTTONS (sin tocar el botón view) */}

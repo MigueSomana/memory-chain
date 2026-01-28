@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import { User } from "../models/user.model";
+import mongoose from "mongoose";
 
 // Convierte la imagen binaria (Buffer) a una URL base64 para el frontend
 function buildImgUrl(img?: { data: Buffer; contentType: string }) {
@@ -44,6 +45,31 @@ export async function getMe(req: AuthRequest, res: Response) {
     imgUrl: buildImgUrl(obj.img), // imagen lista para mostrar
     img: undefined, // no enviar binario
   });
+}
+
+export async function getUserBasicById(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de usuario inválido" });
+    }
+
+    const user = await User.findById(id).select("name lastname");
+
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    return res.json({
+      _id: user._id,
+      name: user.name,
+      lastname: user.lastname,
+    });
+  } catch (err) {
+    console.error("Error getUserBasicById", err);
+    return res.status(500).json({ message: "Error del servidor" });
+  }
 }
 
 // ✅ Actualiza datos del usuario logueado

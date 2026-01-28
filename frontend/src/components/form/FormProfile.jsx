@@ -159,7 +159,7 @@ const FormProfile = () => {
         // Crea el arreglo institutions con objetos completos
         const instIdsFromEdu = eduEmails.map((e) => e.institution);
         const userInsts = allInstitutions.filter((inst) =>
-          instIdsFromEdu.includes(inst._id)
+          instIdsFromEdu.includes(inst._id),
         );
         setInstitutions(userInsts);
 
@@ -271,19 +271,19 @@ const FormProfile = () => {
       const atIndex = eduEmail.indexOf("@");
       if (atIndex === -1) {
         alert(
-          `The institutional email "${eduEmail}" for "${institution.name}" is invalid.`
+          `The institutional email "${eduEmail}" for "${institution.name}" is invalid.`,
         );
         return false;
       }
 
       const domain = eduEmail.slice(atIndex + 1).toLowerCase();
       const allowedDomains = (institution.emailDomains || []).map((d) =>
-        d.toLowerCase()
+        d.toLowerCase(),
       );
 
       if (!allowedDomains.length) {
         alert(
-          `Institution "${institution.name}" has no configured email domains, cannot validate "${eduEmail}".`
+          `Institution "${institution.name}" has no configured email domains, cannot validate "${eduEmail}".`,
         );
         return false;
       }
@@ -292,7 +292,7 @@ const FormProfile = () => {
         alert(
           `The email "${eduEmail}" does not match any allowed domain for "${
             institution.name
-          }" (${allowedDomains.join(", ")}).`
+          }" (${allowedDomains.join(", ")}).`,
         );
         return false;
       }
@@ -351,7 +351,7 @@ const FormProfile = () => {
 
       form.append(
         "educationalEmails",
-        JSON.stringify(educationalEmailsPayload)
+        JSON.stringify(educationalEmailsPayload),
       );
 
       // Enviar actualización
@@ -459,7 +459,7 @@ const FormProfile = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Your first name"
-                    required
+                    disabled
                   />
                   {errors.name && (
                     <div className="invalid-feedback">{errors.name}</div>
@@ -475,7 +475,7 @@ const FormProfile = () => {
                     value={lastname}
                     onChange={(e) => setLastname(e.target.value)}
                     placeholder="Your last name"
-                    required
+                    disabled
                   />
                   {errors.lastname && (
                     <div className="invalid-feedback">{errors.lastname}</div>
@@ -637,7 +637,7 @@ const FormProfile = () => {
                             className="btn btn-warning d-flex align-items-center justify-content-center text-white"
                             onClick={() =>
                               setEditingInstitutionId((prev) =>
-                                prev === instId ? "" : instId
+                                prev === instId ? "" : instId,
                               )
                             }
                             title={isEditing ? "Close" : "Edit"}
@@ -670,7 +670,7 @@ const FormProfile = () => {
                             onChange={(e) =>
                               handleInstitutionEmailChange(
                                 instId,
-                                e.target.value
+                                e.target.value,
                               )
                             }
                             placeholder="john@youruniversity.edu"
@@ -709,7 +709,7 @@ const FormProfile = () => {
                   <span className="mc-filter-select-text">
                     {selectedInstitutionId
                       ? remainingOptions.find(
-                          (o) => o._id === selectedInstitutionId
+                          (o) => o._id === selectedInstitutionId,
                         )?.name
                       : "— Select Institution —"}
                   </span>

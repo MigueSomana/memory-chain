@@ -11,9 +11,8 @@ import {
   QuoteFill,
 } from "../../utils/icons";
 
-// ===================== Configuración base (API + Auth + Gateway) =====================
+// ===================== Configuración base (API + Auth) =====================
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
-const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
 
 const role = getAuthRole();
 const token = getAuthToken();
@@ -27,14 +26,6 @@ const SORT_OPTIONS = [
   { key: "ratings_most", label: "Most ratings" },
   { key: "ratings_least", label: "Least ratings" },
 ];
-
-// ===================== Helpers (idénticos a ThesisSearch) =====================
-const getInstitutionName = (thesis) => {
-  const inst = thesis?.institution;
-  if (!inst) return "";
-  if (typeof inst === "string") return inst; // ✅ NO tocamos esto
-  return inst?.name || "";
-};
 
 const buildAuthorsSearchString = (authors) => {
   if (!Array.isArray(authors)) return "";
@@ -202,6 +193,28 @@ const LikedThesesList = () => {
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
+  // ===================== ✅ OPCIÓN B: MAP id -> name (NUEVO) =====================
+  const institutionIdToName = useMemo(() => {
+    const map = new Map();
+    (institutions || []).forEach((i) => {
+      if (i?._id && i?.name) map.set(String(i._id), String(i.name));
+    });
+    return map;
+  }, [institutions]);
+
+  // ===================== ✅ OPCIÓN B: resolver nombre aunque institution sea string id (NUEVO) =====================
+  const getInstitutionNameResolved = (thesis) => {
+    const inst = thesis?.institution;
+    if (!inst) return "";
+
+    // si viene populated como objeto
+    if (typeof inst === "object") return inst?.name || "";
+
+    // si viene como string id
+    const maybeName = institutionIdToName.get(String(inst));
+    return maybeName || "";
+  };
+
   // ===================== Carga inicial: MIS LIKES (ÚNICO CAMBIO vs ThesisSearch) =====================
   useEffect(() => {
     const fetchMyLikes = async () => {
@@ -217,14 +230,12 @@ const LikedThesesList = () => {
 
         const headers = { Authorization: `Bearer ${token}` };
 
-        // ✅ SOLO cambia el origen de datos (likes)
         const res = await axios.get(`${API_BASE_URL}/api/users/me/likes`, {
           headers,
         });
 
         const data = Array.isArray(res.data) ? res.data : [];
 
-        // user actual (para likes)
         let currentUserId = null;
         try {
           const rawUser = localStorage.getItem("memorychain_user");
@@ -244,7 +255,7 @@ const LikedThesesList = () => {
               ? t.likedBy.some(
                   (u) => String(u?._id ?? u) === String(currentUserId)
                 )
-              : true; // si viene de /me/likes normalmente es true
+              : true;
 
           const derivedYear = getYearFromThesis(t);
 
@@ -313,10 +324,10 @@ const LikedThesesList = () => {
     return theses.filter((t) => {
       const status = normalizeStatus(t.status);
 
-      // REGLA BASE: ocultar REJECTED SIEMPRE
       if (status === "REJECTED") return false;
 
-      const instName = getInstitutionName(t);
+      // ✅ AQUÍ NO TOCAMOS getInstitutionName (solo para filtros/búsqueda)
+      const instName = getInstitutionNameResolved(t); // ✅ CAMBIO MÍNIMO: usar resolved
       const authorsSearch = buildAuthorsSearchString(t.authors);
 
       const keywordsSearch = Array.isArray(t.keywords)
@@ -362,16 +373,7 @@ const LikedThesesList = () => {
         matchesStatus
       );
     });
-  }, [
-    theses,
-    query,
-    language,
-    degree,
-    minYear,
-    maxYear,
-    institutionFilter,
-    statusFilter,
-  ]);
+  }, [theses, query, language, degree, minYear, maxYear, institutionFilter, statusFilter, institutionIdToName]);
 
   // ===================== Ordenamiento (idéntico a ThesisSearch) =====================
   const filteredOrdered = useMemo(() => {
@@ -435,7 +437,7 @@ const LikedThesesList = () => {
 
   const go = (p) => setPage(p);
 
-  // ===================== Acción: ver modal (COPIADO de ThesisSearch) =====================
+  // ===================== Acción: ver modal =====================
   const handleView = (thesis) => {
     setSelectedForView(thesis);
 
@@ -449,7 +451,7 @@ const LikedThesesList = () => {
     modal?.show();
   };
 
-  // ===================== Acción: cita APA + Clipboard (COPIADO estilo ThesisSearch) =====================
+  // ===================== Acción: cita APA + Clipboard =====================
   async function copyToClipboardLocal(text) {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
@@ -460,10 +462,7 @@ const LikedThesesList = () => {
 
   const handleQuote = async (thesis) => {
     try {
-      const citation = buildThesisApa7Citation_ThesisSearchStyle(
-        thesis,
-        gateway
-      );
+      const citation = buildThesisApa7Citation_ThesisSearchStyle(thesis);
       const ok = await copyToClipboardLocal(citation);
       if (ok) alert("Bibliographic Citation Copied ✅");
       else alert("Failed Copied ❌");
@@ -473,7 +472,7 @@ const LikedThesesList = () => {
     }
   };
 
-  // ===================== Acción: Like (COPIADO estilo ThesisSearch, pero en likes removemos si unlike) =====================
+  // ===================== Acción: Like =====================
   const handleToggleLike = async (id) => {
     if (!token) return;
 
@@ -493,25 +492,19 @@ const LikedThesesList = () => {
         prev.map((t) => {
           if (String(t._id) !== String(thesis._id)) return t;
 
-          // 🔒 Preserva datos poblados del estado actual
           const preservedInstitution = t.institution;
           const preservedDepartment = t.department;
 
           return {
             ...t,
-            // ✅ SOLO lo necesario
             likes: thesis.likes ?? t.likes ?? 0,
             likedBy: thesis.likedBy ?? t.likedBy,
             userLiked: !!isLiked,
             derivedYear: getYearFromThesis({ ...t, ...thesis }),
-
-            // 🔒 NO dejes que institution se convierta en string id
             institution:
               typeof thesis.institution === "object" && thesis.institution
                 ? thesis.institution
                 : preservedInstitution,
-
-            // opcional: si tu backend a veces manda department vacío
             department: thesis.department ?? preservedDepartment,
           };
         })
@@ -523,7 +516,7 @@ const LikedThesesList = () => {
     }
   };
 
-  // ===================== Render: estados de carga/errores (idéntico) =====================
+  // ===================== Render: estados de carga/errores =====================
   if (loading) {
     return (
       <div className="container py-3">
@@ -542,7 +535,7 @@ const LikedThesesList = () => {
     );
   }
 
-  // ===================== Render principal (idéntico a ThesisSearch) =====================
+  // ===================== Render principal =====================
   return (
     <div className="container py-3 mc-thesis-page">
       <ModalView thesis={selectedForView} />
@@ -561,7 +554,6 @@ const LikedThesesList = () => {
               }}
             />
 
-            {/* Sort mantiene theming (mc-sort / mc-select) */}
             <div className="dropdown mc-sort mc-select">
               <button
                 className="btn btn-outline-secondary dropdown-toggle droptoogle-fixv"
@@ -610,7 +602,10 @@ const LikedThesesList = () => {
           {pageItems.map((t, idx) => {
             const rowKey = `${t._id}-${start + idx}`;
             const isLiked = liked[t._id] ?? t.userLiked ?? false;
-            const instName = getInstitutionName(t);
+
+            // ✅ CAMBIO: usar resolved para mostrar nombre (y no el id)
+            const instName = String(getInstitutionNameResolved(t) || "").trim();
+            const hasInstitution = Boolean(instName);
 
             return (
               <div key={rowKey} className="card mc-thesis-card shadow-sm">
@@ -618,14 +613,7 @@ const LikedThesesList = () => {
                   {/* Main info */}
                   <div className="flex-grow-1" style={{ minWidth: 0 }}>
                     <h5 className="m-0 mc-thesis-title">{t.title}</h5>
-
-                    <div className="text-muted small mt-1">
-                      <span className="mc-label-muted">Institution:</span>{" "}
-                      {instName}
-                      {t.department ? ` · ${t.department}` : ""}
-                    </div>
-
-                    <div className="text-muted small">
+<div className="text-muted small mt-1">
                       <span className="mc-label-muted">Authors:</span>{" "}
                       {Array.isArray(t.authors)
                         ? t.authors
@@ -637,6 +625,21 @@ const LikedThesesList = () => {
                             .join(", ")
                         : ""}
                     </div>
+                    <div className="text-muted small">
+                      {hasInstitution ? (
+                        <>
+                          <span className="mc-label-muted">Institution:</span>{" "}
+                          {instName}
+                          {t.department ? ` · ${t.department}` : ""}
+                        </>
+                      ) : (
+                        <span className="mc-label-muted">
+                          Independent Research
+                        </span>
+                      )}
+                    </div>
+
+                    
 
                     {t.keywords?.length ? (
                       <div className="mt-2 d-flex flex-wrap gap-2">
@@ -652,7 +655,7 @@ const LikedThesesList = () => {
                     ) : null}
                   </div>
 
-                  {/* Actions (colores como los tuyos) */}
+                  {/* Actions */}
                   <div className="d-flex align-items-center gap-2">
                     <button
                       type="button"
@@ -743,7 +746,7 @@ const LikedThesesList = () => {
           </nav>
         </div>
 
-        {/* RIGHT: filters (idéntico a ThesisSearch) */}
+        {/* RIGHT: filters */}
         <div className="col-lg-4 d-none d-lg-block">
           <div
             className="card mc-filters mc-filters-card sticky-top"
@@ -867,7 +870,7 @@ const LikedThesesList = () => {
                 </div>
               </div>
 
-              {/* Degree (mc-select) */}
+              {/* Degree */}
               <div className="mb-3">
                 <label className="form-label mc-filter-label">Degree</label>
                 <select
@@ -886,11 +889,9 @@ const LikedThesesList = () => {
                 </select>
               </div>
 
-              {/* Institution (mc-select) */}
+              {/* Institution */}
               <div className="mb-3">
-                <label className="form-label mc-filter-label">
-                  Institution
-                </label>
+                <label className="form-label mc-filter-label">Institution</label>
                 <select
                   className="form-select mc-select"
                   value={institutionFilter}

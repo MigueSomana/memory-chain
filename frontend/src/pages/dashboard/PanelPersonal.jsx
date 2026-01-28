@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { getAuthToken, getAuthUser } from "../../utils/authSession";
+import { getAuthToken, getIdUser } from "../../utils/authSession";
 import {
   MetricTableIcon,
   LikeTableIcon,
@@ -14,10 +14,6 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 const safeNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-const norm = (v) =>
-  String(v ?? "")
-    .trim()
-    .toLowerCase();
 const normalizeStatus = (s) => String(s || "").toUpperCase();
 
 const renderIcon = (icon, size = 40) => {
@@ -35,33 +31,58 @@ const prettyStatus = (key) => {
   return "Pending";
 };
 
-// ✅ match por authors (como tu LibraryPSearch)
-function thesisBelongsToUserByAuthor(thesis, user) {
-  const uName = norm(user?.name);
-  const uLast = norm(user?.lastname);
-  const uEmail = norm(user?.email);
+// ===================== Helpers de IDs (robusto) =====================
+function getAnyId(v) {
+  if (!v) return null;
 
+  // si viene tipo { $oid: "..." }
+  if (typeof v === "object" && v.$oid) return String(v.$oid);
+
+  // si viene populated { _id: "..."} o {_id: {$oid:"..."}}
+  if (typeof v === "object" && v._id) return getAnyId(v._id);
+
+  // si viene { id: "..." }
+  if (typeof v === "object" && v.id) return String(v.id);
+
+  // si viene string
+  if (typeof v === "string") return v;
+
+  return null;
+}
+
+// ✅ institution display seguro (string / object / null)
+const getInstitutionName = (thesis) => {
+  const inst = thesis?.institution;
+  if (!inst) return "";
+  if (typeof inst === "string") return inst;
+  return inst?.name || "";
+};
+
+function getInstitutionUI(thesis) {
+  const instName = String(getInstitutionName(thesis) || "").trim();
+  const hasInstitution = Boolean(instName);
+
+  return {
+    hasInstitution,
+    line: hasInstitution
+      ? `${instName}${thesis?.department ? ` - ${thesis.department}` : ""}`
+      : "Investigación Independiente",
+  };
+}
+
+// ✅ NUEVO: pertenece al usuario por ID (uploadedBy o authors incluye id)
+function thesisBelongsToUser(thesis, userId) {
+  if (!userId) return false;
+
+  // 1) dueño real
+  const uploadedById = getAnyId(thesis?.uploadedBy);
+  if (uploadedById && String(uploadedById) === String(userId)) return true;
+
+  // 2) fallback: authors contiene userId
   const authors = Array.isArray(thesis?.authors) ? thesis.authors : [];
-
   return authors.some((a) => {
-    if (typeof a === "string") {
-      const s = norm(a);
-      const byNameLast =
-        (uName && uLast && s.includes(uName) && s.includes(uLast)) ||
-        (uName && s.includes(uName)) ||
-        (uLast && s.includes(uLast));
-      const byEmail = uEmail && s.includes(uEmail);
-      return uEmail ? byEmail || byNameLast : byNameLast;
-    }
-
-    const aName = norm(a?.name);
-    const aLast = norm(a?.lastname);
-    const aEmail = norm(a?.email);
-
-    if (uEmail && aEmail) return aEmail === uEmail;
-    if (uName && uLast) return aName === uName && aLast === uLast;
-
-    return false;
+    const aid = getAnyId(a);
+    return aid && String(aid) === String(userId);
   });
 }
 
@@ -75,9 +96,8 @@ const trimLabel = (text, max = 22) => {
 
 const PanelPersonal = () => {
   const token = useMemo(() => getAuthToken(), []);
-  const sessionUser = useMemo(() => getAuthUser(), []);
+  const userId = useMemo(() => getIdUser(), []); // ✅ actor=user
 
-  const [me, setMe] = useState(sessionUser || null);
   const [theses, setTheses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -92,36 +112,29 @@ const PanelPersonal = () => {
   const [likesPage, setLikesPage] = useState(1);
   const likesPageSize = 5;
 
-  // ✅ si no viene user en sesión, lo buscamos con /users/me (tu ruta existe)
-  useEffect(() => {
-    const fetchMeIfNeeded = async () => {
-      if (me?.email || !token) return;
-      try {
-        const res = await axios.get(`${API_BASE_URL}/api/users/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setMe(res.data || null);
-      } catch (e) {
-        console.error("Error fetching /users/me:", e);
-      }
-    };
-    fetchMeIfNeeded();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
   useEffect(() => {
     const fetchMyTheses = async () => {
       try {
         setLoading(true);
         setLoadError("");
 
-        const res = await axios.get(`${API_BASE_URL}/api/theses`);
+        if (!userId) {
+          setTheses([]);
+          return;
+        }
+
+        // ✅ aquí sí conviene usar token si existe
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+        const res = await axios.get(
+          `${API_BASE_URL}/api/theses`,
+          headers ? { headers } : undefined
+        );
+
         const data = Array.isArray(res.data) ? res.data : [];
 
-        const userToUse = me || sessionUser;
-        const onlyMine = userToUse
-          ? data.filter((t) => thesisBelongsToUserByAuthor(t, userToUse))
-          : [];
+        // ✅ NUEVO FILTRO (igual que Library)
+        const onlyMine = data.filter((t) => thesisBelongsToUser(t, userId));
 
         setTheses(onlyMine);
       } catch (err) {
@@ -134,7 +147,7 @@ const PanelPersonal = () => {
     };
 
     fetchMyTheses();
-  }, [me, sessionUser]);
+  }, [token, userId]);
 
   // ✅ métricas
   const totalTheses = theses.length;
@@ -420,7 +433,6 @@ const PanelPersonal = () => {
                         formatter={(value, name) => [`${value}`, `${name}`]}
                       />
 
-                      {/* Centro del donut */}
                       <text
                         x="50%"
                         y="50%"
@@ -448,7 +460,6 @@ const PanelPersonal = () => {
                 )}
               </div>
 
-              {/* mini resumen debajo */}
               <div className="d-flex flex-wrap gap-2 mt-2 justify-content-center align-items-center">
                 {["APPROVED", "PENDING", "REJECTED"].map((k) => (
                   <span
@@ -520,11 +531,7 @@ const PanelPersonal = () => {
                     <option value="REJECTED">Rejected</option>
                   </select>
 
-                  <div
-                    className="btn-group"
-                    role="group"
-                    aria-label="Table pagination"
-                  >
+                  <div className="btn-group" role="group" aria-label="Table pagination">
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
@@ -537,9 +544,7 @@ const PanelPersonal = () => {
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
-                      onClick={() =>
-                        setTablePage((p) => Math.min(tableTotalPages, p + 1))
-                      }
+                      onClick={() => setTablePage((p) => Math.min(tableTotalPages, p + 1))}
                       disabled={!canNext}
                       title="Next"
                     >
@@ -575,6 +580,8 @@ const PanelPersonal = () => {
                             ? "text-bg-danger"
                             : "text-bg-warning";
 
+                        const instLine = getInstitutionUI(t).line;
+
                         return (
                           <tr key={t._id}>
                             <td title={t.title || ""}>
@@ -590,15 +597,12 @@ const PanelPersonal = () => {
                               >
                                 {t.title || "—"}
                               </div>
-                              <div
-                                className="text-muted"
-                                style={{ fontSize: 12 }}
-                              >
-                                {t.institution.name
-                                  ? `${t.institution.name} - ${t.department}`
-                                  : ""}
+
+                              <div className="text-muted" style={{ fontSize: 12 }}>
+                                {instLine}
                               </div>
                             </td>
+
                             <td className="text-end t-white">
                               <span className={`t-white badge ${badgeClass}`}>
                                 {prettyStatus(st)}
@@ -618,11 +622,8 @@ const PanelPersonal = () => {
                   ? 0
                   : (tableCurrentPage - 1) * tablePageSize + 1}
                 {"–"}
-                {Math.min(
-                  tableCurrentPage * tablePageSize,
-                  tableSortedTheses.length
-                )}{" "}
-                of {tableSortedTheses.length}
+                {Math.min(tableCurrentPage * tablePageSize, tableSortedTheses.length)} of{" "}
+                {tableSortedTheses.length}
               </div>
             </div>
           </div>
@@ -671,7 +672,6 @@ const PanelPersonal = () => {
                         formatter={(value, name) => [`${value}`, `${name}`]}
                       />
 
-                      {/* Centro del donut */}
                       <text
                         x="50%"
                         y="50%"
@@ -699,7 +699,6 @@ const PanelPersonal = () => {
                 )}
               </div>
 
-              {/* mini resumen debajo */}
               <div className="d-flex flex-wrap gap-2 mt-2 justify-content-center align-items-center">
                 {likesTop3DonutData.map((d, idx) => (
                   <span
@@ -731,7 +730,6 @@ const PanelPersonal = () => {
         <div className="col-12 col-lg-6">
           <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
             <div className="card-body">
-              {/* Header: Title + Sort + Micro arrows */}
               <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                 <div
                   style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
@@ -764,11 +762,7 @@ const PanelPersonal = () => {
                     <option value="ASC">Likes: Low → High</option>
                   </select>
 
-                  <div
-                    className="btn-group"
-                    role="group"
-                    aria-label="Likes pagination"
-                  >
+                  <div className="btn-group" role="group" aria-label="Likes pagination">
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
@@ -781,9 +775,7 @@ const PanelPersonal = () => {
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm"
-                      onClick={() =>
-                        setLikesPage((p) => Math.min(likesTotalPages, p + 1))
-                      }
+                      onClick={() => setLikesPage((p) => Math.min(likesTotalPages, p + 1))}
                       disabled={!likesCanNext}
                       title="Next"
                     >
@@ -809,35 +801,34 @@ const PanelPersonal = () => {
                         </td>
                       </tr>
                     ) : (
-                      likesPageItems.map((t) => (
-                        <tr key={t._id}>
-                          <td title={t.title || ""}>
-                            <div
-                              style={{
-                                maxWidth: 480,
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                fontWeight: 600,
-                                color: "#212529",
-                              }}
-                            >
-                              {t.title || "—"}
-                            </div>
-                            <div
-                              className="text-muted"
-                              style={{ fontSize: 12 }}
-                            >
-                              {t.institution.name
-                                ? `${t.institution.name} - ${t.department}`
-                                : ""}
-                            </div>
-                          </td>
-                          <td className="text-end" style={{ fontWeight: 800 }}>
-                            {safeNum(t.likes)}
-                          </td>
-                        </tr>
-                      ))
+                      likesPageItems.map((t) => {
+                        const instLine = getInstitutionUI(t).line;
+
+                        return (
+                          <tr key={t._id}>
+                            <td title={t.title || ""}>
+                              <div
+                                style={{
+                                  maxWidth: 480,
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  fontWeight: 600,
+                                  color: "#212529",
+                                }}
+                              >
+                                {t.title || "—"}
+                              </div>
+                              <div className="text-muted" style={{ fontSize: 12 }}>
+                                {instLine}
+                              </div>
+                            </td>
+                            <td className="text-end" style={{ fontWeight: 800 }}>
+                              {safeNum(t.likes)}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -849,11 +840,8 @@ const PanelPersonal = () => {
                   ? 0
                   : (likesCurrentPage - 1) * likesPageSize + 1}
                 {"–"}
-                {Math.min(
-                  likesCurrentPage * likesPageSize,
-                  likesTableSorted.length
-                )}{" "}
-                of {likesTableSorted.length}
+                {Math.min(likesCurrentPage * likesPageSize, likesTableSorted.length)} of{" "}
+                {likesTableSorted.length}
               </div>
             </div>
           </div>

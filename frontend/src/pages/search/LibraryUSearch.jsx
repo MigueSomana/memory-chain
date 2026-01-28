@@ -465,7 +465,6 @@ const LibraryUSearch = () => {
                       </button>
 
                       <a
-                        href={`http://localhost:3000/update/${t._id}`}
                         className="btn btn-warning"
                         title="Permission"
                         onClick={() => handlePermission(t)}

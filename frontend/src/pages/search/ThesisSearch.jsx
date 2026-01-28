@@ -131,7 +131,7 @@ const ThesisSearch = () => {
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses`,
-          headers ? { headers } : undefined
+          headers ? { headers } : undefined,
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
@@ -154,7 +154,7 @@ const ThesisSearch = () => {
           const userLiked =
             Array.isArray(t.likedBy) && currentUserId
               ? t.likedBy.some(
-                  (u) => String(u?._id ?? u) === String(currentUserId)
+                  (u) => String(u?._id ?? u) === String(currentUserId),
                 )
               : false;
 
@@ -193,7 +193,7 @@ const ThesisSearch = () => {
 
         const res = await axios.get(
           `${API_BASE_URL}/api/institutions`,
-          headers ? { headers } : undefined
+          headers ? { headers } : undefined,
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
@@ -211,7 +211,7 @@ const ThesisSearch = () => {
   const institutionOptions = useMemo(() => {
     const names = institutions.map((i) => i.name).filter(Boolean);
     const unique = Array.from(new Set(names)).sort((a, b) =>
-      a.localeCompare(b)
+      a.localeCompare(b),
     );
     return ["all", ...unique];
   }, [institutions]);
@@ -337,12 +337,12 @@ const ThesisSearch = () => {
 
   const pageItems = useMemo(
     () => filteredOrdered.slice(start, end),
-    [filteredOrdered, start, end]
+    [filteredOrdered, start, end],
   );
 
   const pagesArray = useMemo(
     () => Array.from({ length: totalPages }, (_, i) => i + 1),
-    [totalPages]
+    [totalPages],
   );
 
   const go = (p) => setPage(p);
@@ -432,8 +432,8 @@ const ThesisSearch = () => {
       degreeRaw.includes("phd") || degreeRaw.includes("doctor")
         ? "Doctoral dissertation"
         : degreeRaw.includes("master")
-        ? "Master’s thesis"
-        : "Bachelor’s thesis";
+          ? "Master’s thesis"
+          : "Bachelor’s thesis";
 
     const instName =
       typeof thesis?.institution === "object" && thesis?.institution
@@ -470,7 +470,7 @@ const ThesisSearch = () => {
       const res = await axios.post(
         `${API_BASE_URL}/api/theses/${id}/like`,
         null,
-        { headers }
+        { headers },
       );
 
       const { thesis, liked: isLiked } = res.data || {};
@@ -501,7 +501,7 @@ const ThesisSearch = () => {
             // opcional: si tu backend a veces manda department vacío
             department: thesis.department ?? preservedDepartment,
           };
-        })
+        }),
       );
 
       setLiked((prev) => ({ ...prev, [id]: !!isLiked }));
@@ -597,7 +597,14 @@ const ThesisSearch = () => {
           {pageItems.map((t, idx) => {
             const rowKey = `${t._id}-${start + idx}`;
             const isLiked = liked[t._id] ?? t.userLiked ?? false;
-            const instName = getInstitutionName(t);
+
+            // ✅ UI validation: si no hay instName, mostramos "Investigación Independiente"
+            const instNameRaw = getInstitutionName(t);
+            const hasInstitution = Boolean(String(instNameRaw || "").trim());
+            const institutionLabel = hasInstitution
+              ? "Institution:"
+              : "Independent Research";
+            const institutionValue = hasInstitution ? instNameRaw : "";
 
             return (
               <div key={rowKey} className="card mc-thesis-card shadow-sm">
@@ -607,21 +614,21 @@ const ThesisSearch = () => {
                     <h5 className="m-0 mc-thesis-title">{t.title}</h5>
 
                     <div className="text-muted small mt-1">
-                      <span className="mc-label-muted">Institution:</span>{" "}
-                      {instName}
-                      {t.department ? ` · ${t.department}` : ""}
-                    </div>
-
-                    <div className="text-muted small">
-                      <span className="mc-label-muted">Authors:</span>{" "}
+                      <span>Authors:</span>{" "}
                       {Array.isArray(t.authors)
                         ? t.authors
                             .map((a) =>
                               typeof a === "string"
                                 ? a
-                                : `${a.lastname ?? ""} ${a.name ?? ""}`.trim()
+                                : `${a.lastname ?? ""} ${a.name ?? ""}`.trim(),
                             )
                             .join(", ")
+                        : ""}
+                    </div>
+                    <div className="text-muted small">
+                      <span>{institutionLabel}</span> {institutionValue}
+                      {hasInstitution && t.department
+                        ? ` · ${t.department}`
                         : ""}
                     </div>
 
@@ -849,7 +856,7 @@ const ThesisSearch = () => {
                           </span>
                         </label>
                       </div>
-                    )
+                    ),
                   )}
                 </div>
               </div>
@@ -890,6 +897,7 @@ const ThesisSearch = () => {
                   </ul>
                 </div>
               </div>
+
               {/* Institution (dropdown estilo mc-select) */}
               <div className="mb-3">
                 <label className="form-label mc-filter-label">
@@ -930,6 +938,7 @@ const ThesisSearch = () => {
                   </ul>
                 </div>
               </div>
+
               {/* Reset */}
               <div className="text-end d-flex justify-content-center align-items-center">
                 <button

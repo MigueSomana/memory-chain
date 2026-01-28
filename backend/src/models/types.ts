@@ -1,6 +1,7 @@
 export enum UserRole {
   STUDENT = "STUDENT",
   INSTITUTION = "INSTITUTION",
+  ADMIN = "ADMIN",
 }
 
 export enum InstitutionType {

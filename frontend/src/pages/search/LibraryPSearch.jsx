@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import ModalCertificate from "../../components/modal/ModalCertificate";
 import ModalView from "../../components/modal/ModalView";
 import axios from "axios";
-import { getAuthToken, getAuthUser } from "../../utils/authSession";
+import { getAuthToken, getIdUser } from "../../utils/authSession";
 import {
   EyeFillIcon,
   HeartFill,
@@ -15,10 +15,10 @@ import {
   KeyPermission,
 } from "../../utils/icons";
 
-// CONFIG GLOBAL (API + IPFS gateway)
+// ===================== CONFIG GLOBAL (API) =====================
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-// UI OPTIONS (Ordenamiento)
+// ===================== UI OPTIONS (Ordenamiento) =====================
 const SORT_OPTIONS = [
   { key: "recent", label: "Most recent" },
   { key: "oldest", label: "Oldest" },
@@ -28,18 +28,25 @@ const SORT_OPTIONS = [
   { key: "likes_least", label: "Least likes" },
 ];
 
-// HELPERS (normalización de strings y campos display)
-const norm = (v) =>
-  String(v ?? "")
-    .trim()
-    .toLowerCase();
-
+// ✅ institution display (si viene string no lo tocamos)
 const getInstitutionName = (thesis) => {
   const inst = thesis?.institution;
   if (!inst) return "";
   if (typeof inst === "string") return inst;
   return inst?.name || "";
 };
+
+// ✅ UI validation: si no hay institución => "Investigación Independiente"
+function getInstitutionUI(thesis) {
+  const instName = String(getInstitutionName(thesis) || "").trim();
+  const hasInstitution = Boolean(instName);
+
+  return {
+    hasInstitution,
+    label: hasInstitution ? "Institution:" : "Independent Research",
+    value: hasInstitution ? instName : "",
+  };
+}
 
 const buildAuthorsSearchString = (authors) => {
   if (!Array.isArray(authors)) return "";
@@ -61,42 +68,66 @@ const buildAuthorsSearchString = (authors) => {
     .toLowerCase();
 };
 
-function thesisBelongsToUserByAuthor(thesis, user) {
-  const uName = norm(user?.name);
-  const uLast = norm(user?.lastname);
-  const uEmail = norm(user?.email);
+// ✅ timestamp para ordenar por recent/oldest (date/createdAt/year)
+const getTimeForSort = (t) => {
+  if (t?.date) {
+    const ms = new Date(t.date).getTime();
+    if (!Number.isNaN(ms)) return ms;
+  }
 
+  if (t?.createdAt) {
+    const ms = new Date(t.createdAt).getTime();
+    if (!Number.isNaN(ms)) return ms;
+  }
+
+  const y = Number(t?.year);
+  if (Number.isFinite(y) && y > 0) {
+    const ms = new Date(`${y}-01-01T00:00:00.000Z`).getTime();
+    if (!Number.isNaN(ms)) return ms;
+  }
+
+  return 0;
+};
+
+// ✅ helper: extrae id (soporta ObjectId/string/populated)
+function getAnyId(v) {
+  if (!v) return null;
+
+  // si viene tipo { $oid: "..." }
+  if (typeof v === "object" && v.$oid) return String(v.$oid);
+
+  // si viene populated { _id: "..."} o {_id: {$oid:"..."}}
+  if (typeof v === "object" && v._id) return getAnyId(v._id);
+
+  // si viene { id: "..." }
+  if (typeof v === "object" && v.id) return String(v.id);
+
+  // si viene string
+  if (typeof v === "string") return v;
+
+  return null;
+}
+
+// ✅ NUEVO: pertenece al usuario por ID (principal: uploadedBy; fallback: authors._id)
+function thesisBelongsToUser(thesis, userId) {
+  if (!userId) return false;
+
+  // 1) dueño real (quien subió)
+  const uploadedById = getAnyId(thesis?.uploadedBy);
+  if (uploadedById && String(uploadedById) === String(userId)) return true;
+
+  // 2) fallback: authors incluye el userId
   const authors = Array.isArray(thesis?.authors) ? thesis.authors : [];
-
   return authors.some((a) => {
-    if (typeof a === "string") {
-      const s = norm(a);
-
-      const byNameLast =
-        (uName && uLast && s.includes(uName) && s.includes(uLast)) ||
-        (uName && s.includes(uName)) ||
-        (uLast && s.includes(uLast));
-
-      const byEmail = uEmail && s.includes(uEmail);
-      return uEmail ? byEmail || byNameLast : byNameLast;
-    }
-
-    const aName = norm(a?.name);
-    const aLast = norm(a?.lastname);
-    const aEmail = norm(a?.email);
-
-    const nameLastMatch =
-      uName && uLast ? aName === uName && aLast === uLast : false;
-
-    if (uEmail && aEmail) return aEmail === uEmail;
-    return nameLastMatch;
+    const aid = getAnyId(a);
+    return aid && String(aid) === String(userId);
   });
 }
 
-// COMPONENT: LibraryPSearch
+// ===================== COMPONENT: LibraryPSearch =====================
 const LibraryPSearch = () => {
   const token = useMemo(() => getAuthToken(), []);
-  const authUser = useMemo(() => getAuthUser(), []);
+  const userId = useMemo(() => getIdUser(), []); // ✅ usa tu helper (respeta actor=user)
 
   const [theses, setTheses] = useState([]);
   const [liked, setLiked] = useState({});
@@ -112,7 +143,6 @@ const LibraryPSearch = () => {
 
   const [certificateData, setCertificateData] = useState(null);
   const [selectedThesis, setSelectedThesis] = useState(null);
-
   const [selectedThesisView, setSelectedThesisView] = useState(null);
 
   useEffect(() => {
@@ -120,6 +150,13 @@ const LibraryPSearch = () => {
       try {
         setLoading(true);
         setLoadError("");
+
+        if (!userId) {
+          // actor != user o sesión corrupta
+          setTheses([]);
+          setLiked({});
+          return;
+        }
 
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -130,16 +167,15 @@ const LibraryPSearch = () => {
 
         const data = Array.isArray(res.data) ? res.data : [];
 
-        const onlyMine = data.filter((t) => thesisBelongsToUserByAuthor(t, authUser));
-
-        const currentUserId = authUser?._id || authUser?.id || null;
+        // ✅ ahora: MIS TESIS = uploadedBy === userId || authors contiene userId
+        const onlyMine = data.filter((t) => thesisBelongsToUser(t, userId));
 
         const mapped = onlyMine.map((t) => {
           const likesCount = Number(t.likes ?? 0);
 
           const userLiked =
-            Array.isArray(t.likedBy) && currentUserId
-              ? t.likedBy.some((u) => String(u?._id ?? u) === String(currentUserId))
+            Array.isArray(t.likedBy) && userId
+              ? t.likedBy.some((u) => String(getAnyId(u)) === String(userId))
               : false;
 
           return { ...t, likes: likesCount, userLiked };
@@ -161,7 +197,7 @@ const LibraryPSearch = () => {
     };
 
     fetchMyTheses();
-  }, [token, authUser]);
+  }, [token, userId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -189,19 +225,20 @@ const LibraryPSearch = () => {
     arr.sort((a, b) => {
       const byTitle = (a.title || "").localeCompare(b.title || "");
       const byId = String(a._id ?? "").localeCompare(String(b._id ?? ""));
-      const ya = Number(a.year ?? 0);
-      const yb = Number(b.year ?? 0);
       const la = Number(a.likes ?? 0);
       const lb = Number(b.likes ?? 0);
 
+      const ta = getTimeForSort(a);
+      const tb = getTimeForSort(b);
+
       switch (sortBy) {
         case "recent":
-          if (yb !== ya) return yb - ya;
+          if (tb !== ta) return tb - ta;
           if (byTitle !== 0) return byTitle;
           return byId;
 
         case "oldest":
-          if (ya !== yb) return ya - yb;
+          if (ta !== tb) return ta - tb;
           if (byTitle !== 0) return byTitle;
           return byId;
 
@@ -294,18 +331,16 @@ const LibraryPSearch = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      const res = await axios.post(
-        `${API_BASE_URL}/api/theses/${id}/like`,
-        null,
-        { headers }
-      );
+      const res = await axios.post(`${API_BASE_URL}/api/theses/${id}/like`, null, {
+        headers,
+      });
 
       const { thesis, liked: isLiked } = res.data || {};
 
       if (thesis && thesis._id) {
         setTheses((prev) =>
           prev.map((t) =>
-            t._id === thesis._id
+            String(t._id) === String(thesis._id)
               ? { ...t, likes: Number(thesis.likes ?? 0), userLiked: !!isLiked }
               : t
           )
@@ -347,7 +382,10 @@ const LibraryPSearch = () => {
   if (theses.length === 0) {
     return (
       <div className="container py-2">
-        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: "55vh" }}>
+        <div
+          className="d-flex justify-content-center align-items-center"
+          style={{ minHeight: "55vh" }}
+        >
           <div className="text-center">
             {InboxMin}
             <h3 className="m-0" style={{ color: "#b6b7ba" }}>
@@ -384,7 +422,8 @@ const LibraryPSearch = () => {
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                Sort by: {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
+                Sort by:{" "}
+                {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
               </button>
 
               <ul className="dropdown-menu dropdown-menu-end mc-select">
@@ -392,7 +431,9 @@ const LibraryPSearch = () => {
                   <li key={opt.key}>
                     <button
                       type="button"
-                      className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
+                      className={`dropdown-item ${
+                        sortBy === opt.key ? "active" : ""
+                      }`}
                       onClick={() => {
                         setSortBy(opt.key);
                         setPage(1);
@@ -409,7 +450,8 @@ const LibraryPSearch = () => {
 
         <div className="col-lg-4 text-lg-end">
           <span className="text-muted">
-            {filteredOrdered.length} result{filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of {totalPages}
+            {filteredOrdered.length} result{filteredOrdered.length !== 1 ? "s" : ""} ·
+            Page {currentPage} of {totalPages}
           </span>
         </div>
       </div>
@@ -420,7 +462,11 @@ const LibraryPSearch = () => {
           {pageItems.map((t, idx) => {
             const rowKey = `${t._id}-${start + idx}`;
             const isLiked = liked[t._id] ?? t.userLiked ?? false;
-            const instName = getInstitutionName(t);
+
+            const instUI = getInstitutionUI(t);
+            const status = String(t.status || "").toUpperCase();
+            const isApproved = status === "APPROVED";
+            const isRejected = status === "REJECTED";
 
             return (
               <div key={rowKey} className="card mc-thesis-card shadow-sm">
@@ -430,11 +476,6 @@ const LibraryPSearch = () => {
                     <h5 className="m-0 mc-thesis-title">{t.title}</h5>
 
                     <div className="text-muted small mt-1">
-                      <span className="mc-label-muted">Institution:</span> {instName}
-                      {t.department ? ` · ${t.department}` : ""}
-                    </div>
-
-                    <div className="text-muted small">
                       <span className="mc-label-muted">Authors:</span>{" "}
                       {Array.isArray(t.authors)
                         ? t.authors
@@ -448,7 +489,14 @@ const LibraryPSearch = () => {
                     </div>
 
                     <div className="text-muted small">
-                      <span className="mc-label-muted">File Hash:</span> {t.fileHash ?? "—"}
+                      <span>{instUI.label}</span> {instUI.value}
+                      {/* ✅ department solo si hay institución */}
+                      {instUI.hasInstitution && t.department ? ` · ${t.department}` : ""}
+                    </div>
+
+                    <div className="text-muted small">
+                      <span className="mc-label-muted">File Hash:</span>{" "}
+                      {t.fileHash ?? "—"}
                     </div>
                   </div>
 
@@ -465,34 +513,28 @@ const LibraryPSearch = () => {
                         {EyeFillIcon}
                       </button>
 
-                      {(() => {
-                        const status = String(t.status || "").toUpperCase();
-                        const isApproved = status === "APPROVED";
-
-                        if (isApproved) {
-                          return (
-                            <a
-                              href={`http://localhost:3000/update/${t._id}`}
-                              className="btn btn-warning"
-                              title="Permission"
-                              onClick={() => handlePermission(t)}
-                            >
-                              {KeyPermission}
-                            </a>
-                          );
-                        }
-
-                        return (
-                          <a
-                            href={`http://localhost:3000/update/${t._id}`}
-                            className="btn btn-warning"
-                            title="Edit"
-                            onClick={() => handleEdit(t)}
-                          >
-                            {EditIcon}
-                          </a>
-                        );
-                      })()}
+                      {/* ✅ CAMBIO 1:
+                          cuando está APPROVED (cambia el icono a KeyPermission), el botón debe ir a google.com */}
+                      {isApproved ? (
+                        <a
+                          className="btn btn-warning"
+                          title="Permission"
+                          onClick={() => handlePermission(t)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {KeyPermission}
+                        </a>
+                      ) : (
+                        <a
+                          href={`http://localhost:3000/update/${t._id}`}
+                          className="btn btn-warning"
+                          title="Edit"
+                          onClick={() => handleEdit(t)}
+                        >
+                          {EditIcon}
+                        </a>
+                      )}
 
                       <button
                         type="button"
@@ -506,46 +548,47 @@ const LibraryPSearch = () => {
                     </div>
 
                     {/* Row 2 */}
-                    {(() => {
-                      const status = String(t.status || "").toUpperCase();
-                      const isApproved = status === "APPROVED";
-                      const isRejected = status === "REJECTED";
-
-                      if (isApproved) {
-                        return (
-                          <button
-                            type="button"
-                            className="btn btn-memory w-100 d-flex align-items-center justify-content-center gap-2"
-                            onClick={() => handleCertificate(t)}
-                          >
-                            {CheckCircle}
-                            <span className="fw-semibold t-white">See Certification</span>
-                          </button>
-                        );
-                      }
-
-                      if (isRejected) {
-                        return (
-                          <button
-                            type="button"
-                            className="btn btn-danger w-100 d-flex align-items-center justify-content-center gap-2"
-                          >
-                            {CrossCircle}
-                            <span className="fw-semibold t-white">Not available</span>
-                          </button>
-                        );
-                      }
-
-                      return (
-                        <button
-                          type="button"
-                          className="btn btn-warning w-100 d-flex align-items-center justify-content-center gap-2"
-                        >
-                          {TimeCircle}
-                          <span className="fw-semibold t-white">Under Review</span>
-                        </button>
-                      );
-                    })()}
+                    {/* ✅ CAMBIO 2:
+                        si NO tiene institution (Independent Research), en vez de mostrar status abajo
+                        muestra un botón "Solicitar registro" */}
+                    {!instUI.hasInstitution ? (
+                      <button
+                        type="button"
+                        className="btn btn-secondary w-100 d-flex align-items-center justify-content-center gap-2"
+                        onClick={() => {
+                          // aquí puedes abrir modal / navegar / llamar endpoint
+                          alert("Solicitud de registro enviada (demo).");
+                        }}
+                      >
+                        {CrossCircle}
+                        <span className="fw-semibold t-white">Request Log</span>
+                      </button>
+                    ) : isApproved ? (
+                      <button
+                        type="button"
+                        className="btn btn-memory w-100 d-flex align-items-center justify-content-center gap-2"
+                        onClick={() => handleCertificate(t)}
+                      >
+                        {CheckCircle}
+                        <span className="fw-semibold t-white">See Certification</span>
+                      </button>
+                    ) : isRejected ? (
+                      <button
+                        type="button"
+                        className="btn btn-danger w-100 d-flex align-items-center justify-content-center gap-2"
+                      >
+                        {CrossCircle}
+                        <span className="fw-semibold t-white">Not available</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-warning w-100 d-flex align-items-center justify-content-center gap-2"
+                      >
+                        {TimeCircle}
+                        <span className="fw-semibold t-white">Under Review</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -557,7 +600,10 @@ const LibraryPSearch = () => {
           )}
 
           {filteredOrdered.length > 0 && (
-            <nav aria-label="Theses pagination" className="mt-3 d-flex justify-content-center">
+            <nav
+              aria-label="Theses pagination"
+              className="mt-3 d-flex justify-content-center"
+            >
               <ul className="pagination mc-pagination">
                 <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
                   <button className="page-link" onClick={() => go(1)} type="button">
@@ -566,15 +612,24 @@ const LibraryPSearch = () => {
                 </li>
 
                 {pagesArray.map((p) => (
-                  <li key={`p-${p}`} className={`page-item ${p === currentPage ? "active" : ""}`}>
+                  <li
+                    key={`p-${p}`}
+                    className={`page-item ${p === currentPage ? "active" : ""}`}
+                  >
                     <button className="page-link" onClick={() => go(p)} type="button">
                       {p}
                     </button>
                   </li>
                 ))}
 
-                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                  <button className="page-link" onClick={() => go(totalPages)} type="button">
+                <li
+                  className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}
+                >
+                  <button
+                    className="page-link"
+                    onClick={() => go(totalPages)}
+                    type="button"
+                  >
                     Last
                   </button>
                 </li>

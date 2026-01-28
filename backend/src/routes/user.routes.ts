@@ -5,6 +5,7 @@ import {
   getMe,
   updateMe,
   getMyLikedTheses,
+  getUserBasicById,
 } from "../controllers/user.controller";
 import { uploadImage } from "../config/multer";
 
@@ -18,6 +19,9 @@ router.get("/me", authMiddleware, getMe);
 
 // Actualiza el perfil del usuario autenticado (img + campos, multipart/form-data)
 router.put("/me", authMiddleware, uploadImage.single("img"), updateMe);
+
+// Devuelve name + lastname de un usuario por ID
+router.get("/:id/basic", getUserBasicById);
 
 // Obtiene las tesis a las que el usuario dio like
 router.get("/me/likes", authMiddleware, getMyLikedTheses);

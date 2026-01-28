@@ -1,27 +1,24 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 
 // Estados posibles del proceso de certificación
-export type CertificationStatus =
-  | "PENDING"
-  | "APPROVED"
-  | "REJECTED";
+export type CertificationStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 // Estructura básica para autores y tutores
 export interface IAuthor {
+  _id?: Types.ObjectId;
   name: string;
   lastname: string;
-  email?: string;
 }
 
 // Sub-esquema reutilizable para autores/tutores
 // _id: false evita crear IDs internos para cada autor
 const AuthorSchema = new Schema<IAuthor>(
   {
+    _id: { type: Schema.Types.ObjectId, ref: "User", required: false },
     name: { type: String, required: true, trim: true }, // Nombre del autor
     lastname: { type: String, required: true, trim: true }, // Apellido
-    email: { type: String, trim: true, lowercase: true }, // Email opcional
   },
-  { _id: false }
+  { _id: false },
 );
 
 // Interfaz principal de la tesis
@@ -39,7 +36,7 @@ export interface IThesis extends Document {
   likes: number;
   likedBy: Types.ObjectId[];
 
-  institution: Types.ObjectId;
+  institution?: Types.ObjectId;
   department?: string;
   status: CertificationStatus;
   uploadedBy?: Types.ObjectId;
@@ -48,7 +45,7 @@ export interface IThesis extends Document {
 
   // Información del archivo y su anclaje en blockchain
   fileHash: string;
-  hashAlgorithm: "sha256" | "sha3" | "keccak256";
+  hashAlgorithm: "sha256";
   ipfsCid: string;
   txHash?: string;
   chainId?: number;
@@ -64,6 +61,7 @@ const ThesisSchema = new Schema<IThesis>(
     // Lista de autores (al menos uno obligatorio)
     authors: {
       type: [AuthorSchema],
+      required: true,
       validate: [(v: IAuthor[]) => v.length > 0, "At least one author."],
     },
 
@@ -92,7 +90,7 @@ const ThesisSchema = new Schema<IThesis>(
     field: { type: String, trim: true },
 
     // Fecha de publicación (día/mes/año)
-date: { type: Date },
+    date: { type: Date },
 
     // Contador de likes
     likes: { type: Number, default: 0 },
@@ -104,7 +102,6 @@ date: { type: Date },
     institution: {
       type: Schema.Types.ObjectId,
       ref: "Institution",
-      required: true,
     },
 
     // Departamento o facultad
@@ -149,7 +146,7 @@ date: { type: Date },
   {
     // Agrega createdAt y updatedAt automáticamente
     timestamps: true,
-  }
+  },
 );
 
 // Modelo final de la colección Thesis
