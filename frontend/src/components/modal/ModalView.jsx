@@ -29,7 +29,6 @@ const toSentenceCase = (v) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
-// ✅ Formato tipo "Account created" (month long + day 2-digit + year)
 const formatDateShort = (d) => {
   if (!d) return "—";
   try {
@@ -124,7 +123,7 @@ function ModalView({ thesis }) {
   );
   const langHuman = useMemo(() => languageLabel(t?.language), [t?.language]);
 
-  // ✅ Fecha de publicación (nuevo campo date) formateada igual que "Account created"
+  // Fecha de publicación (nuevo campo date) formateada igual que "Account created"
   const thesisDate = useMemo(() => formatDateShort(t?.date), [t?.date]);
 
   // Extraer institutionId desde Thesis (porque en Thesis el campo es ObjectId)
@@ -136,7 +135,7 @@ function ModalView({ thesis }) {
     return safeStr(inst?._id) || "";
   }, [t?.institution]);
 
-  // ✅ ocultar el bloque completo si NO hay institución
+  // ocultar el bloque completo si NO hay institución
   const hasInstitution = useMemo(() => Boolean(safeStr(institutionId)), [institutionId]);
 
   // Estado institución (se llena con axios)
@@ -383,8 +382,6 @@ function ModalView({ thesis }) {
                               {langHuman}
                             </div>
                           </div>
-
-                          {/* ✅ CAMBIO: YEAR -> DATE con mismo formato que account created */}
                           <div className="col-3 text-end">
                             <div
                               className="text-white-50"
@@ -403,7 +400,6 @@ function ModalView({ thesis }) {
                       </div>
                     </div>
 
-                    {/* ✅ RIGHT COLUMN: solo si hay institución */}
                     {hasInstitution ? (
                       <div className="col-12 col-lg-4">
                         {/* INSTITUTION CARD */}
@@ -557,7 +553,7 @@ function ModalView({ thesis }) {
                               </div>
                             </div>
 
-                            {/* ✅ ocultar TUTORS si no hay */}
+                            {/* ocultar TUTORS si no hay */}
                             {hasTutors ? (
                               <div className="col-12 text-center">
                                 <div
@@ -581,7 +577,7 @@ function ModalView({ thesis }) {
                         </div>
                       </div>
                     ) : (
-                      // ✅ si NO hay institution, mostramos SOLO el card de Authors/Tutors en la derecha
+                      // si NO hay institution, mostramos SOLO el card de Authors/Tutors en la derecha
                       <div className="col-12 col-lg-4">
                         <div
                           className="p-3"
@@ -609,8 +605,6 @@ function ModalView({ thesis }) {
                                 {authors}
                               </div>
                             </div>
-
-                            {/* ✅ ocultar TUTORS si no hay */}
                             {hasTutors ? (
                               <div className="col-12 text-center">
                                 <div

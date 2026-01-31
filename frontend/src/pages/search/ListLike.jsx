@@ -193,7 +193,6 @@ const LikedThesesList = () => {
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // ===================== ✅ OPCIÓN B: MAP id -> name (NUEVO) =====================
   const institutionIdToName = useMemo(() => {
     const map = new Map();
     (institutions || []).forEach((i) => {
@@ -202,7 +201,6 @@ const LikedThesesList = () => {
     return map;
   }, [institutions]);
 
-  // ===================== ✅ OPCIÓN B: resolver nombre aunque institution sea string id (NUEVO) =====================
   const getInstitutionNameResolved = (thesis) => {
     const inst = thesis?.institution;
     if (!inst) return "";
@@ -326,8 +324,7 @@ const LikedThesesList = () => {
 
       if (status === "REJECTED") return false;
 
-      // ✅ AQUÍ NO TOCAMOS getInstitutionName (solo para filtros/búsqueda)
-      const instName = getInstitutionNameResolved(t); // ✅ CAMBIO MÍNIMO: usar resolved
+      const instName = getInstitutionNameResolved(t);
       const authorsSearch = buildAuthorsSearchString(t.authors);
 
       const keywordsSearch = Array.isArray(t.keywords)
@@ -603,7 +600,6 @@ const LikedThesesList = () => {
             const rowKey = `${t._id}-${start + idx}`;
             const isLiked = liked[t._id] ?? t.userLiked ?? false;
 
-            // ✅ CAMBIO: usar resolved para mostrar nombre (y no el id)
             const instName = String(getInstitutionNameResolved(t) || "").trim();
             const hasInstitution = Boolean(instName);
 

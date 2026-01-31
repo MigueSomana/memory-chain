@@ -391,7 +391,7 @@ const FormProfile = () => {
 
   return (
     <form className="container mb-3" onSubmit={handleSubmit}>
-      {/* ✅ SECTION 1: BASIC INFO (CARD) */}
+      {/* SECTION 1: BASIC INFO (CARD) */}
       <section className="card mc-card-shadow mb-4">
         <div className="card-body">
           <div className="mc-card-header mb-3">
@@ -502,7 +502,7 @@ const FormProfile = () => {
         </div>
       </section>
 
-      {/* ✅ SECTION 2: SECURITY (CARD) */}
+      {/* SECTION 2: SECURITY (CARD) */}
       <section className="card mc-card-shadow mb-4">
         <div className="card-body">
           <div className="mc-card-header mb-3">
@@ -574,7 +574,7 @@ const FormProfile = () => {
         </div>
       </section>
 
-      {/* ✅ SECTION 3: INSTITUTIONS (CARD) */}
+      {/* SECTION 3: INSTITUTIONS (CARD) */}
       <section className="card mc-card-shadow">
         <div className="card-body">
           <div className="mc-card-header mb-3">

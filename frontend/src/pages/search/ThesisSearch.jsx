@@ -30,7 +30,7 @@ const SORT_OPTIONS = [
 const getInstitutionName = (thesis) => {
   const inst = thesis?.institution;
   if (!inst) return "";
-  if (typeof inst === "string") return inst; // ✅ NO tocamos esto
+  if (typeof inst === "string") return inst; 
   return inst?.name || "";
 };
 
@@ -486,7 +486,6 @@ const ThesisSearch = () => {
 
           return {
             ...t,
-            // ✅ SOLO lo necesario
             likes: thesis.likes ?? t.likes ?? 0,
             likedBy: thesis.likedBy ?? t.likedBy,
             userLiked: !!isLiked,
@@ -598,7 +597,7 @@ const ThesisSearch = () => {
             const rowKey = `${t._id}-${start + idx}`;
             const isLiked = liked[t._id] ?? t.userLiked ?? false;
 
-            // ✅ UI validation: si no hay instName, mostramos "Investigación Independiente"
+            // UI validation: si no hay instName, mostramos "Investigación Independiente"
             const instNameRaw = getInstitutionName(t);
             const hasInstitution = Boolean(String(instNameRaw || "").trim());
             const institutionLabel = hasInstitution
@@ -646,7 +645,6 @@ const ThesisSearch = () => {
                     ) : null}
                   </div>
 
-                  {/* Actions (✅ colores como los tuyos) */}
                   <div className="d-flex align-items-center gap-2">
                     <button
                       type="button"

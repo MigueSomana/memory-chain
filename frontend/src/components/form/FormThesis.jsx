@@ -71,7 +71,7 @@ const FormThesis = ({
   const [disableInstitutionSelect, setDisableInstitutionSelect] =
     useState(false);
 
-  // ✅ Investigación personal (sin institución/departamento)
+  // Investigación personal (sin institución/departamento)
   const [isPersonalResearch, setIsPersonalResearch] = useState(false);
 
   // Alertas del formulario (Bootstrap)
@@ -169,17 +169,11 @@ const FormThesis = ({
   // Campos principales del formulario
   const [title, setTitle] = useState("");
 
-  /**
-   * ✅ Authors ahora sin email.
-   * - firstName, lastName (manual)
-   * - userId (opcional: si se quiere buscar por ID)
-   * - linkedUserId (si se resolvió correctamente)
-   */
   const [authors, setAuthors] = useState([
     { firstName: "", lastName: "", userId: "", linkedUserId: "" },
   ]);
 
-  /** ✅ Tutors sin email y sin fetch — AHORA OPCIONALES */
+  /** Tutors sin email y sin fetch — AHORA OPCIONALES */
   const [tutors, setTutors] = useState([{ firstName: "", lastName: "" }]);
 
   const [summary, setSummary] = useState("");
@@ -190,7 +184,7 @@ const FormThesis = ({
   const [degree, setDegree] = useState("");
   const [field, setField] = useState("");
 
-  // ✅ year -> date
+  // year -> date
   const [date, setDate] = useState("");
 
   const [institutionId, setInstitutionId] = useState("");
@@ -268,7 +262,7 @@ const FormThesis = ({
     );
   };
 
-  // ✅ Fetch SOLO para autores adicionales (idx > 0)
+  // Fetch SOLO para autores adicionales (idx > 0)
   const [authorFetchLoading, setAuthorFetchLoading] = useState({});
   const fetchAuthorById = async (index) => {
     const a = authors[index];
@@ -285,7 +279,7 @@ const FormThesis = ({
       const token = localStorage.getItem("memorychain_token");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      // ✅ Ruta: /users/:id/basic
+      // Ruta: /users/:id/basic
       const res = await axios.get(
         `${API_BASE_URL}/api/users/${rawId}/basic`,
         headers ? { headers } : undefined,
@@ -322,7 +316,7 @@ const FormThesis = ({
     }
   };
 
-  // Tutors (agregar / quitar / editar) ✅ sin email y sin fetch
+  // Tutors (agregar / quitar / editar) 
   const addTutor = () =>
     setTutors((prev) => [...prev, { firstName: "", lastName: "" }]);
   const removeTutor = (index) =>
@@ -333,7 +327,7 @@ const FormThesis = ({
     );
   };
 
-  // ✅ Helpers para "tutores opcionales"
+  // Helpers para "tutores opcionales"
   // True si existe al menos 1 tutor con nombre+apellido
   const hasAnyValidTutor = useMemo(() => {
     return tutors.some((t) => t.firstName.trim() && t.lastName.trim());
@@ -401,7 +395,7 @@ const FormThesis = ({
     if (validAuthors.length === 0)
       e.authors = "At least one author (first and last name) is required.";
 
-    // ✅ Institution solo es requerida si NO es personal research y NO estás creando como institución fija
+    // Institution solo es requerida si NO es personal research y NO estás creando como institución fija
     const institutionForcedByContext = Boolean(idInstitution);
     if (!isPersonalResearch && !institutionForcedByContext) {
       if (!institutionId) {
@@ -422,7 +416,7 @@ const FormThesis = ({
     if (keywords.length < 3)
       e.keywords = "At least three keywords are required.";
 
-    // ✅ TUTORES OPCIONALES: NO validamos que exista alguno
+    // TUTORES OPCIONALES: NO validamos que exista alguno
     // (solo si el usuario escribe uno "incompleto" lo marcamos como error)
     tutors.forEach((t, idx) => {
       const fn = t.firstName.trim();
@@ -514,7 +508,7 @@ const FormThesis = ({
           setInstitutionId(hasInstitution ? instIdVal : "");
           setDepartment(hasInstitution ? t.department || "" : "");
 
-          // ✅ Autores sin email, manteniendo compatibilidad si vienen datos viejos
+          // Autores sin email, manteniendo compatibilidad si vienen datos viejos
           let mappedAuthors = [
             { firstName: "", lastName: "", userId: "", linkedUserId: "" },
           ];
@@ -542,7 +536,7 @@ const FormThesis = ({
           }
           setAuthors(mappedAuthors);
 
-          // ✅ Tutores: ahora pueden venir vacíos. Si no hay, dejamos 1 vacío para UI.
+          // Tutores: ahora pueden venir vacíos. Si no hay, dejamos 1 vacío para UI.
           let mappedTutors = [{ firstName: "", lastName: "" }];
           if (Array.isArray(t.tutors) && t.tutors.length > 0) {
             mappedTutors = t.tutors.map((tu) => {
@@ -689,7 +683,7 @@ const FormThesis = ({
 
     const dateIso = ymdToIsoUtc(date);
 
-    // ✅ tutores opcionales: si no hay ninguno válido, mandamos [] (o undefined)
+    //  tutores opcionales: si no hay ninguno válido, mandamos [] (o undefined)
     const tutorPayload = hasAnyValidTutor
       ? tutors
           .filter((t) => t.firstName.trim() && t.lastName.trim())
@@ -699,7 +693,6 @@ const FormThesis = ({
           }))
       : [];
 
-    // ✅ NUEVO: id del creador (mismo que uploadedBy) para forzarlo en autor principal
     const creatorUserIdRaw = (idUser ? String(idUser) : "") || (getIdUser() ? String(getIdUser()) : "");
     const creatorUserId = isObjectId(creatorUserIdRaw) ? creatorUserIdRaw : "";
 
@@ -708,7 +701,6 @@ const FormThesis = ({
       authors: authors
         .filter((a) => a.firstName.trim() && a.lastName.trim())
         .map((a, idx) => {
-          // ✅ MODIFICACIÓN: autor principal SIEMPRE usa creatorUserId (si es válido)
           const forcedPrimaryId = idx === 0 && creatorUserId ? creatorUserId : "";
 
           const idToSend =
@@ -729,7 +721,6 @@ const FormThesis = ({
             lastname: a.lastName.trim(),
           };
         }),
-      // ✅ AHORA OPCIONAL
       tutors: tutorPayload,
       summary: summary.trim(),
       keywords,
@@ -842,7 +833,7 @@ const FormThesis = ({
 
   return (
     <form className="container mb-3" onSubmit={handleSubmit}>
-      {/* ✅ CARD: Basic information */}
+      {/* CARD: Basic information */}
       <section className="card mc-card-shadow mb-4">
         <div className="card-body">
           <div className="mc-card-header mb-3">
@@ -1016,7 +1007,7 @@ const FormThesis = ({
         </div>
       </section>
 
-      {/* ✅ CARD: Authors & Tutors */}
+      {/* CARD: Authors & Tutors */}
       <section className="card mc-card-shadow mb-4">
         <div className="card-body">
           <div className="mc-card-header mb-3">
@@ -1071,7 +1062,7 @@ const FormThesis = ({
                     />
                   </div>
 
-                  {/* ✅ Solo autores adicionales: buscar por ID y autocompletar */}
+                  {/* Solo autores adicionales: buscar por ID y autocompletar */}
                   <div className="col-md-4">
                     {idx === 0 ? (
                       <div className="text-muted small d-flex align-items-center h-100">
@@ -1136,7 +1127,6 @@ const FormThesis = ({
               </button>
             </div>
 
-            {/* ✅ ya no mostramos errors.tutors porque no es requerido */}
             <div className="d-flex flex-column gap-3">
               {tutors.map((t, idx) => (
                 <div className="row g-2" key={`tutor-${idx}`}>
@@ -1187,7 +1177,7 @@ const FormThesis = ({
         </div>
       </section>
 
-      {/* ✅ CARD: Affiliation */}
+      {/* CARD: Affiliation */}
       <section className="card mc-card-shadow mb-4">
         <div className="card-body">
           <div className="mc-card-header mb-3 d-flex align-items-center justify-content-between">
@@ -1323,7 +1313,7 @@ const FormThesis = ({
         </div>
       </section>
 
-      {/* ✅ CARD: Summary & Keywords */}
+      {/* CARD: Summary & Keywords */}
       <section className="card mc-card-shadow mb-4">
         <div className="card-body">
           <div className="mc-card-header mb-3">
@@ -1401,7 +1391,7 @@ const FormThesis = ({
         </div>
       </section>
 
-      {/* ✅ CARD: Submission */}
+      {/* CARD: Submission */}
       <section className="card mc-card-shadow mb-4">
         <div className="card-body">
           <div className="mc-card-header mb-3">

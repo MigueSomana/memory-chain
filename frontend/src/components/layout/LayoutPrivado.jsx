@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { BackIcon, PlusIcon, CopyIcon } from "../../utils/icons";
+import { BackIcon, PlusIcon, CopyIcon, SupportIcon } from "../../utils/icons";
 import {
   getAuthActor,
   getIdUser,
@@ -192,10 +192,30 @@ const LayoutPrivado = ({
             {typeof children === "function" ? children(activeKey) : children}
           </div>
         </main>
+        {/* ✅ FLOATING SUPPORT BUTTON (bottom-right, over everything) */}
+<button
+  type="button"
+  className="btn btn-memory d-flex align-items-center justify-content-center"
+  title="Contact support"
+  onClick={() => alert("Demo: Contact support")}
+  style={{
+    position: "fixed",
+    right: 18,
+    bottom: 18,
+    zIndex: 9999,
+    width: 56,
+    height: 56,
+    borderRadius: 999,
+    boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+    padding: 0,
+  }}
+>
+  {SupportIcon}
+</button>
+
       </div>
     </>
   );
 };
 
 export default LayoutPrivado;
-

@@ -16,7 +16,7 @@ import {
 const API_BASE_URL = "http://localhost:4000/api";
 const token = getAuthToken();
 
-// ✅ Opciones del tipo de institución (ajusta si tu backend usa otro enum)
+// Opciones del tipo de institución (ajusta si tu backend usa otro enum)
 const TYPE_OPTIONS = [
   { value: "UNIVERSITY", label: "University" },
   { value: "COLLEGE", label: "College" },
@@ -87,7 +87,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (!val) return;
 
     const exists = departments.some(
-      (d) => String(d?.name || "").toLowerCase() === val.toLowerCase()
+      (d) => String(d?.name || "").toLowerCase() === val.toLowerCase(),
     );
     if (exists) {
       setDeptAlert(`The department "${val}" is already in the list.`);
@@ -115,7 +115,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (!val) return;
 
     const exists = emailDomains.some(
-      (d) => String(d?.value || "").toLowerCase() === val.toLowerCase()
+      (d) => String(d?.value || "").toLowerCase() === val.toLowerCase(),
     );
     if (exists) return;
 
@@ -173,7 +173,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
 
         const res = await axios.get(
           `${API_BASE_URL}/institutions/${institutionId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
 
         setInitialData(res.data);
@@ -201,12 +201,12 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     setEmail(initialData.email || "");
 
     const instDepts = (initialData.departments || []).map((d) =>
-      typeof d === "string" ? { name: d } : d
+      typeof d === "string" ? { name: d } : d,
     );
     setDepartments(instDepts);
 
     const instDomains = (initialData.emailDomains || []).map((d) =>
-      typeof d === "string" ? { value: d } : d
+      typeof d === "string" ? { value: d } : d,
     );
     setEmailDomains(instDomains);
   }, [initialData]);
@@ -272,10 +272,13 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
       form.append("type", type);
       form.append("email", email.trim().toLowerCase());
 
-      form.append("departments", JSON.stringify(departments.map((d) => d.name)));
+      form.append(
+        "departments",
+        JSON.stringify(departments.map((d) => d.name)),
+      );
       form.append(
         "emailDomains",
-        JSON.stringify(emailDomains.map((d) => d.value))
+        JSON.stringify(emailDomains.map((d) => d.value)),
       );
 
       form.append("isMember", String(Boolean(initialData.isMember)));
@@ -286,7 +289,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
       const res = await axios.put(
         `${API_BASE_URL}/institutions/${initialData._id}`,
         form,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       alert("Institution profile updated successfully.");
@@ -303,7 +306,9 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
       setConfirm("");
     } catch (err) {
       console.error("Update institution error:", err?.response?.data || err);
-      alert(err?.response?.data?.message || "Error updating institution profile.");
+      alert(
+        err?.response?.data?.message || "Error updating institution profile.",
+      );
     }
   };
 
@@ -335,7 +340,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
         </div>
       )}
 
-      {/* ✅ CARD 1: BASIC INFORMATION */}
+      {/* CARD 1: BASIC INFORMATION */}
       <section className="card mc-card-shadow mb-4">
         <div className="card-body">
           <div className="mc-card-header mb-3">
@@ -406,13 +411,14 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Institution name"
+                  disabled
                 />
                 {errors.name && (
                   <div className="invalid-feedback">{errors.name}</div>
                 )}
               </div>
 
-              {/* ✅ Country + Type mitad/mitad */}
+              {/*  Country + Type mitad/mitad */}
               <div className="row g-3">
                 <div className="col-12 col-md-6">
                   <label className="form-label">Country</label>
@@ -430,39 +436,43 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
                 </div>
 
                 <div className="col-12 col-md-6">
-  <label className="form-label">Institution type</label>
+                  <label className="form-label">Institution type</label>
 
-  <div className="dropdown mc-filter-select mc-select">
-    <button
-  className={`btn btn-outline-secondary dropdown-toggle droptoogle-fix mc-dd-toggle
+                  <div className="dropdown mc-filter-select mc-select">
+                    <button
+                      className={`btn btn-outline-secondary dropdown-toggle droptoogle-fix mc-dd-toggle
     ${errors.type ? "is-invalid" : ""}`}
-  type="button"
-  data-bs-toggle="dropdown"
-  aria-expanded="false"
->
-      <span className="mc-filter-select-text">
-        {TYPE_OPTIONS.find((o) => o.value === type)?.label ?? "Select…"}
-      </span>
-    </button>
+                      type="button"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false"
+                    >
+                      <span className="mc-filter-select-text">
+                        {TYPE_OPTIONS.find((o) => o.value === type)?.label ??
+                          "Select…"}
+                      </span>
+                    </button>
 
-    <ul className="dropdown-menu mc-select">
-      {TYPE_OPTIONS.map((opt) => (
-        <li key={opt.value}>
-          <button
-            type="button"
-            className={`dropdown-item ${type === opt.value ? "active" : ""}`}
-            onClick={() => setType(opt.value)}
-          >
-            {opt.label}
-          </button>
-        </li>
-      ))}
-    </ul>
-  </div>
+                    <ul className="dropdown-menu mc-select">
+                      {TYPE_OPTIONS.map((opt) => (
+                        <li key={opt.value}>
+                          <button
+                            type="button"
+                            className={`dropdown-item ${type === opt.value ? "active" : ""}`}
+                            onClick={() => setType(opt.value)}
+                          >
+                            {opt.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-  {errors.type && <div className="invalid-feedback d-block">{errors.type}</div>}
-</div>
-
+                  {errors.type && (
+                    <div className="invalid-feedback d-block">
+                      {errors.type}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -480,7 +490,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
         </div>
       </section>
 
-      {/* ✅ CARD 2: CONTACT / EMAIL */}
+      {/* CARD 2: CONTACT / EMAIL */}
       <section className="card mc-card-shadow mb-4">
         <div className="card-body">
           <div className="mc-card-header mb-3">
@@ -566,7 +576,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
         </div>
       </section>
 
-      {/* ✅ CARD 3: SECURITY */}
+      {/* CARD 3: SECURITY */}
       <section className="card mc-card-shadow mb-4">
         <div className="card-body">
           <div className="mc-card-header mb-3">
@@ -638,7 +648,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
         </div>
       </section>
 
-      {/* ✅ CARD 4: DEPARTMENTS */}
+      {/* CARD 4: DEPARTMENTS */}
       <section className="card mc-card-shadow mb-4">
         <div className="card-body">
           <div className="mc-card-header mb-3">
