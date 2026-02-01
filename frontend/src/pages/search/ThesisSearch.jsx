@@ -3,13 +3,27 @@ import { getAuthRole, getAuthToken } from "../../utils/authSession";
 import ModalView from "../../components/modal/ModalView";
 import axios from "axios";
 import {
-  EyeFillIcon,
-  HeartFill,
-  HeartOutline,
-  QuoteFill,
-} from "../../utils/icons";
+  Eye,
+  Quote,
+  HeartPlus,
+  HeartMinus,
+  Heart,
+  TextQuote,
+  Funnel,
+  ChevronDown,
+  GraduationCap,
+  School,
+  Binoculars,
+  ArrowDown01,
+  ArrowUp10,
+  ArrowDownAZ,
+  ArrowUpZA,
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  UserPen
+} from "lucide-react";
 
-// ===================== Configuración base (API + Auth + Gateway) =====================
+// ===================== Configuración base =====================
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
 
@@ -18,20 +32,36 @@ const token = getAuthToken();
 
 // ===================== Opciones de ordenamiento =====================
 const SORT_OPTIONS = [
-  { key: "recent", label: "Most recent" },
-  { key: "oldest", label: "Oldest" },
-  { key: "title_az", label: "Title A–Z" },
-  { key: "title_za", label: "Title Z–A" },
-  { key: "ratings_most", label: "Most ratings" },
-  { key: "ratings_least", label: "Least ratings" },
+  { key: "recent", label: "Most recent", icon: <ArrowDown01 size={18} /> },
+  { key: "oldest", label: "Oldest", icon: <ArrowUp10 size={18} /> },
+  { key: "title_az", label: "Title A–Z", icon: <ArrowDownAZ size={18} /> },
+  { key: "title_za", label: "Title Z–A", icon: <ArrowUpZA size={18} /> },
+  {
+    key: "ratings_most",
+    label: "Most ratings",
+    icon: <ArrowDownWideNarrow size={18} />,
+  },
+  {
+    key: "ratings_least",
+    label: "Least ratings",
+    icon: <ArrowUpNarrowWide size={18} />,
+  },
 ];
 
 // ===================== Helpers =====================
 const getInstitutionName = (thesis) => {
   const inst = thesis?.institution;
   if (!inst) return "";
-  if (typeof inst === "string") return inst; 
+  if (typeof inst === "string") return inst; // ojo: a veces es id
   return inst?.name || "";
+};
+
+// ✅ id real de la institución para filtrar bien (string | {_id, name})
+const getInstitutionId = (inst) => {
+  if (!inst) return null;
+  if (typeof inst === "string") return String(inst);
+  if (inst?._id) return String(inst._id);
+  return null;
 };
 
 const buildAuthorsSearchString = (authors) => {
@@ -59,7 +89,6 @@ const getYearFromThesis = (t) => {
     const y = dt.getFullYear();
     if (!Number.isNaN(y) && y > 0) return y;
   }
-
   const yLegacy = Number(t?.year);
   if (Number.isFinite(yLegacy) && yLegacy > 0) return yLegacy;
 
@@ -68,7 +97,6 @@ const getYearFromThesis = (t) => {
     const y = dt.getFullYear();
     if (!Number.isNaN(y) && y > 0) return y;
   }
-
   return NaN;
 };
 
@@ -89,8 +117,29 @@ const getTimeForSort = (t) => {
   return 0;
 };
 
-// ===================== Componente principal =====================
-const ThesisSearch = () => {
+const statusUi = (raw) => {
+  const s = normalizeStatus(raw);
+  if (s === "APPROVED") return { label: "Certified", tone: "certified" };
+  if (s === "PENDING") return { label: "Pending", tone: "pending" };
+  if (s === "REJECTED") return { label: "Rejected", tone: "rejected" };
+  return { label: "Unknown", tone: "neutral" };
+};
+
+const safeDegreeLabel = (deg) => {
+  const d = String(deg || "").trim();
+  if (!d) return "";
+  return d;
+};
+
+// ===================== Componente =====================
+// ✅ recibe lock desde InstitutionsSearch
+const ThesisSearch = ({
+  lockedInstitutionId = null,
+  lockedInstitutionName = "",
+}) => {
+  const lockedId = lockedInstitutionId ? String(lockedInstitutionId) : null;
+  const isLockedInstitution = !!lockedId;
+
   // ---------- Estado principal ----------
   const [theses, setTheses] = useState([]);
   const [liked, setLiked] = useState({});
@@ -110,13 +159,26 @@ const ThesisSearch = () => {
   const [minYear, setMinYear] = useState(1980);
   const [maxYear, setMaxYear] = useState(now);
 
+  // ✅ si está locked, forzamos institución por id internamente
+  // (este state solo aplica cuando NO está locked)
   const [institutionFilter, setInstitutionFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all"); // "all" | "APPROVED" | "PENDING"
+  const [statusFilter, setStatusFilter] = useState("all"); // all | APPROVED | PENDING
 
   // ---------- Orden + Paginación ----------
   const [sortBy, setSortBy] = useState("recent");
+  const activeSortOption =
+    SORT_OPTIONS.find((o) => o.key === sortBy) || SORT_OPTIONS[0];
+
   const [page, setPage] = useState(1);
   const pageSize = 10;
+
+  // ✅ cuando cambia el lock, resetea página y limpia instituciónFilter (porque ya no aplica)
+  useEffect(() => {
+    setPage(1);
+    if (lockedId) {
+      setInstitutionFilter("all"); // no se usa, pero lo dejamos en un estado neutro
+    }
+  }, [lockedId]);
 
   // ===================== Carga inicial: Theses =====================
   useEffect(() => {
@@ -136,7 +198,6 @@ const ThesisSearch = () => {
 
         const data = Array.isArray(res.data) ? res.data : [];
 
-        // user actual (para likes)
         let currentUserId = null;
         try {
           const rawUser = localStorage.getItem("memorychain_user");
@@ -149,7 +210,7 @@ const ThesisSearch = () => {
         }
 
         const mapped = data.map((t) => {
-          const likes = t.likes ?? 0;
+          const likesCount = t.likes ?? 0;
 
           const userLiked =
             Array.isArray(t.likedBy) && currentUserId
@@ -160,7 +221,7 @@ const ThesisSearch = () => {
 
           const derivedYear = getYearFromThesis(t);
 
-          return { ...t, likes, userLiked, derivedYear };
+          return { ...t, likes: likesCount, userLiked, derivedYear };
         });
 
         setTheses(mapped);
@@ -208,26 +269,45 @@ const ThesisSearch = () => {
   }, []);
 
   // ===================== Opciones del filtro institución =====================
+  // ✅ ahora devolvemos {id, name} para que el filtro normal sea por ID también
   const institutionOptions = useMemo(() => {
-    const names = institutions.map((i) => i.name).filter(Boolean);
-    const unique = Array.from(new Set(names)).sort((a, b) =>
-      a.localeCompare(b),
+    const mapped = institutions
+      .map((i) => ({
+        id: i?._id ? String(i._id) : null,
+        name: i?.name ? String(i.name) : "",
+      }))
+      .filter((x) => x.id && x.name);
+
+    const byId = new Map();
+    for (const item of mapped) {
+      if (!byId.has(item.id)) byId.set(item.id, item);
+    }
+
+    const unique = Array.from(byId.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
     );
-    return ["all", ...unique];
+
+    return [{ id: "all", name: "All Institutions" }, ...unique];
   }, [institutions]);
 
   // ===================== Filtrado principal =====================
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const selectedInst = institutionFilter.toLowerCase();
     const selectedStatus = normalizeStatus(statusFilter);
+
+    // ✅ institución seleccionada (cuando NO locked)
+    const selectedInstId =
+      !isLockedInstitution && institutionFilter !== "all"
+        ? String(institutionFilter)
+        : null;
 
     return theses.filter((t) => {
       const status = normalizeStatus(t.status);
 
-      // REGLA BASE: ocultar REJECTED SIEMPRE
+      // ocultar REJECTED SIEMPRE
       if (status === "REJECTED") return false;
 
+      const instId = getInstitutionId(t.institution);
       const instName = getInstitutionName(t);
       const authorsSearch = buildAuthorsSearchString(t.authors);
 
@@ -240,7 +320,7 @@ const ThesisSearch = () => {
         (t.title || "").toLowerCase().includes(q) ||
         authorsSearch.includes(q) ||
         keywordsSearch.some((k) => k.includes(q)) ||
-        instName.toLowerCase().includes(q);
+        (instName || "").toLowerCase().includes(q);
 
       const matchesLang =
         language === "all" || (t.language || "").toLowerCase() === language;
@@ -257,20 +337,26 @@ const ThesisSearch = () => {
         yearNum >= Number(minYear) &&
         yearNum <= Number(maxYear);
 
-      const matchesInst =
-        selectedInst === "all" || instName.toLowerCase() === selectedInst;
-
       const matchesStatus =
         selectedStatus === "ALL"
           ? status === "APPROVED" || status === "PENDING"
           : status === selectedStatus;
 
+      // ✅ FILTRADO REAL POR INSTITUTION:
+      // - si está locked => SOLO esas tesis
+      // - si no => aplica el dropdown (por id) o all
+      const matchesInstitution = isLockedInstitution
+        ? instId === lockedId
+        : selectedInstId
+          ? instId === selectedInstId
+          : true;
+
       return (
+        matchesInstitution &&
         matchesQ &&
         matchesLang &&
         matchesDegree &&
         inYearRange &&
-        matchesInst &&
         matchesStatus
       );
     });
@@ -283,6 +369,8 @@ const ThesisSearch = () => {
     maxYear,
     institutionFilter,
     statusFilter,
+    isLockedInstitution,
+    lockedId,
   ]);
 
   // ===================== Ordenamiento =====================
@@ -470,7 +558,9 @@ const ThesisSearch = () => {
       const res = await axios.post(
         `${API_BASE_URL}/api/theses/${id}/like`,
         null,
-        { headers },
+        {
+          headers,
+        },
       );
 
       const { thesis, liked: isLiked } = res.data || {};
@@ -480,7 +570,6 @@ const ThesisSearch = () => {
         prev.map((t) => {
           if (String(t._id) !== String(thesis._id)) return t;
 
-          // 🔒 Preserva datos poblados del estado actual
           const preservedInstitution = t.institution;
           const preservedDepartment = t.department;
 
@@ -490,14 +579,10 @@ const ThesisSearch = () => {
             likedBy: thesis.likedBy ?? t.likedBy,
             userLiked: !!isLiked,
             derivedYear: getYearFromThesis({ ...t, ...thesis }),
-
-            // 🔒 NO dejes que institution se convierta en string id
             institution:
               typeof thesis.institution === "object" && thesis.institution
                 ? thesis.institution
                 : preservedInstitution,
-
-            // opcional: si tu backend a veces manda department vacío
             department: thesis.department ?? preservedDepartment,
           };
         }),
@@ -509,460 +594,547 @@ const ThesisSearch = () => {
     }
   };
 
-  // ===================== Render: estados de carga/errores =====================
+  // ===================== Render: loading/error =====================
   if (loading) {
     return (
-      <div className="container py-3">
-        <div className="text-muted">Loading theses…</div>
+      <div className="mcExploreWrap">
+        <div className="mcExploreContainer">
+          <div className="mcMuted">Loading theses…</div>
+        </div>
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="container py-3">
-        <div className="alert alert-danger" role="alert">
-          {loadError}
+      <div className="mcExploreWrap">
+        <div className="mcExploreContainer">
+          <div className="mcAlert">{loadError}</div>
         </div>
       </div>
     );
   }
 
+  // labels para dropdown
+  const languageLabel =
+    language === "all" ? "All Languages" : String(language).toUpperCase();
+
+  const degreeLabel =
+    degree === "all" ? "All Degrees" : String(degree || "All Degrees");
+
+  // ✅ en modo locked mostramos el nombre fijo
+  const instLabel = isLockedInstitution
+    ? lockedInstitutionName || "Institution"
+    : institutionFilter === "all"
+      ? "All Institutions"
+      : (() => {
+          const found = institutionOptions.find(
+            (x) => String(x.id) === String(institutionFilter),
+          );
+          return found?.name || "All Institutions";
+        })();
+
   // ===================== Render principal =====================
   return (
-    <div className="container py-3 mc-thesis-page">
+    <div className="mcExploreWrap">
       <ModalView thesis={selectedForView} />
 
-      {/* Top bar */}
-      <div className="row g-3 align-items-center mb-3">
-        <div className="col-lg-8">
-          <div className="d-flex gap-2">
+      <div className="mcExploreContainer">
+        {/* ===== TOP ROW (desktop one line) ===== */}
+        <div className="mcTopRow">
+          <div className="mcSearch">
+            <span className="mcSearchIcon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+                <path
+                  d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path
+                  d="M16.4 16.4 21 21"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+
             <input
-              className="form-control"
-              placeholder="Search theses by title, author, keyword or institution…"
+              className="mcSearchInput"
+              placeholder={
+                isLockedInstitution
+                  ? `Search theses in ${instLabel}...`
+                  : "Search by title, author, or keywords..."
+              }
               value={query}
               onChange={(e) => {
                 setPage(1);
                 setQuery(e.target.value);
               }}
             />
-
-            {/* Sort mantiene tu theming (mc-sort / mc-select) */}
-            <div className="dropdown mc-sort mc-select">
-              <button
-                className="btn btn-outline-secondary dropdown-toggle droptoogle-fixv"
-                type="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                Sort by:{" "}
-                {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
-              </button>
-
-              <ul className="dropdown-menu dropdown-menu-end mc-select">
-                {SORT_OPTIONS.map((opt) => (
-                  <li key={opt.key}>
-                    <button
-                      className={`dropdown-item ${
-                        sortBy === opt.key ? "active" : ""
-                      }`}
-                      onClick={() => {
-                        setSortBy(opt.key);
-                        setPage(1);
-                      }}
-                      type="button"
-                    >
-                      {opt.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
-        </div>
 
-        <div className="col-lg-4 text-lg-end">
-          <span className="text-muted">
-            {filteredOrdered.length} result
-            {filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
-            {totalPages}
-          </span>
-        </div>
-      </div>
+          {/* Count (hidden in mobile via CSS) */}
+          <div className="mcTopMeta">
+            <span className="mcCountStrong">{filteredOrdered.length}</span>
+            <span className="mcCountText">
+              thes{filteredOrdered.length !== 1 ? "es found" : "is found"}
+            </span>
+          </div>
 
-      <div className="row">
-        {/* LEFT */}
-        <div className="col-lg-8 d-flex flex-column gap-3">
-          {pageItems.map((t, idx) => {
-            const rowKey = `${t._id}-${start + idx}`;
-            const isLiked = liked[t._id] ?? t.userLiked ?? false;
+          {/* Sort */}
+          <div className="mcSortWrap dropdown">
+            <button
+              className="mcSortBtn"
+              type="button"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              <span className="mcSortIcon" aria-hidden="true">
+                {activeSortOption.icon}
+              </span>
 
-            // UI validation: si no hay instName, mostramos "Investigación Independiente"
-            const instNameRaw = getInstitutionName(t);
-            const hasInstitution = Boolean(String(instNameRaw || "").trim());
-            const institutionLabel = hasInstitution
-              ? "Institution:"
-              : "Independent Research";
-            const institutionValue = hasInstitution ? instNameRaw : "";
+              <span className="mcSortLabelDesktop">
+                {activeSortOption.label}
+              </span>
+            </button>
 
-            return (
-              <div key={rowKey} className="card mc-thesis-card shadow-sm">
-                <div className="card-body d-flex align-items-start gap-3 mc-thesis-card-body">
-                  {/* Main info */}
-                  <div className="flex-grow-1" style={{ minWidth: 0 }}>
-                    <h5 className="m-0 mc-thesis-title">{t.title}</h5>
-
-                    <div className="text-muted small mt-1">
-                      <span>Authors:</span>{" "}
-                      {Array.isArray(t.authors)
-                        ? t.authors
-                            .map((a) =>
-                              typeof a === "string"
-                                ? a
-                                : `${a.lastname ?? ""} ${a.name ?? ""}`.trim(),
-                            )
-                            .join(", ")
-                        : ""}
-                    </div>
-                    <div className="text-muted small">
-                      <span>{institutionLabel}</span> {institutionValue}
-                      {hasInstitution && t.department
-                        ? ` · ${t.department}`
-                        : ""}
-                    </div>
-
-                    {t.keywords?.length ? (
-                      <div className="mt-2 d-flex flex-wrap gap-2">
-                        {t.keywords.map((k, kidx) => (
-                          <span
-                            key={`${rowKey}-kw-${kidx}`}
-                            className="mc-kw-pill"
-                          >
-                            {k}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="d-flex align-items-center gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-memory"
-                      title="View"
-                      onClick={() => handleView(t)}
-                    >
-                      {EyeFillIcon}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="btn btn-warning"
-                      title="Cite"
-                      onClick={() => handleQuote(t)}
-                    >
-                      {QuoteFill}
-                    </button>
-
-                    {role !== "INSTITUTION" && (
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-fix-like d-flex align-items-center gap-1"
-                        title={isLiked ? "Unlike" : "Like"}
-                        onClick={() => handleToggleLike(t._id)}
-                      >
-                        {isLiked ? HeartFill : HeartOutline}
-                        <span className="mc-like-count">{t.likes ?? 0}</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {pageItems.length === 0 && (
-            <div className="text-muted">No theses found.</div>
-          )}
-
-          {/* Pagination */}
-          <nav
-            aria-label="Theses pagination"
-            className="mt-3 d-flex justify-content-center"
-          >
-            <ul className="pagination mc-pagination">
-              <li
-                className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-              >
-                <button
-                  className="page-link"
-                  onClick={() => go(1)}
-                  type="button"
-                >
-                  First
-                </button>
-              </li>
-
-              {pagesArray.map((p) => (
-                <li
-                  key={`p-${p}`}
-                  className={`page-item ${p === currentPage ? "active" : ""}`}
-                >
+            <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
+              {SORT_OPTIONS.map((opt) => (
+                <li key={opt.key}>
                   <button
-                    className="page-link"
-                    onClick={() => go(p)}
+                    className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
+                    onClick={() => {
+                      setSortBy(opt.key);
+                      setPage(1);
+                    }}
                     type="button"
                   >
-                    {p}
+                    {opt.label}
                   </button>
                 </li>
               ))}
-
-              <li
-                className={`page-item ${
-                  currentPage === totalPages ? "disabled" : ""
-                }`}
-              >
-                <button
-                  className="page-link"
-                  onClick={() => go(totalPages)}
-                  type="button"
-                >
-                  Last
-                </button>
-              </li>
             </ul>
-          </nav>
-        </div>
-
-        {/* RIGHT: filters */}
-        <div className="col-lg-4 d-none d-lg-block">
-          <div
-            className="card mc-filters mc-filters-card sticky-top"
-            style={{ top: "1rem" }}
-          >
-            <div className="mc-filters-header-dark">
-              <span className="mc-filters-title">Filters</span>
-            </div>
-
-            <div className="card-body mc-filters-body">
-              {/* Status */}
-              <div className="mb-3">
-                <label className="form-label mc-filter-label">Status</label>
-
-                <div className="row">
-                  {[
-                    { key: "all", label: "All Status" },
-                    { key: "APPROVED", label: "Approved" },
-                    { key: "PENDING", label: "Pending" },
-                  ].map((s) => (
-                    <div key={s.key} className="col-6 col-md-4">
-                      <label className="form-check mc-filter-check">
-                        <input
-                          className="form-check-input mc-check"
-                          type="radio"
-                          name="status"
-                          value={s.key}
-                          checked={statusFilter === s.key}
-                          onChange={(e) => {
-                            setPage(1);
-                            setStatusFilter(e.target.value);
-                          }}
-                        />
-                        <span className="form-check-label ms-1">{s.label}</span>
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Year range */}
-              <div className="mb-3">
-                <div className="d-flex justify-content-between align-items-center">
-                  <label className="form-label m-0 mc-filter-label">
-                    From year:{" "}
-                    <strong className="mc-filter-strong">{minYear}</strong>
-                  </label>
-                  <span className="small text-muted">
-                    To: <strong className="mc-filter-strong">{maxYear}</strong>
-                  </span>
-                </div>
-
-                <div
-                  className="mc-dualrange position-relative"
-                  style={{ height: 36 }}
-                >
-                  <input
-                    type="range"
-                    className="form-range position-absolute top-50 start-0 translate-middle-y w-100 mc-dualrange-input mc-dualrange-min"
-                    min={1980}
-                    max={now}
-                    step={1}
-                    value={minYear}
-                    onChange={(e) => {
-                      setPage(1);
-                      setMinYear(Math.min(Number(e.target.value), maxYear));
-                    }}
-                    style={{
-                      background: "transparent",
-                      pointerEvents: "none",
-                      zIndex: 2,
-                    }}
-                  />
-
-                  <input
-                    type="range"
-                    className="form-range position-absolute top-50 start-0 translate-middle-y w-100 mc-dualrange-input mc-dualrange-max"
-                    min={1980}
-                    max={now}
-                    step={1}
-                    value={maxYear}
-                    onChange={(e) => {
-                      setPage(1);
-                      setMaxYear(Math.max(Number(e.target.value), minYear));
-                    }}
-                    style={{
-                      background: "transparent",
-                      pointerEvents: "none",
-                      zIndex: 3,
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Language */}
-              <div className="mb-3">
-                <label className="form-label mc-filter-label">Language</label>
-                <div className="row">
-                  {["all", "en", "es", "fr", "pt", "ch", "ko", "ru"].map(
-                    (l) => (
-                      <div key={l} className="col-6 col-md-3">
-                        <label className="form-check mc-filter-check">
-                          <input
-                            className="form-check-input mc-check"
-                            type="radio"
-                            name="lang"
-                            value={l}
-                            checked={language === l}
-                            onChange={(e) => {
-                              setPage(1);
-                              setLanguage(e.target.value);
-                            }}
-                          />
-                          <span className="form-check-label text-uppercase ms-1">
-                            {l === "all" ? "All" : l}
-                          </span>
-                        </label>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* Degree (dropdown estilo mc-select) */}
-              <div className="mb-3">
-                <label className="form-label mc-filter-label">Degree</label>
-
-                <div className="dropdown mc-filter-select mc-select">
-                  <button
-                    className="btn btn-outline-secondary dropdown-toggle droptoogle-fix"
-                    type="button"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
-                  >
-                    <span className="mc-filter-select-text">
-                      {degree === "all" ? "All" : degree || "All"}
-                    </span>
-                  </button>
-
-                  <ul className="dropdown-menu mc-select">
-                    {["all", "Bachelor", "Master", "PhD"].map((d) => (
-                      <li key={d}>
-                        <button
-                          type="button"
-                          className={`dropdown-item ${
-                            degree === d ? "active" : ""
-                          }`}
-                          onClick={() => {
-                            setPage(1);
-                            setDegree(d);
-                          }}
-                        >
-                          {d === "all" ? "All" : d}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {/* Institution (dropdown estilo mc-select) */}
-              <div className="mb-3">
-                <label className="form-label mc-filter-label">
-                  Institution
-                </label>
-
-                <div className="dropdown mc-filter-select mc-select">
-                  <button
-                    className="btn btn-outline-secondary dropdown-toggle droptoogle-fix"
-                    type="button"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
-                  >
-                    <span className="mc-filter-select-text">
-                      {institutionFilter === "all"
-                        ? "All"
-                        : institutionFilter || "All"}
-                    </span>
-                  </button>
-
-                  <ul className="dropdown-menu mc-select">
-                    {institutionOptions.map((name) => (
-                      <li key={name}>
-                        <button
-                          type="button"
-                          className={`dropdown-item ${
-                            institutionFilter === name ? "active" : ""
-                          }`}
-                          onClick={() => {
-                            setPage(1);
-                            setInstitutionFilter(name);
-                          }}
-                        >
-                          {name === "all" ? "All" : name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {/* Reset */}
-              <div className="text-end d-flex justify-content-center align-items-center">
-                <button
-                  className="btn btn-outline-secondary btn-sm"
-                  type="button"
-                  onClick={() => {
-                    setQuery("");
-                    setLanguage("all");
-                    setDegree("all");
-                    setMinYear(1980);
-                    setMaxYear(now);
-                    setInstitutionFilter("all");
-                    setStatusFilter("all");
-                    setSortBy("recent");
-                    setPage(1);
-                  }}
-                >
-                  Clear filters
-                </button>
-              </div>
-            </div>
           </div>
         </div>
-      </div>
 
-      <div style={{ height: 10 }} />
+        {/* ===== GRID ===== */}
+        <div className="mcExploreGrid">
+          {/* Filters (hidden on mobile) */}
+          <aside className="mcFilters">
+            <div className="mcFiltersCard">
+              <div className="mcFiltersHead">
+                <div className="mcFiltersHeadLeft">
+                  <span className="mcFilterIcon" aria-hidden="true">
+                    <Funnel size={20} />
+                  </span>
+                  <span className="mcFiltersTitle">Filters</span>
+                </div>
+              </div>
+
+              <div className="mcFiltersBody">
+                {/* Status */}
+                <div className="mcField">
+                  <div className="mcFieldLabel">Status</div>
+                  <div className="mcPills">
+                    {[
+                      { key: "APPROVED", label: "Certified" },
+                      { key: "PENDING", label: "Pending" },
+                      { key: "all", label: "All" },
+                    ].map((s) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        className={`mcPill ${statusFilter === s.key ? "is-active" : ""}`}
+                        onClick={() => {
+                          setPage(1);
+                          setStatusFilter(s.key);
+                        }}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Year range */}
+                <div className="mcField">
+                  <div className="mcFieldLabel">
+                    Year Range:{" "}
+                    <span className="mcGreenStrong">
+                      {minYear} - {maxYear}
+                    </span>
+                  </div>
+
+                  <div className="mcRangeWrap">
+                    <input
+                      type="range"
+                      className="mcRange"
+                      min={1980}
+                      max={now}
+                      step={1}
+                      value={minYear}
+                      onChange={(e) => {
+                        setPage(1);
+                        setMinYear(Math.min(Number(e.target.value), maxYear));
+                      }}
+                    />
+                    <input
+                      type="range"
+                      className="mcRange mcRangeTop"
+                      min={1980}
+                      max={now}
+                      step={1}
+                      value={maxYear}
+                      onChange={(e) => {
+                        setPage(1);
+                        setMaxYear(Math.max(Number(e.target.value), minYear));
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Language dropdown */}
+                <div className="mcField">
+                  <div className="mcFieldLabel">Language</div>
+
+                  <div className="dropdown mcSelectDd">
+                    <button
+                      className="mcSelectBtn"
+                      type="button"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false"
+                    >
+                      <span className="mcSelectText">{languageLabel}</span>
+                      <ChevronDown size={18} />
+                    </button>
+
+                    <ul className="dropdown-menu mcDropdownMenu w-100">
+                      {["all", "en", "es", "fr", "pt", "ch", "ko", "ru"].map(
+                        (l) => (
+                          <li key={l}>
+                            <button
+                              type="button"
+                              className={`dropdown-item ${language === l ? "active" : ""}`}
+                              onClick={() => {
+                                setPage(1);
+                                setLanguage(l);
+                              }}
+                            >
+                              {l === "all" ? "All Languages" : l.toUpperCase()}
+                            </button>
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Degree dropdown */}
+                <div className="mcField">
+                  <div className="mcFieldLabel">Academic Degree</div>
+
+                  <div className="dropdown mcSelectDd">
+                    <button
+                      className="mcSelectBtn"
+                      type="button"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false"
+                    >
+                      <span className="mcSelectText">{degreeLabel}</span>
+                      <ChevronDown size={18} />
+                    </button>
+
+                    <ul className="dropdown-menu mcDropdownMenu w-100">
+                      {["all", "Bachelor", "Master", "PhD"].map((d) => (
+                        <li key={d}>
+                          <button
+                            type="button"
+                            className={`dropdown-item ${degree === d ? "active" : ""}`}
+                            onClick={() => {
+                              setPage(1);
+                              setDegree(d);
+                            }}
+                          >
+                            {d === "all" ? "All Degrees" : d}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Institution dropdown */}
+                <div className="mcField">
+                  <div className="mcFieldLabel">Institution</div>
+
+                  {/* ✅ en locked: label fijo y NO dropdown */}
+                  {isLockedInstitution ? (
+                    <div className="mcSelectBtn" style={{ cursor: "default" }}>
+                      <span className="mcSelectText">{instLabel}</span>
+                      <ChevronDown size={18} style={{ opacity: 0.35 }} />
+                    </div>
+                  ) : (
+                    <div className="dropdown mcSelectDd">
+                      <button
+                        className="mcSelectBtn"
+                        type="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                      >
+                        <span className="mcSelectText">{instLabel}</span>
+                        <ChevronDown size={18} />
+                      </button>
+
+                      <ul className="dropdown-menu mcDropdownMenu w-100">
+                        {institutionOptions.map((opt) => (
+                          <li key={opt.id}>
+                            <button
+                              type="button"
+                              className={`dropdown-item ${String(institutionFilter) === String(opt.id) ? "active" : ""}`}
+                              onClick={() => {
+                                setPage(1);
+                                setInstitutionFilter(opt.id); // ✅ ahora guarda ID
+                              }}
+                            >
+                              {opt.name}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {/* Clear */}
+                <div className="mcFiltersActions">
+                  <button
+                    className="mcClearBtn"
+                    type="button"
+                    onClick={() => {
+                      setQuery("");
+                      setLanguage("all");
+                      setDegree("all");
+                      setMinYear(1980);
+                      setMaxYear(now);
+
+                      // ✅ si está locked no se toca la institución (porque se fuerza por lockedId)
+                      if (!isLockedInstitution) setInstitutionFilter("all");
+
+                      setStatusFilter("all");
+                      setSortBy("recent");
+                      setPage(1);
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          {/* Results */}
+          <section className="mcResults">
+            <div className="mcCardsGrid">
+              {pageItems.map((t, idx) => {
+                const rowKey = `${t._id}-${start + idx}`;
+                const isLiked = liked[t._id] ?? t.userLiked ?? false;
+
+                const instNameRaw = getInstitutionName(t);
+                const year = Number.isFinite(Number(t.derivedYear))
+                  ? Number(t.derivedYear)
+                  : getYearFromThesis(t);
+
+                const sUI = statusUi(t.status);
+
+                const authorsText = Array.isArray(t.authors)
+                ? t.authors
+                    .map((a) =>
+                      typeof a === "string"
+                        ? a
+                        : `${a.lastname ?? ""} ${a.name ?? ""}`.trim(),
+                    )
+                    .filter(Boolean)
+                    .join(", ")
+                : "";
+
+                const degreeText = safeDegreeLabel(t.degree);
+                const citedCount = Number(t.citedCount ?? t.cited ?? 0);
+
+                return (
+                  <article key={rowKey} className={`mcCard ${sUI.tone}`}>
+                    <div className="mcCardTop">
+                      <div className="mcStatus">
+                        <span className={`mcStatusDot ${sUI.tone}`} />
+                        <span className="mcStatusLabel">{sUI.label}</span>
+                      </div>
+                      <div className="mcYear">
+                        {Number.isNaN(year) ? "—" : year}
+                      </div>
+                    </div>
+
+                    <div className="mcCardBody">
+                      <h3 className="mcCardTitle" title={t.title}>
+                        {t.title}
+                      </h3>
+
+                      <div className="mcCardAuthors mcMetaRow" title={authorsText}>
+                        <span className="mcMetaIcon" aria-hidden="true">
+                            
+                              <UserPen size={18} />
+                          </span>
+                          <span className="mcMetaText">
+                        {authorsText || "—"}
+                        </span>
+                      </div>
+
+                      <div className="mcCardMeta">
+                        <div className="mcMetaRow" title={instNameRaw}>
+                          <span className="mcMetaIcon" aria-hidden="true">
+                            {instNameRaw ? (
+                              <School size={18} />
+                            ) : (
+                              <Binoculars size={18} />
+                            )}
+                          </span>
+                          <span className="mcMetaText">
+                            {instNameRaw || "Independent Research"}
+                          </span>
+                        </div>
+
+                        <div className="mcMetaRow">
+                          <span className="mcMetaIcon" aria-hidden="true">
+                            <GraduationCap size={18} />
+                          </span>
+                          <span className="mcMetaText">
+                            {degreeText || "—"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {Array.isArray(t.keywords) && t.keywords.length > 0 && (
+                        <div className="mcTags">
+                          {t.keywords.slice(0, 3).map((k, kidx) => (
+                            <span
+                              key={`${rowKey}-kw-${kidx}`}
+                              className="mcTag"
+                            >
+                              {k}
+                            </span>
+                          ))}
+                          {t.keywords.length > 3 && (
+                            <span className="mcTag mcTagMuted">
+                              +{t.keywords.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="mcCardDivider" />
+
+                      <div className="mcCardFooter">
+                        <div className="mcMetrics">
+                          <span className="mcMetric">
+                            <span className="mcMetricIcon fix1" aria-hidden="true">
+                              <TextQuote size={18} />
+                            </span>
+                            <span className="mcMetricVal">{citedCount}</span>
+                            <span className="mcMetricLbl">cited</span>
+                          </span>
+
+                          <span className="mcMetric">
+                            <span className="mcMetricIcon fix1" aria-hidden="true">
+                              <Heart size={18} />
+                            </span>
+                            <span className="mcMetricVal">{t.likes ?? 0}</span>
+                            <span className="mcMetricLbl">likes</span>
+                          </span>
+                        </div>
+
+                        <div className="mcActions">
+                          <button
+                            type="button"
+                            className="mcIconBtn"
+                            title="View"
+                            onClick={() => handleView(t)}
+                          >
+                            <Eye size={18} />
+                          </button>
+
+                          <button
+                            type="button"
+                            className="mcIconBtn"
+                            title="Cite"
+                            onClick={() => handleQuote(t)}
+                          >
+                            <Quote size={18} />
+                          </button>
+
+                          {role !== "INSTITUTION" && (
+                            <button
+                              type="button"
+                              className={`mcIconBtn ${isLiked ? "is-liked" : ""}`}
+                              title={isLiked ? "Unlike" : "Like"}
+                              onClick={() => handleToggleLike(t._id)}
+                            >
+                              {isLiked ? (
+                                <HeartPlus size={18} />
+                              ) : (
+                                <HeartMinus size={18} />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+
+              {pageItems.length === 0 && (
+                <div className="mcMuted">
+                  {isLockedInstitution
+                    ? `No theses found for ${instLabel}.`
+                    : "No theses found."}
+                </div>
+              )}
+            </div>
+
+            <div className="mcPager">
+              <button
+                className="mcPagerBtn"
+                type="button"
+                onClick={() => go(1)}
+                disabled={currentPage === 1}
+              >
+                First
+              </button>
+
+              <div className="mcPagerNums">
+                {pagesArray.map((p) => (
+                  <button
+                    key={`p-${p}`}
+                    className={`mcPagerNum ${p === currentPage ? "is-active" : ""}`}
+                    type="button"
+                    onClick={() => go(p)}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                className="mcPagerBtn"
+                type="button"
+                onClick={() => go(totalPages)}
+                disabled={currentPage === totalPages}
+              >
+                Last
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
   );
 };

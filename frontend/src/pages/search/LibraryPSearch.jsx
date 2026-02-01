@@ -3,29 +3,38 @@ import ModalCertificate from "../../components/modal/ModalCertificate";
 import ModalView from "../../components/modal/ModalView";
 import axios from "axios";
 import { getAuthToken, getIdUser } from "../../utils/authSession";
+
 import {
-  EyeFillIcon,
-  HeartFill,
-  HeartOutline,
-  EditIcon,
-  CheckCircle,
-  CrossCircle,
-  TimeCircle,
-  InboxMin,
-  KeyPermission,
-} from "../../utils/icons";
+  Eye,
+  Copy,
+  Check,
+  BadgeCheck,
+  SquarePen,
+  ChevronDown,
+  ArrowDown01,
+  ArrowUp10,
+  ArrowDownAZ,
+  ArrowUpZA,
+  TextQuote,
+  Heart,
+  FingerprintPattern,
+  School,
+  GraduationCap,
+  Binoculars,
+  UserPen,
+} from "lucide-react";
 
 // ===================== CONFIG GLOBAL (API) =====================
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-// ===================== UI OPTIONS (Ordenamiento) =====================
+// ===================== SORT OPTIONS (con iconos como LibraryUSearch) =====================
 const SORT_OPTIONS = [
-  { key: "recent", label: "Most recent" },
-  { key: "oldest", label: "Oldest" },
-  { key: "title_az", label: "Title A–Z" },
-  { key: "title_za", label: "Title Z–A" },
-  { key: "likes_most", label: "Most likes" },
-  { key: "likes_least", label: "Least likes" },
+  { key: "recent", label: "Most recent", icon: <ArrowDown01 size={18} /> },
+  { key: "oldest", label: "Oldest", icon: <ArrowUp10 size={18} /> },
+  { key: "title_az", label: "Title A–Z", icon: <ArrowDownAZ size={18} /> },
+  { key: "title_za", label: "Title Z–A", icon: <ArrowUpZA size={18} /> },
+  { key: "likes_most", label: "Most likes", icon: <Heart size={18} /> },
+  { key: "likes_least", label: "Least likes", icon: <Heart size={18} /> },
 ];
 
 // institution display (si viene string no lo tocamos)
@@ -36,7 +45,7 @@ const getInstitutionName = (thesis) => {
   return inst?.name || "";
 };
 
-//  UI validation: si no hay institución => "Investigación Independiente"
+// UI validation: si no hay institución => "Investigación Independiente"
 function getInstitutionUI(thesis) {
   const instName = String(getInstitutionName(thesis) || "").trim();
   const hasInstitution = Boolean(instName);
@@ -53,7 +62,6 @@ const buildAuthorsSearchString = (authors) => {
   return authors
     .map((a) => {
       if (typeof a === "string") return a;
-
       if (a && typeof a === "object") {
         const parts = [];
         if (a.name) parts.push(a.name);
@@ -61,7 +69,6 @@ const buildAuthorsSearchString = (authors) => {
         if (a.email) parts.push(a.email);
         return parts.join(" ");
       }
-
       return "";
     })
     .join(" ")
@@ -74,36 +81,24 @@ const getTimeForSort = (t) => {
     const ms = new Date(t.date).getTime();
     if (!Number.isNaN(ms)) return ms;
   }
-
   if (t?.createdAt) {
     const ms = new Date(t.createdAt).getTime();
     if (!Number.isNaN(ms)) return ms;
   }
-
   const y = Number(t?.year);
   if (Number.isFinite(y) && y > 0) {
     const ms = new Date(`${y}-01-01T00:00:00.000Z`).getTime();
     if (!Number.isNaN(ms)) return ms;
   }
-
   return 0;
 };
 
 function getAnyId(v) {
   if (!v) return null;
-
-  // si viene tipo { $oid: "..." }
   if (typeof v === "object" && v.$oid) return String(v.$oid);
-
-  // si viene populated { _id: "..."} o {_id: {$oid:"..."}}
   if (typeof v === "object" && v._id) return getAnyId(v._id);
-
-  // si viene { id: "..." }
   if (typeof v === "object" && v.id) return String(v.id);
-
-  // si viene string
   if (typeof v === "string") return v;
-
   return null;
 }
 
@@ -111,16 +106,61 @@ function getAnyId(v) {
 function thesisBelongsToUser(thesis, userId) {
   if (!userId) return false;
 
-  // 1) dueño real (quien subió)
   const uploadedById = getAnyId(thesis?.uploadedBy);
   if (uploadedById && String(uploadedById) === String(userId)) return true;
 
-  // 2) fallback: authors incluye el userId
   const authors = Array.isArray(thesis?.authors) ? thesis.authors : [];
   return authors.some((a) => {
     const aid = getAnyId(a);
     return aid && String(aid) === String(userId);
   });
+}
+
+// helpers status
+const normalizeStatus = (s) => String(s || "").toUpperCase();
+
+// ✅ tone como LibraryUSearch + caso especial "Not certified" (independiente + pending/rejected)
+const getCardTone = (thesis) => {
+  const status = normalizeStatus(thesis?.status);
+  const instUI = getInstitutionUI(thesis);
+
+  // especial: independiente + NO aprobado => gris (notcertified)
+  if (!instUI.hasInstitution && status !== "APPROVED") return "notcertified";
+
+  if (status === "APPROVED") return "certified";
+  if (status === "REJECTED") return "rejected";
+  return "pending";
+};
+
+// ✅ label superior
+const getStatusLabel = (thesis) => {
+  const status = normalizeStatus(thesis?.status);
+  const instUI = getInstitutionUI(thesis);
+
+  if (!instUI.hasInstitution && status !== "APPROVED") return "Not certified";
+  if (status === "APPROVED") return "Verified";
+  if (status === "REJECTED") return "Rejected";
+  return "Pending";
+};
+
+// clipboard (igual que LibraryUSearch)
+async function copyToClipboard(text) {
+  try {
+    if (!text) return false;
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
 }
 
 // ===================== COMPONENT: LibraryPSearch =====================
@@ -129,20 +169,25 @@ const LibraryPSearch = () => {
   const userId = useMemo(() => getIdUser(), []);
 
   const [theses, setTheses] = useState([]);
-  const [liked, setLiked] = useState({});
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
+  // top row controls
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("recent");
 
+  // pagination
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 12; // ✅ para layout tipo explorer (3 columnas)
 
+  // modal
   const [certificateData, setCertificateData] = useState(null);
   const [selectedThesis, setSelectedThesis] = useState(null);
   const [selectedThesisView, setSelectedThesisView] = useState(null);
+
+  // copy toast (hash)
+  const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
     const fetchMyTheses = async () => {
@@ -151,9 +196,7 @@ const LibraryPSearch = () => {
         setLoadError("");
 
         if (!userId) {
-          // actor != user o sesión corrupta
           setTheses([]);
-          setLiked({});
           return;
         }
 
@@ -167,7 +210,6 @@ const LibraryPSearch = () => {
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
-
         const onlyMine = data.filter((t) => thesisBelongsToUser(t, userId));
 
         const mapped = onlyMine.map((t) => {
@@ -178,19 +220,22 @@ const LibraryPSearch = () => {
               ? t.likedBy.some((u) => String(getAnyId(u)) === String(userId))
               : false;
 
-          return { ...t, likes: likesCount, userLiked };
+          return {
+            ...t,
+            likes: likesCount,
+            userLiked,
+            citedCount: Number(t.citedCount ?? t.cited ?? 0),
+          };
         });
 
         setTheses(mapped);
 
         const likedMap = {};
         mapped.forEach((t) => (likedMap[t._id] = !!t.userLiked));
-        setLiked(likedMap);
       } catch (err) {
         console.error("Error loading user theses:", err);
         setLoadError("Error loading theses. Please try again later.");
         setTheses([]);
-        setLiked({});
       } finally {
         setLoading(false);
       }
@@ -285,6 +330,7 @@ const LibraryPSearch = () => {
 
   const go = (p) => setPage(p);
 
+  // ===================== ACTIONS =====================
   const handleView = (thesis) => {
     setSelectedThesisView(thesis);
 
@@ -298,12 +344,14 @@ const LibraryPSearch = () => {
     modal?.show();
   };
 
-  const handlePermission = async (thesis) => {
-    console.log("Permission thesis:", thesis);
-  };
-
   const handleEdit = async (thesis) => {
     console.log("Edit thesis:", thesis);
+  };
+
+  const handleRequest = async (thesis) => {
+    // demo por ahora
+    alert("Request Log sent (demo).");
+    console.log("Request Log thesis:", thesis);
   };
 
   const handleCertificate = async (thesis) => {
@@ -325,38 +373,6 @@ const LibraryPSearch = () => {
     }
   };
 
-  const handleToggleLike = async (id) => {
-    if (!token) return;
-
-    try {
-      const headers = { Authorization: `Bearer ${token}` };
-
-      const res = await axios.post(
-        `${API_BASE_URL}/api/theses/${id}/like`,
-        null,
-        {
-          headers,
-        },
-      );
-
-      const { thesis, liked: isLiked } = res.data || {};
-
-      if (thesis && thesis._id) {
-        setTheses((prev) =>
-          prev.map((t) =>
-            String(t._id) === String(thesis._id)
-              ? { ...t, likes: Number(thesis.likes ?? 0), userLiked: !!isLiked }
-              : t,
-          ),
-        );
-      }
-
-      setLiked((prev) => ({ ...prev, [id]: !!isLiked }));
-    } catch (err) {
-      console.error("Error toggling like:", err);
-    }
-  };
-
   const openCertificateModal = () => {
     const el = document.getElementById("modalCertificate");
     if (!el) return;
@@ -365,19 +381,22 @@ const LibraryPSearch = () => {
     modal?.show();
   };
 
+  // ===================== UI STATES =====================
   if (loading) {
     return (
-      <div className="container py-2">
-        <div className="text-muted">Loading theses…</div>
+      <div className="mcExploreWrap">
+        <div className="mcExploreContainer">
+          <div className="mcMuted">Loading theses…</div>
+        </div>
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="container py-2">
-        <div className="alert alert-danger" role="alert">
-          {loadError}
+      <div className="mcExploreWrap">
+        <div className="mcExploreContainer">
+          <div className="mcAlert">{loadError}</div>
         </div>
       </div>
     );
@@ -385,32 +404,44 @@ const LibraryPSearch = () => {
 
   if (theses.length === 0) {
     return (
-      <div className="container py-2">
-        <div
-          className="d-flex justify-content-center align-items-center"
-          style={{ minHeight: "55vh" }}
-        >
-          <div className="text-center">
-            {InboxMin}
-            <h3 className="m-0" style={{ color: "#b6b7ba" }}>
-              <i>The user currently has no theses added.</i>
-            </h3>
-          </div>
+      <div className="mcExploreWrap">
+        <div className="mcExploreContainer">
+          <div className="mcMuted">The user currently has no theses added.</div>
         </div>
       </div>
     );
   }
 
+  const activeSortOption =
+    SORT_OPTIONS.find((o) => o.key === sortBy) || SORT_OPTIONS[0];
+
   return (
-    <div className="container py-2 mc-thesis-page">
+    <div className="mcExploreWrap">
       <ModalView thesis={selectedThesisView} />
 
-      {/* Search + Sort */}
-      <div className="row g-3 align-items-center mb-3">
-        <div className="col-lg-8">
-          <div className="d-flex gap-2">
+      <div className="mcExploreContainer">
+        {/* ===================== TOP ROW (one line, como LibraryUSearch) ===================== */}
+        <div className="mcTopRow mcLibTopRow">
+          {/* Search */}
+          <div className="mcSearch mcSearchSm">
+            <span className="mcSearchIcon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+                <path
+                  d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path
+                  d="M16.4 16.4 21 21"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+
             <input
-              className="form-control"
+              className="mcSearchInput"
               placeholder="Search your theses by title, author, keyword or institution…"
               value={query}
               onChange={(e) => {
@@ -418,239 +449,318 @@ const LibraryPSearch = () => {
                 setQuery(e.target.value);
               }}
             />
+          </div>
 
-            <div className="dropdown mc-sort mc-select">
-              <button
-                className="btn btn-outline-secondary dropdown-toggle droptoogle-fixv"
-                type="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                Sort by:{" "}
-                {SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "—"}
-              </button>
+          {/* Count */}
+          <div className="mcTopMeta mcTopMetaInline">
+            <span className="mcCountStrong">{filteredOrdered.length}</span>
+            <span className="mcCountText">
+              thes{filteredOrdered.length !== 1 ? "es found" : "is found"}
+            </span>
+          </div>
 
-              <ul className="dropdown-menu dropdown-menu-end mc-select">
-                {SORT_OPTIONS.map((opt) => (
-                  <li key={opt.key}>
-                    <button
-                      type="button"
-                      className={`dropdown-item ${
-                        sortBy === opt.key ? "active" : ""
-                      }`}
-                      onClick={() => {
-                        setSortBy(opt.key);
-                        setPage(1);
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {/* Sort */}
+          <div className="mcSortWrap dropdown">
+            <button
+              className="mcSortBtn"
+              type="button"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+              title="Sort"
+            >
+              <span className="mcSortIcon" aria-hidden="true">
+                {activeSortOption.icon}
+              </span>
+              <span className="mcSortLabelDesktop">
+                {activeSortOption.label}
+              </span>
+            </button>
+
+            <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
+              {SORT_OPTIONS.map((opt) => (
+                <li key={opt.key}>
+                  <button
+                    className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
+                    onClick={() => {
+                      setSortBy(opt.key);
+                      setPage(1);
+                    }}
+                    type="button"
+                  >
+                    {opt.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
+        {/* ===================== GRID (3 columns) ===================== */}
+        <section className="mcResults">
+          <div className="mcCardsGrid mcCardsGrid3">
+            {pageItems.map((t, idx) => {
+              const rowKey = `${t._id}-${start + idx}`;
+              const instUI = getInstitutionUI(t);
+              const status = normalizeStatus(t.status);
+              const isApproved = status === "APPROVED";
+              const isPendingOrRejected =
+                status === "PENDING" || status === "REJECTED";
 
-        <div className="col-lg-4 text-lg-end">
-          <span className="text-muted">
-            {filteredOrdered.length} result
-            {filteredOrdered.length !== 1 ? "s" : ""} · Page {currentPage} of{" "}
-            {totalPages}
-          </span>
-        </div>
-      </div>
+              const tone = getCardTone(t); // certified | pending | rejected | notcertified
+              const statusLabel = getStatusLabel(t);
 
-      {/* LIST */}
-      <div className="row">
-        <div className="col-12 d-flex flex-column gap-3">
-          {pageItems.map((t, idx) => {
-            const rowKey = `${t._id}-${start + idx}`;
-            const isLiked = liked[t._id] ?? t.userLiked ?? false;
+              const authorsText = Array.isArray(t.authors)
+                ? t.authors
+                    .map((a) =>
+                      typeof a === "string"
+                        ? a
+                        : `${a.lastname ?? ""} ${a.name ?? ""}`.trim(),
+                    )
+                    .filter(Boolean)
+                    .join(", ")
+                : "";
 
-            const instUI = getInstitutionUI(t);
-            const status = String(t.status || "").toUpperCase();
-            const isApproved = status === "APPROVED";
-            const isRejected = status === "REJECTED";
+              const fileHash = String(t.fileHash || "").trim();
+              const citedCount = Number(t.citedCount ?? 0);
+              const likesCount = Number(t.likes ?? 0);
+              const instNameRaw = getInstitutionName(t);
 
-            return (
-              <div key={rowKey} className="card mc-thesis-card shadow-sm">
-                <div className="card-body d-flex align-items-start gap-3 mc-thesis-card-body">
-                  {/* Info */}
-                  <div className="flex-grow-1" style={{ minWidth: 0 }}>
-                    <h5 className="m-0 mc-thesis-title">{t.title}</h5>
+              return (
+                <article key={rowKey} className={`mcCard ${tone} mcLibCard`}>
+                  {/* barrita arriba */}
+                  <div className={`mcCardBar mcCardBar--${tone}`} />
 
-                    <div className="text-muted small mt-1">
-                      <span className="mc-label-muted">Authors:</span>{" "}
-                      {Array.isArray(t.authors)
-                        ? t.authors
-                            .map((a) =>
-                              typeof a === "string"
-                                ? a
-                                : `${a.lastname ?? ""} ${a.name ?? ""}`.trim(),
-                            )
-                            .join(", ")
-                        : ""}
-                    </div>
-
-                    <div className="text-muted small">
-                      <span>{instUI.label}</span> {instUI.value}
-                      {instUI.hasInstitution && t.department
-                        ? ` · ${t.department}`
-                        : ""}
-                    </div>
-
-                    <div className="text-muted small">
-                      <span className="mc-label-muted">File Hash:</span>{" "}
-                      {t.fileHash ?? "—"}
+                  <div className="mcCardTop">
+                    <div className="mcStatus">
+                      <span className={`mcStatusDot ${tone}`} />
+                      <span className="mcStatusLabel">{statusLabel}</span>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="d-flex flex-column gap-2">
-                    {/* Row 1 */}
-                    <div className="d-flex align-items-center gap-2 justify-content-end">
-                      <button
-                        type="button"
-                        className="btn btn-memory"
-                        title="View"
-                        onClick={() => handleView(t)}
-                      >
-                        {EyeFillIcon}
-                      </button>
-                      {isApproved ? (
-                        <a
-                          className="btn btn-warning"
-                          title="Permission"
-                          onClick={() => handlePermission(t)}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {KeyPermission}
-                        </a>
-                      ) : (
-                        <a
-                          href={`http://localhost:3000/update/${t._id}`}
-                          className="btn btn-warning"
-                          title="Edit"
-                          onClick={() => handleEdit(t)}
-                        >
-                          {EditIcon}
-                        </a>
-                      )}
+                  <div className="mcCardBody">
+                    {/* ✅ info de la card: igual (título/autores/institución/department/hash/likes/cited) */}
+                    <h3 className="mcCardTitle" title={t.title}>
+                      {t.title}
+                    </h3>
 
-                      <button
-                        type="button"
-                        className="btn btn-danger btn-fix-like d-flex align-items-center gap-1"
-                        title={isLiked ? "Unlike" : "Like"}
-                        onClick={() => handleToggleLike(t._id)}
-                      >
-                        {isLiked ? HeartFill : HeartOutline}
-                        <span className="mc-like-count">{t.likes ?? 0}</span>
-                      </button>
+                    <div
+                      className="mcCardAuthors mcMetaRow"
+                      title={authorsText}
+                    >
+                      <span className="mcMetaIcon" aria-hidden="true">
+                        <UserPen size={18} />
+                      </span>
+                      <span className="mcMetaText">{authorsText || "—"}</span>
                     </div>
-                    {!instUI.hasInstitution ? (
-                      <button
-                        type="button"
-                        className="btn btn-secondary w-100 d-flex align-items-center justify-content-center gap-2"
-                        onClick={() => {
-                          // aquí puedes abrir modal / navegar / llamar endpoint
-                          alert("Solicitud de registro enviada (demo).");
+
+                    <div className="mcCardMeta">
+                      <div className="mcMetaRow" title={instNameRaw}>
+                        <span className="mcMetaIcon" aria-hidden="true">
+                          {instNameRaw ? (
+                            <School size={18} />
+                          ) : (
+                            <Binoculars size={18} />
+                          )}
+                        </span>
+                        <span className="mcMetaText">
+                          {instNameRaw || "Independent Research"}
+                        </span>
+                      </div>
+
+                      <div className="mcMetaRow">
+                        <span className="mcMetaIcon" aria-hidden="true">
+                          <GraduationCap size={18} />
+                        </span>
+                        <span className="mcMetaText">{t.degree || "—"}</span>
+                      </div>
+                    </div>
+
+                    {/* ✅ Hash estilo LibraryUSearch */}
+                    <div
+                      className="mcHashCopyWrap mt-3 mb-3"
+                      title={fileHash || ""}
+                    >
+                      <span className="mcHashPrefix">
+                        <FingerprintPattern size={18} />
+                      </span>
+
+                      <span
+                        className="mcHashValue"
+                        onClick={(e) => {
+                          const sel = window.getSelection();
+                          const range = document.createRange();
+                          range.selectNodeContents(e.currentTarget);
+                          sel.removeAllRanges();
+                          sel.addRange(range);
                         }}
                       >
-                        {CrossCircle}
-                        <span className="fw-semibold t-white">Request Log</span>
-                      </button>
-                    ) : isApproved ? (
+                        {fileHash || "—"}
+                      </span>
+
                       <button
+                        className={`mcHashCopyBtn ${copiedId === String(t._id) ? "is-copied" : ""}`}
                         type="button"
-                        className="btn btn-memory w-100 d-flex align-items-center justify-content-center gap-2"
-                        onClick={() => handleCertificate(t)}
+                        title="Copy file hash"
+                        onClick={async () => {
+                          const ok = await copyToClipboard(fileHash);
+                          if (ok) {
+                            setCopiedId(String(t._id));
+                            setTimeout(() => setCopiedId(null), 1400);
+                          }
+                        }}
+                        disabled={!fileHash}
                       >
-                        {CheckCircle}
-                        <span className="fw-semibold t-white">
-                          See Certification
-                        </span>
+                        {copiedId === String(t._id) ? (
+                          <Check size={16} />
+                        ) : (
+                          <Copy size={16} />
+                        )}
                       </button>
-                    ) : isRejected ? (
-                      <button
-                        type="button"
-                        className="btn btn-danger w-100 d-flex align-items-center justify-content-center gap-2"
-                      >
-                        {CrossCircle}
-                        <span className="fw-semibold t-white">
-                          Not available
+                    </div>
+
+                    <div className="mcCardDivider" />
+
+                    {/* ✅ cited + likes (igual) + ✅ ACTIONS (aquí van tus reglas) */}
+                    <div className="mcCardFooter">
+                      <div className="mcMetrics">
+                        <span className="mcMetric">
+                          <span
+                            className="mcMetricIcon fix1"
+                            aria-hidden="true"
+                          >
+                            <TextQuote size={18} />
+                          </span>
+                          <span className="mcMetricVal">{citedCount}</span>
+                          <span className="mcMetricLbl ">cited</span>
                         </span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn-warning w-100 d-flex align-items-center justify-content-center gap-2"
-                      >
-                        {TimeCircle}
-                        <span className="fw-semibold t-white">
-                          Under Review
+
+                        <span className="mcMetric">
+                          <span
+                            className="mcMetricIcon fix1"
+                            aria-hidden="true"
+                          >
+                            <Heart size={18} />
+                          </span>
+                          <span className="mcMetricVal">{likesCount}</span>
+                          <span className="mcMetricLbl">likes</span>
                         </span>
-                      </button>
-                    )}
+                      </div>
+
+                      <div className="mcActions">
+                        {/* ✅ View (se mantiene) */}
+                        <button
+                          type="button"
+                          className="mcIconBtn"
+                          title="View"
+                          onClick={() => handleView(t)}
+                        >
+                          <Eye size={18} />
+                        </button>
+
+                        {/* ✅ Segundo botón depende de reglas */}
+                        {isApproved ? (
+                          // ✅ si está aprobada: BadgeCheck verde (como LibraryUSearch)
+                          <button
+                            type="button"
+                            className="mcStatusChip mcStatusChip--approved is-locked"
+                            title="Verified"
+                            onClick={() => handleCertificate(t)}
+                          >
+                            <BadgeCheck size={18} />
+                          </button>
+                        ) : instUI.hasInstitution && isPendingOrRejected ? (
+                          // ✅ si es de institución y pending/rejected: SquarePen (blanco) con mismo estilo que View
+                          <a
+                            href={`http://localhost:3000/update/${t._id}`}
+                            className="mcIconBtn"
+                            title="Edit thesis"
+                            onClick={() => handleEdit(t)}
+                          >
+                            <SquarePen size={18} />
+                          </a>
+                        ) : !instUI.hasInstitution && isPendingOrRejected ? (
+                          // ✅ independiente + pending/rejected: dropdown (Edit Thesis | Request Log)
+                          <div className="dropdown">
+                            <button
+                              type="button"
+                              className="mcIconBtn"
+                              data-bs-toggle="dropdown"
+                              aria-expanded="false"
+                              title="Actions"
+                            >
+                              <ChevronDown size={18} />
+                            </button>
+
+                            <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
+                              <li>
+                                <a
+                                  className="dropdown-item"
+                                  href={`http://localhost:3000/update/${t._id}`}
+                                  onClick={() => handleEdit(t)}
+                                >
+                                  Edit Thesis
+                                </a>
+                              </li>
+
+                              <li>
+                                <button
+                                  type="button"
+                                  className="dropdown-item"
+                                  onClick={() => handleRequest(t)}
+                                >
+                                  Request Log
+                                </button>
+                              </li>
+                            </ul>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                </article>
+              );
+            })}
 
-          {pageItems.length === 0 && (
-            <div className="text-muted text-center py-4">No theses found.</div>
-          )}
+            {pageItems.length === 0 && (
+              <div className="mcMuted">No theses found.</div>
+            )}
+          </div>
 
+          {/* Pagination (estilo Memory-Chain) */}
           {filteredOrdered.length > 0 && (
-            <nav
-              aria-label="Theses pagination"
-              className="mt-3 d-flex justify-content-center"
-            >
-              <ul className="pagination mc-pagination">
-                <li
-                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-                >
-                  <button
-                    className="page-link"
-                    onClick={() => go(1)}
-                    type="button"
-                  >
-                    First
-                  </button>
-                </li>
+            <div className="mcPager">
+              <button
+                className="mcPagerBtn"
+                type="button"
+                onClick={() => go(1)}
+                disabled={currentPage === 1}
+              >
+                First
+              </button>
 
+              <div className="mcPagerNums">
                 {pagesArray.map((p) => (
-                  <li
-                    key={`p-${p}`}
-                    className={`page-item ${p === currentPage ? "active" : ""}`}
-                  >
-                    <button
-                      className="page-link"
-                      onClick={() => go(p)}
-                      type="button"
-                    >
-                      {p}
-                    </button>
-                  </li>
-                ))}
-
-                <li
-                  className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}
-                >
                   <button
-                    className="page-link"
-                    onClick={() => go(totalPages)}
+                    key={`p-${p}`}
+                    className={`mcPagerNum ${p === currentPage ? "is-active" : ""}`}
                     type="button"
+                    onClick={() => go(p)}
                   >
-                    Last
+                    {p}
                   </button>
-                </li>
-              </ul>
-            </nav>
+                ))}
+              </div>
+
+              <button
+                className="mcPagerBtn"
+                type="button"
+                onClick={() => go(totalPages)}
+                disabled={currentPage === totalPages}
+              >
+                Last
+              </button>
+            </div>
           )}
-        </div>
+        </section>
       </div>
 
       {/* ModalCertificate */}
