@@ -3,7 +3,7 @@ import { getThesisCertificate } from "../controllers/certificate.controller";
 
 const router = Router();
 
-// Obtiene el certificado de una tesis publico
-router.get("/theses/:id/certificate", getThesisCertificate);
+// Certificado de una tesis (si no tiene txHash devuelve 404)
+router.get("/thesis/:id", getThesisCertificate);
 
 export default router;

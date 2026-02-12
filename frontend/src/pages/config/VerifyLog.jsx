@@ -1,29 +1,29 @@
 import React from "react";
 import NavbarReal from "../../components/navbar/NavbarReal";
 import Layout from "../../components/layout/LayoutPrivado";
-import FormProfile from "../../components/form/FormProfile";
-import { User } from "lucide-react";
+import Verify from "../simple/Verify";
+import { ShieldCheck } from "lucide-react";
 
 // Componente: Página de Perfil Personal
-const ProfilePersonal = () => {
+const VerifyLog = () => {
   return (
     <div
       className="d-flex"
-      style={{ minHeight: "100vh", background: "#f6f7f9" }}
+      style={{ minHeight: "100vh"}}
     >
       <NavbarReal />
       <div className="flex-grow-1">
         <Layout
-          title="Profile"
+          title="Verify Certificate"
           showID
-          icon={<User />
+          icon={<ShieldCheck />
           }
         >
-          <FormProfile />
+          <Verify />
         </Layout>
       </div>
     </div>
   );
 };
 
-export default ProfilePersonal;
+export default VerifyLog;

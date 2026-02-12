@@ -22,16 +22,15 @@ function safeJsonParse<T>(value: unknown): T | undefined {
 }
 
 // GET /api/institutions
-// Lista instituciones (sin password) y agrega logoUrl para el frontend
 export const getAllInstitutions = async (_req: Request, res: Response) => {
   try {
-    const institutions = await Institution.find().select("-password"); // evita exponer password
+    const institutions = await Institution.find().select("-password");
     const mapped = institutions.map((inst) => {
       const obj: any = inst.toObject();
       return {
         ...obj,
-        logoUrl: buildLogoUrl(obj.logo), // URL lista para renderizar
-        logo: undefined, // no mandes el buffer crudo por la API
+        logoUrl: buildLogoUrl(obj.logo),
+        logo: undefined,
       };
     });
     res.json(mapped);
@@ -42,11 +41,10 @@ export const getAllInstitutions = async (_req: Request, res: Response) => {
 };
 
 // GET /api/institutions/:id
-// Obtiene una institución por ID (sin password) + logoUrl
 export const getInstitutionById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const institution = await Institution.findById(id).select("-password"); // no exponer password
+    const institution = await Institution.findById(id).select("-password");
     if (!institution) {
       return res.status(404).json({ message: "Institution not found" });
     }
@@ -54,8 +52,8 @@ export const getInstitutionById = async (req: Request, res: Response) => {
     const obj: any = institution.toObject();
     return res.json({
       ...obj,
-      logoUrl: buildLogoUrl(obj.logo), // URL base64 para mostrar logo
-      logo: undefined, // no enviar binario
+      logoUrl: buildLogoUrl(obj.logo),
+      logo: undefined,
     });
   } catch (err) {
     console.error(err);
@@ -63,35 +61,32 @@ export const getInstitutionById = async (req: Request, res: Response) => {
   }
 };
 
-// PUT /api/institutions/:id  (multipart: logo + fields)
-// Actualiza perfil institucional (con control de permisos)
+// PUT /api/institutions/:id
 export const updateInstitution = async (req: AuthRequest, res: Response) => {
   try {
     const { id: institutionId } = req.params;
 
-    // --------- PERMISOS ---------
-    // Debe venir autenticado como institución o como usuario asociado
     if (!req.institution && !req.user) {
       return res.status(401).json({ message: "No autenticado" });
     }
 
-    // Si es institución: solo puede editarse a sí misma
     if (req.institution) {
       if (req.institution._id.toString() !== institutionId) {
-        return res.status(403).json({ message: "No puedes modificar esta institución" });
+        return res
+          .status(403)
+          .json({ message: "No puedes modificar esta institución" });
       }
     } else if (req.user) {
-      // Si es usuario: debe estar asociado a esa institución
       const isMember = (req.user.institutions ?? []).some(
         (instId) => instId.toString() === institutionId
       );
       if (!isMember) {
-        return res.status(403).json({ message: "No puedes modificar esta institución" });
+        return res
+          .status(403)
+          .json({ message: "No puedes modificar esta institución" });
       }
     }
 
-    // --------- CAMPOS PERMITIDOS ---------
-    // Lista blanca para evitar updates peligrosos/innecesarios
     const allowedFields = [
       "name",
       "description",
@@ -104,6 +99,7 @@ export const updateInstitution = async (req: AuthRequest, res: Response) => {
       "type",
       "isMember",
       "canVerify",
+      "wallet", // ✅ nuevo
       "removeImg",
     ] as const;
 
@@ -114,48 +110,42 @@ export const updateInstitution = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // ✅ Parsear arrays si vienen como string (FormData)
     const parsedDepts = safeJsonParse<string[]>(updates.departments);
     if (parsedDepts) updates.departments = parsedDepts;
 
     const parsedDomains = safeJsonParse<string[]>(updates.emailDomains);
     if (parsedDomains) updates.emailDomains = parsedDomains;
 
-    // Normalizaciones básicas para guardar limpio
     if (updates.name) updates.name = String(updates.name).trim();
     if (updates.country) updates.country = String(updates.country).trim();
     if (updates.email) updates.email = String(updates.email).trim().toLowerCase();
     if (updates.website) updates.website = String(updates.website).trim();
+    if (updates.wallet !== undefined) updates.wallet = String(updates.wallet).trim();
 
-    // Bandera para borrar el logo (acepta 1/true)
     const removeImg =
       String(req.body.removeImg || "").toLowerCase() === "1" ||
       String(req.body.removeImg || "").toLowerCase() === "true";
 
-    // Si pidieron borrar el logo, se limpia del documento
     if (removeImg) {
-      updates.logo = undefined;              // o null según tu manejo
+      updates.logo = undefined;
     }
 
-    // ✅ Si llega archivo (logo), se guarda como binario en MongoDB
     if (req.file) {
       updates.logo = {
-        data: req.file.buffer, // buffer del archivo subido
-        contentType: req.file.mimetype, // tipo de imagen (png/jpg/etc)
+        data: req.file.buffer,
+        contentType: req.file.mimetype,
       };
     }
 
-    // Si no hay nada que actualizar, corta aquí
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: "No hay campos para actualizar" });
     }
 
-    // Actualiza institución, valida campos y devuelve el doc actualizado
     const updated = await Institution.findByIdAndUpdate(
       institutionId,
-      { $set: updates, ...(removeImg ? { $unset: { logo: 1 } } : {}) }, // unset elimina el campo
-      { new: true, runValidators: true } // devuelve el nuevo doc y valida schema
-    ).select("-password"); // nunca exponer password
+      { $set: updates, ...(removeImg ? { $unset: { logo: 1 } } : {}) },
+      { new: true, runValidators: true }
+    ).select("-password");
 
     if (!updated) {
       return res.status(404).json({ message: "Institution not found" });
@@ -164,8 +154,8 @@ export const updateInstitution = async (req: AuthRequest, res: Response) => {
     const obj: any = updated.toObject();
     return res.json({
       ...obj,
-      logoUrl: buildLogoUrl(obj.logo), // URL base64 para frontend
-      logo: undefined, // no enviar binario
+      logoUrl: buildLogoUrl(obj.logo),
+      logo: undefined,
     });
   } catch (err: any) {
     console.error("Error updating institution profile:", err);
@@ -176,12 +166,13 @@ export const updateInstitution = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// ... students/theses quedan igual
-// Devuelve los usuarios asociados a una institución (sin password)
+// GET /api/institutions/:id/students
 export const getInstitutionStudents = async (req: Request, res: Response) => {
   try {
     const { id: institutionId } = req.params;
-    const students = await User.find({ institutions: institutionId }).select("-password"); // no exponer password
+    const students = await User.find({ institutions: institutionId }).select(
+      "-password"
+    );
     res.json(students);
   } catch (err) {
     console.error(err);
@@ -189,7 +180,7 @@ export const getInstitutionStudents = async (req: Request, res: Response) => {
   }
 };
 
-// Devuelve las tesis asociadas a una institución + datos básicos del uploader
+// GET /api/institutions/:id/theses
 export const getInstitutionTheses = async (req: Request, res: Response) => {
   try {
     const { id: institutionId } = req.params;
@@ -201,5 +192,85 @@ export const getInstitutionTheses = async (req: Request, res: Response) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error fetching theses" });
+  }
+};
+
+/**
+ * ✅ NUEVO:
+ * Una institución aprueba/rechaza a un estudiante para SU institución
+ * - Requiere auth como INSTITUTION
+ * - Actualiza user.educationalEmails[].status para esa institución
+ *
+ * Body:
+ * {
+ *   userId: string,
+ *   status: "PENDING" | "APPROVED" | "REJECTED",
+ *   email?: string,              // opcional: actualizar/guardar correo
+ *   institutionKey?: string      // opcional: si en tu array guardas un string específico
+ * }
+ */
+export const setStudentInstitutionStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.institution) {
+      return res.status(401).json({ message: "No autorizado (institución)" });
+    }
+
+    const { id: institutionId } = req.params;
+
+    // Solo puede gestionar su propia institución
+    if (req.institution._id.toString() !== institutionId) {
+      return res.status(403).json({ message: "No puedes gestionar esta institución" });
+    }
+
+    const { userId, status, email, institutionKey } = req.body as {
+      userId: string;
+      status: "PENDING" | "APPROVED" | "REJECTED";
+      email?: string;
+      institutionKey?: string;
+    };
+
+    if (!userId) return res.status(400).json({ message: "userId requerido" });
+    if (!["PENDING", "APPROVED", "REJECTED"].includes(status)) {
+      return res.status(400).json({ message: "status inválido" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    // Cómo identificas la institución dentro del array:
+    // - por institutionKey (si tu frontend lo manda)
+    // - o por nombre de institución
+    // - o por institutionId en string (si decides guardar _id como string)
+    const keyCandidates = [
+      institutionKey?.trim(),
+      req.institution.name?.trim(),
+      req.institution._id.toString(),
+    ].filter(Boolean) as string[];
+
+    user.educationalEmails = user.educationalEmails || [];
+
+    const idx = user.educationalEmails.findIndex((e) =>
+      keyCandidates.includes(String(e.institution || "").trim())
+    );
+
+    if (idx >= 0) {
+      user.educationalEmails[idx].status = status;
+      if (email !== undefined) {
+        user.educationalEmails[idx].email = String(email).trim();
+      }
+    } else {
+      // si no existe entrada, la creamos (útil para “aprobar solicitud”)
+      user.educationalEmails.push({
+        institution: keyCandidates[0] || req.institution._id.toString(),
+        email: email ? String(email).trim() : undefined,
+        status,
+      });
+    }
+
+    await user.save();
+    return res.json({ message: "Estado actualizado", educationalEmails: user.educationalEmails });
+  } catch (err) {
+    console.error("Error setStudentInstitutionStatus", err);
+    return res.status(500).json({ message: "Error del servidor" });
   }
 };

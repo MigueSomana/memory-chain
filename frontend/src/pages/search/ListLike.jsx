@@ -2,8 +2,9 @@ import React, { useMemo, useState, useEffect } from "react";
 import NavbarReal from "../../components/navbar/NavbarReal";
 import Layout from "../../components/layout/LayoutPrivado";
 import { getAuthRole, getAuthToken } from "../../utils/authSession";
-import ModalView from "../../components/modal/ModalView";
+import ModalViewThesis from "../../components/modal/ModalViewThesis";
 import axios from "axios";
+import { useToast } from "../../utils/toast";
 import {
   Eye,
   Quote,
@@ -14,7 +15,7 @@ import {
   Funnel,
   ChevronDown,
   GraduationCap,
-  School,
+  University,
   Binoculars,
   ArrowDown01,
   ArrowUp10,
@@ -23,6 +24,7 @@ import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
   UserPen,
+  BadgeCheck,
 } from "lucide-react";
 
 // ===================== CONFIG GLOBAL =====================
@@ -50,7 +52,7 @@ const SORT_OPTIONS = [
   },
 ];
 
-// ===================== HELPERS (idénticos a ThesisSearch) =====================
+// ===================== HELPERS =====================
 const normalizeStatus = (s) => String(s || "").toUpperCase();
 
 const getYearFromThesis = (t) => {
@@ -87,8 +89,23 @@ const getTimeForSort = (t) => {
   return 0;
 };
 
-const statusUi = (raw) => {
+const getInstitutionId = (inst) => {
+  if (!inst) return null;
+  if (typeof inst === "string") return String(inst);
+  if (inst?._id) return String(inst._id);
+  return null;
+};
+
+// ✅ Status UI con Independiente (mismo criterio que ThesisSearch final)
+const statusUi = (raw, isIndependent) => {
   const s = normalizeStatus(raw);
+
+  // Independiente: neutro por defecto, si está APPROVED -> verde (certified)
+  if (isIndependent) {
+    if (s === "APPROVED") return { label: "Independent Research", tone: "certified" };
+    return { label: "Independent Research", tone: "neutral" };
+  }
+
   if (s === "APPROVED") return { label: "Certified", tone: "certified" };
   if (s === "PENDING") return { label: "Pending", tone: "pending" };
   if (s === "REJECTED") return { label: "Rejected", tone: "rejected" };
@@ -118,14 +135,7 @@ const buildAuthorsSearchString = (authors) => {
     .toLowerCase();
 };
 
-const getInstitutionId = (inst) => {
-  if (!inst) return null;
-  if (typeof inst === "string") return String(inst);
-  if (inst?._id) return String(inst._id);
-  return null;
-};
-
-// ===================== APA helpers (idéntico comportamiento ThesisSearch) =====================
+// ===================== APA helpers =====================
 async function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -212,6 +222,8 @@ function buildThesisApa7Citation_ThesisSearchStyle(thesis) {
 
 // ===================== COMPONENT: LikedThesesSearch (UI = ThesisSearch) =====================
 const LikedThesesSearch = () => {
+  const { showToast } = useToast();
+
   // Data
   const [theses, setTheses] = useState([]);
   const [liked, setLiked] = useState({});
@@ -231,9 +243,12 @@ const LikedThesesSearch = () => {
   const [minYear, setMinYear] = useState(1980);
   const [maxYear, setMaxYear] = useState(now);
 
-  // ✅ institutionFilter por ID (igual que tu ThesisSearch final)
+  // ✅ institutionFilter por ID
   const [institutionFilter, setInstitutionFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all"); // all | APPROVED | PENDING
+
+  // ✅ status filter incluye INDEPENDENT
+  // all | APPROVED | PENDING | INDEPENDENT
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // Sort + pagination
   const [sortBy, setSortBy] = useState("recent");
@@ -257,7 +272,7 @@ const LikedThesesSearch = () => {
         }
 
         const headers = { Authorization: `Bearer ${token}` };
-        const res = await axios.get(`${API_BASE_URL}/api/users/me/likes`, {
+        const res = await axios.get(`${API_BASE_URL}/api/users/me/liked-theses`, {
           headers,
         });
 
@@ -277,14 +292,19 @@ const LikedThesesSearch = () => {
         const mapped = data.map((t) => {
           const likesCount = t.likes ?? 0;
 
-          // En likes list, debería ser true, pero lo dejamos robusto
           const userLiked =
             Array.isArray(t.likedBy) && currentUserId
               ? t.likedBy.some((u) => String(u?._id ?? u) === String(currentUserId))
               : true;
 
           const derivedYear = getYearFromThesis(t);
-          return { ...t, likes: likesCount, userLiked, derivedYear };
+          return {
+            ...t,
+            likes: likesCount,
+            userLiked,
+            derivedYear,
+            quotes: t.quotes ?? 0, // ✅ nuevo backend
+          };
         });
 
         setTheses(mapped);
@@ -380,9 +400,11 @@ const LikedThesesSearch = () => {
 
     return theses.filter((t) => {
       const status = normalizeStatus(t.status);
-      if (status === "REJECTED") return false; // ocultar siempre
+      if (status === "REJECTED") return false;
 
       const instId = getInstitutionId(t.institution);
+      const isIndependent = !instId;
+
       const instName = getInstitutionNameResolved(t);
       const authorsSearch = buildAuthorsSearchString(t.authors);
 
@@ -412,10 +434,17 @@ const LikedThesesSearch = () => {
         yearNum >= Number(minYear) &&
         yearNum <= Number(maxYear);
 
-      const matchesStatus =
-        selectedStatus === "ALL"
-          ? status === "APPROVED" || status === "PENDING"
-          : status === selectedStatus;
+      // ✅ Status filter con INDEPENDENT (mismo criterio)
+      let matchesStatus = true;
+      if (selectedStatus === "INDEPENDENT") {
+        matchesStatus = isIndependent;
+      } else if (selectedStatus === "ALL") {
+        matchesStatus = isIndependent || status === "APPROVED" || status === "PENDING";
+      } else if (selectedStatus === "APPROVED" || selectedStatus === "PENDING") {
+        matchesStatus = !isIndependent && status === selectedStatus;
+      } else {
+        matchesStatus = false;
+      }
 
       const matchesInstitution = selectedInstId ? instId === selectedInstId : true;
 
@@ -507,7 +536,7 @@ const LikedThesesSearch = () => {
   const handleView = (thesis) => {
     setSelectedForView(thesis);
 
-    const el = document.getElementById("modalView");
+    const el = document.getElementById("modalViewThesis");
     if (!el) return;
 
     const modal = window.bootstrap?.Modal?.getOrCreateInstance(el, {
@@ -517,21 +546,64 @@ const LikedThesesSearch = () => {
     modal?.show();
   };
 
-  // ===================== Cite =====================
+  // ===================== Cite (Clipboard + quotes counter + toast) =====================
   const handleQuote = async (thesis) => {
     try {
       const citation = buildThesisApa7Citation_ThesisSearchStyle(thesis, gateway);
       const ok = await copyToClipboard(citation);
-      if (ok) alert("Bibliographic Citation Copied ✅");
-      else alert("Failed Copied ❌");
+
+      if (!ok) {
+        alert("Failed Copied ❌");
+        return;
+      }
+
+      showToast({
+        message: "Citation copied to clipboard",
+        type: "success",
+        icon: BadgeCheck,
+        duration: 2200,
+      });
+
+      // ✅ increment quotes en backend
+      try {
+        const resp = await axios.post(`${API_BASE_URL}/api/theses/${thesis._id}/quote`);
+        const updatedThesis = resp?.data?.thesis;
+
+        if (updatedThesis?._id) {
+          setTheses((prev) =>
+            prev.map((t) =>
+              String(t._id) === String(updatedThesis._id)
+                ? { ...t, quotes: updatedThesis.quotes ?? (t.quotes ?? 0) + 1 }
+                : t
+            )
+          );
+        } else {
+          setTheses((prev) =>
+            prev.map((t) =>
+              String(t._id) === String(thesis._id)
+                ? { ...t, quotes: (t.quotes ?? 0) + 1 }
+                : t
+            )
+          );
+        }
+      } catch (e) {
+        console.error("Error incrementing quote count:", e);
+        // fallback local
+        setTheses((prev) =>
+          prev.map((t) =>
+            String(t._id) === String(thesis._id)
+              ? { ...t, quotes: (t.quotes ?? 0) + 1 }
+              : t
+          )
+        );
+      }
     } catch (e) {
       console.error(e);
       alert("Failed Copied ❌");
     }
   };
 
-  // ===================== Like toggle =====================
-  // ✅ si hace unlike => se debe salir de la lista
+  // ===================== Like toggle (toast + remove from list when unlike) =====================
   const handleToggleLike = async (id) => {
     if (!token) return;
 
@@ -544,6 +616,13 @@ const LikedThesesSearch = () => {
 
       const { thesis, liked: isLiked } = res.data || {};
       if (!thesis || !thesis._id) return;
+
+      showToast({
+        message: isLiked ? "Added to likes" : "Removed from likes",
+        type: "success",
+        icon: isLiked ? HeartPlus : HeartMinus,
+        duration: 2000,
+      });
 
       // Si ya no está liked => removemos del listado
       if (!isLiked) {
@@ -560,6 +639,7 @@ const LikedThesesSearch = () => {
       setTheses((prev) =>
         prev.map((t) => {
           if (String(t._id) !== String(thesis._id)) return t;
+
           const preservedInstitution = t.institution;
           const preservedDepartment = t.department;
 
@@ -621,7 +701,7 @@ const LikedThesesSearch = () => {
   // ===================== RENDER =====================
   return (
     <div className="mcExploreWrap">
-      <ModalView thesis={selectedForView} />
+      <ModalViewThesis thesis={selectedForView} />
 
       <div className="mcExploreContainer">
         {/* ===== TOP ROW ===== */}
@@ -657,7 +737,7 @@ const LikedThesesSearch = () => {
           <div className="mcTopMeta">
             <span className="mcCountStrong">{filteredOrdered.length}</span>
             <span className="mcCountText">
-              thesis{filteredOrdered.length !== 1 ? "es" : ""} found
+              thes{filteredOrdered.length !== 1 ? "es found" : "is found"}
             </span>
           </div>
 
@@ -715,6 +795,7 @@ const LikedThesesSearch = () => {
                     {[
                       { key: "APPROVED", label: "Certified" },
                       { key: "PENDING", label: "Pending" },
+                      { key: "INDEPENDENT", label: "Independent" },
                       { key: "all", label: "All" },
                     ].map((s) => (
                       <button
@@ -904,26 +985,30 @@ const LikedThesesSearch = () => {
                 const rowKey = `${t._id}-${start + idx}`;
                 const isLiked = liked[t._id] ?? t.userLiked ?? true;
 
+                const instId = getInstitutionId(t.institution);
+                const isIndependent = !instId;
+
                 const instNameRaw = getInstitutionNameResolved(t);
+
                 const year = Number.isFinite(Number(t.derivedYear))
                   ? Number(t.derivedYear)
                   : getYearFromThesis(t);
 
-                const sUI = statusUi(t.status);
+                const sUI = statusUi(t.status, isIndependent);
 
                 const authorsText = Array.isArray(t.authors)
-                ? t.authors
-                    .map((a) =>
-                      typeof a === "string"
-                        ? a
-                        : `${a.lastname ?? ""} ${a.name ?? ""}`.trim(),
-                    )
-                    .filter(Boolean)
-                    .join(", ")
-                : "";
+                  ? t.authors
+                      .map((a) =>
+                        typeof a === "string"
+                          ? a
+                          : `${a.lastname ?? ""} ${a.name ?? ""}`.trim()
+                      )
+                      .filter(Boolean)
+                      .join(", ")
+                  : "";
 
                 const degreeText = safeDegreeLabel(t.degree);
-                const citedCount = Number(t.citedCount ?? t.cited ?? 0);
+                const citedCount = Number(t.quotes ?? 0);
 
                 return (
                   <article key={rowKey} className={`mcCard ${sUI.tone}`}>
@@ -932,9 +1017,7 @@ const LikedThesesSearch = () => {
                         <span className={`mcStatusDot ${sUI.tone}`} />
                         <span className="mcStatusLabel">{sUI.label}</span>
                       </div>
-                      <div className="mcYear">
-                        {Number.isNaN(year) ? "—" : year}
-                      </div>
+                      <div className="mcYear">{Number.isNaN(year) ? "—" : year}</div>
                     </div>
 
                     <div className="mcCardBody">
@@ -944,18 +1027,15 @@ const LikedThesesSearch = () => {
 
                       <div className="mcCardAuthors mcMetaRow" title={authorsText}>
                         <span className="mcMetaIcon" aria-hidden="true">
-                            
-                              <UserPen size={18} />
-                          </span>
-                          <span className="mcMetaText">
-                        {authorsText || "—"}
+                          <UserPen size={18} />
                         </span>
+                        <span className="mcMetaText">{authorsText || "—"}</span>
                       </div>
 
                       <div className="mcCardMeta">
                         <div className="mcMetaRow" title={instNameRaw}>
                           <span className="mcMetaIcon" aria-hidden="true">
-                            {instNameRaw ? <School size={18} /> : <Binoculars size={18} />}
+                            {instNameRaw ? <University size={18} /> : <Binoculars size={18} />}
                           </span>
                           <span className="mcMetaText">
                             {instNameRaw || "Independent Research"}
@@ -1042,9 +1122,7 @@ const LikedThesesSearch = () => {
                 );
               })}
 
-              {pageItems.length === 0 && (
-                <div className="mcMuted">No liked theses found.</div>
-              )}
+              {pageItems.length === 0 && <div className="mcMuted">No liked theses found.</div>}
             </div>
 
             {/* Pagination */}
@@ -1094,13 +1172,7 @@ const ListLike = () => {
       <NavbarReal />
 
       <div className="flex-grow-1">
-        <Layout
-          showBackDashboard
-          title="My Like List"
-          icon={
-            <Heart />
-          }
-        >
+        <Layout showBackDashboard title="My Like List" icon={<Heart />}>
           <LikedThesesSearch />
         </Layout>
       </div>

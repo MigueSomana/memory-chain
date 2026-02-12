@@ -1,492 +1,482 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import NavbarInit from "../../components/navbar/NavbarInit";
+import React, { useMemo } from "react";
+import {
+  LayoutGrid,
+  ArrowRight,
+  Play,
+  Fingerprint,
+  ShieldCheck,
+  Building2,
+  Search,
+  Users,
+  Lock,
+  CheckCircle2,
+  GraduationCap,
+  FileCheck2,
+  BarChart3,
+  Globe,
+  BookOpen,
+} from "lucide-react";
 
-export default function Home() {
-  const navigate = useNavigate();
-  const [openFaq, setOpenFaq] = useState("q1");
-
-  // =========================
-  // TESTIMONIALS (10 total)
-  // =========================
-  const TESTIMONIALS = useMemo(
+const Home = () => {
+  const nav = useMemo(
     () => [
-      {
-        img: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=70",
-        person: "Nina Wulandari",
-        institution: "University of Northbridge",
-        comment:
-          "Verification requests dropped immediately. Recruiters confirm authenticity in seconds—no back-and-forth.",
-        stars: 5,
-      },
-      {
-        img: "https://images.unsplash.com/photo-1525134479668-1bee5c7c6845?auto=format&fit=crop&w=300&q=70",
-        person: "Dr. Luis Herrera",
-        institution: "Instituto San Gabriel",
-        comment:
-          "Institution-issued proof feels official. The audit trail is clean and consistent across departments.",
-        stars: 5,
-      },
-      {
-        img: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=70",
-        person: "Amelia Chen",
-        institution: "Global Research Council",
-        comment:
-          "Tamper-evidence is clear: altered PDFs fail instantly. It’s a modern standard for academic trust.",
-        stars: 5,
-      },
-      {
-        img: "https://images.unsplash.com/photo-1557053910-d9eadeed1c58?auto=format&fit=crop&w=300&q=70",
-        person: "Sara Gómez",
-        institution: "Civic Engineering Faculty",
-        comment:
-          "The verification link is simple to share and keeps working. Our process is finally standardized.",
-        stars: 5,
-      },
-      {
-        img: "https://images.unsplash.com/photo-1524503033411-f6e7a9f1b39f?auto=format&fit=crop&w=300&q=70",
-        person: "Marcus Reed",
-        institution: "Northlake University",
-        comment:
-          "Less manual validation, more confidence. Fits governance and long-term archiving requirements.",
-        stars: 5,
-      },
-      {
-        img: "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=300&q=70",
-        person: "Valentina Ruiz",
-        institution: "Politécnico Central",
-        comment:
-          "A clear credibility signal: institution-backed certification beats screenshots and emails.",
-        stars: 5,
-      },
-      {
-        img: "https://images.unsplash.com/photo-1547425260-76bcadfb4f2c?auto=format&fit=crop&w=300&q=70",
-        person: "Omar Al-Sayed",
-        institution: "International Tech Institute",
-        comment:
-          "Cross-border verification is finally straightforward. Consistent results even years later.",
-        stars: 5,
-      },
-      {
-        img: "https://images.unsplash.com/photo-1548142813-c348350df52b?auto=format&fit=crop&w=300&q=70",
-        person: "Camila Duarte",
-        institution: "Universidad Andina",
-        comment:
-          "Easy to explain to non-technical staff: hash + certificate. No debates—just proof.",
-        stars: 5,
-      },
-      {
-        img: "https://images.unsplash.com/photo-1524502397800-2eeaad7c3fe5?auto=format&fit=crop&w=300&q=70",
-        person: "Ethan Park",
-        institution: "Brighton College",
-        comment:
-          "IPFS + on-chain proof gives a resilient record. A real step up from classic repositories.",
-        stars: 5,
-      },
-      {
-        img: "https://images.unsplash.com/photo-1552374196-c4e7ffc6e126?auto=format&fit=crop&w=300&q=70",
-        person: "Aisha Khan",
-        institution: "Metropolitan University",
-        comment:
-          "Fast, reliable, and simple. Verification became a 10-second routine for our registry team.",
-        stars: 5,
-      },
+      { id: "home", label: "Home" },
+      { id: "features", label: "Features" },
+      { id: "pricing", label: "Pricing" },
+      { id: "verification", label: "Verification" },
+      { id: "about", label: "About Us" },
     ],
     []
   );
 
-  // =========================
-  // FAQ (igual que About)
-  // =========================
-  const FAQ = useMemo(
-    () => [
-      {
-        id: "q1",
-        q: "Is my thesis publicly visible?",
-        a: "Visibility depends on your institution settings and your profile rules. What remains verifiable is the integrity proof (hash + certificate).",
-      },
-      {
-        id: "q2",
-        q: "What does 'Certified' mean on MemoryChain?",
-        a: "It means an authorized institution approved the thesis and an on-chain certificate was issued linking the hash + IPFS CID to a blockchain transaction.",
-      },
-      {
-        id: "q3",
-        q: "What happens if the PDF changes?",
-        a: "Any modification generates a different hash, so it won't match the certified record. This is how tampering is detected instantly.",
-      },
-      {
-        id: "q4",
-        q: "Do I need crypto or a wallet?",
-        a: "No. The certification flow is handled by the platform/institution. You simply share a verification link when needed.",
-      },
-      {
-        id: "q5",
-        q: "How can someone verify a thesis fast?",
-        a: "Use the Verify page with file hash or tx hash and check status + on-chain certificate details.",
-      },
-    ],
-    []
-  );
-
-  // =========================
-  // ✅ Testimonials: scroll 1-by-1 + loop correcto
-  // =========================
-  const trackRef = useRef(null);
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [maxStartIdx, setMaxStartIdx] = useState(0); // ✅ el último inicio válido
-
-  const getStepPx = () => {
-    const track = trackRef.current;
-    if (!track) return 0;
-    const first = track.querySelector(".mc-miniCardWrap");
-    if (!first) return 0;
-
-    const styles = window.getComputedStyle(track);
-    const gap = parseFloat(styles.columnGap || styles.gap || "0") || 0;
-    return first.getBoundingClientRect().width + gap;
+  const scrollTo = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
-
-  const computeMaxStartIndex = () => {
-    const track = trackRef.current;
-    if (!track) return 0;
-
-    const step = getStepPx();
-    if (!step) return 0;
-
-    const visible = Math.max(1, Math.floor(track.clientWidth / step)); // ✅ cuántas caben
-    const maxStart = Math.max(0, TESTIMONIALS.length - visible);
-    return maxStart;
-  };
-
-  const scrollToIndex = (idx) => {
-    const track = trackRef.current;
-    if (!track) return;
-
-    const step = getStepPx();
-    if (!step) return;
-
-    const max = maxStartIdx;
-
-    // ✅ wrap según maxStartIdx real
-    let target = idx;
-    if (target > max) target = 0;
-    if (target < 0) target = max;
-
-    track.scrollTo({ left: step * target, behavior: "smooth" });
-    setActiveIdx(target);
-  };
-
-  const nextOne = () => scrollToIndex(activeIdx + 1);
-  const prevOne = () => scrollToIndex(activeIdx - 1);
-
-  // ✅ recalcular maxStartIdx en mount y resize
-  useEffect(() => {
-    const calc = () => setMaxStartIdx(computeMaxStartIndex());
-    calc();
-
-    window.addEventListener("resize", calc);
-    return () => window.removeEventListener("resize", calc);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [TESTIMONIALS.length]);
-
-  // ✅ detect index con clamp para no “pasarse” del max
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return;
-
-    let raf = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const step = getStepPx();
-        if (!step) return;
-
-        const raw = Math.round(track.scrollLeft / step);
-        const clamped = Math.max(0, Math.min(raw, maxStartIdx));
-        if (clamped !== activeIdx) setActiveIdx(clamped);
-      });
-    };
-
-    track.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      track.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(raf);
-    };
-  }, [activeIdx, maxStartIdx]);
-
-  // ✅ autoplay con loop real
-  useEffect(() => {
-    const id = setInterval(() => {
-      scrollToIndex(activeIdx + 1);
-    }, 6500);
-
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIdx, maxStartIdx]);
-
-  // ✅ número de dots = posiciones de inicio (maxStartIdx + 1)
-  const dots = useMemo(() => {
-    return Array.from({ length: maxStartIdx + 1 }, (_, i) => i);
-  }, [maxStartIdx]);
 
   return (
-    <>
-      <NavbarInit variant="glass" />
+    <div className="mcHome">
+      {/* NAVBAR */}
+      <header className="mcHomeNav">
+        <div className="mcHomeNavInner">
+          <button
+            type="button"
+            className="mcHomeBrand"
+            onClick={() => scrollTo("home")}
+            aria-label="Memory-Chain"
+          >
+            <span className="mcHomeBrandIcon">
+              <LayoutGrid size={18} />
+            </span>
+            <span className="mcHomeBrandText">Memory-Chain</span>
+          </button>
+
+          <nav className="mcHomeNavLinks" aria-label="Primary">
+            {nav.map((n) => (
+              <button
+                key={n.id}
+                type="button"
+                className="mcHomeNavLink"
+                onClick={() => scrollTo(n.id)}
+              >
+                {n.label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="mcHomeNavRight">
+            <button type="button" className="btn btn-memory mcHomeLoginBtn">
+              Login
+            </button>
+          </div>
+        </div>
+      </header>
 
       {/* HERO */}
-      <section className="background-home text-white">
-        <div className="container-fluid">
-          <div className="row justify-content-end">
-            <div className="col-md-10 col-lg-6 bg-shadow">
-              <h1 className="display-5 fw-bold text-end spaced-fix">
-                Memory Chain
-              </h1>
-
-              <p className="lead text-end mb-4 spaced-fix">
-                <i>
-                  Discover verified and certified research across institutions,
-                  fields of study, and keywords
-                </i>
-              </p>
-
-              <div className="d-grid gap-2 d-sm-flex justify-content-sm-end spaced-fix">
-                <button
-                  type="button"
-                  className="btn btn-memory btn-lg px-4 gap-3"
-                  data-bs-toggle="modal"
-                  data-bs-target="#modalLogin"
-                >
-                  Start Now
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-outline-memory btn-lg px-4"
-                >
-                  View Demo
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* TESTIMONIALS */}
-      <section className="mc-home-testimonialsMini">
-        <div className="container">
-          <div className="mc-home-testimonialsHead">
-            <h2 className="fw-bold mb-2">Testimonials</h2>
-
-            <div className="mc-miniControls">
-              <button
-                type="button"
-                className="mc-miniBtn"
-                onClick={prevOne}
-                aria-label="Previous testimonial"
-              >
-                ‹
-              </button>
-              <button
-                type="button"
-                className="mc-miniBtn"
-                onClick={nextOne}
-                aria-label="Next testimonial"
-              >
-                ›
-              </button>
-            </div>
-          </div>
-
-          <div className="mc-miniViewport">
-            <div ref={trackRef} className="mc-miniTrack">
-              {TESTIMONIALS.map((t, i) => (
-                <div key={i} className="mc-miniCardWrap">
-                  <TestimonialCard t={t} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Dots (posiciones de inicio) */}
-          <div className="mc-miniDotsRow" aria-label="Testimonials pagination">
-            {dots.map((i) => (
-              <button
-                key={i}
-                type="button"
-                className={`mc-miniDot ${i === activeIdx ? "isActive" : ""}`}
-                onClick={() => scrollToIndex(i)}
-                aria-label={`Go to testimonials position ${i + 1}`}
-                aria-current={i === activeIdx ? "true" : "false"}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* HOW */}
-      <section className="mc-about-howW">
-        <div className="container">
-          <div className="row align-items-start gy-4">
-            <div className="col-12 col-lg-6">
-              <h2 className="fw-bold mb-2">How it works</h2>
-              <div className="mc-about-mutedW mb-3">
-                A clean workflow from upload to certification—built for
-                real-world trust.
-              </div>
-
-              <StepPro
-                n="01"
-                title="Upload your thesis"
-                subtitle="We generate a cryptographic fingerprint and prepare the verification record."
-              />
-              <StepPro
-                n="02"
-                title="Institution review"
-                subtitle="Authorized reviewers validate authorship, metadata, and submission details."
-              />
-              <StepPro
-                n="03"
-                title="Certification issued"
-                subtitle="When approved, the certificate is anchored for strong, checkable integrity."
-              />
-              <StepPro
-                n="04"
-                title="Share and verify"
-                subtitle="Anyone can verify using a link, file fingerprint, or transaction ID."
-              />
-            </div>
-
-            <div className="col-12 col-lg-6">
-              <div className="mc-about-videoBgW">
-                <div className="mc-about-videoWrapW">
-                  <div className="mc-about-videoRatioW">
-                    <iframe
-                      title="MemoryChain video"
-                      src="https://www.youtube.com/embed/nPMc6QUjKsw"
-                      className="mc-about-iframeW"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="mc-about-faq bg-mc-dark">
-        <div className="container">
-          <h2 className="fw-bold mb-2 text-white">FAQ</h2>
-          <div
-            className="mc-about-muted mb-3"
-            style={{ color: "rgba(255,255,255,.72)" }}
-          >
-            Answers to the most common questions.
-          </div>
-
-          <div className="row">
-            <div className="col-12 col-lg-9">
-              <div className="mc-about-faqCard">
-                {FAQ.map((item) => {
-                  const open = openFaq === item.id;
-                  return (
-                    <div key={item.id} className="mc-about-faqRow">
-                      <button
-                        type="button"
-                        onClick={() => setOpenFaq(open ? "" : item.id)}
-                        className="mc-about-faqBtn"
-                      >
-                        <span className="mc-about-faqQ">{item.q}</span>
-                        <span className="mc-about-faqToggle">
-                          {open ? "−" : "+"}
-                        </span>
-                      </button>
-
-                      {open ? (
-                        <div className="mc-about-faqA">{item.a}</div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="col-12 col-lg-3">
-              <div className="mc-about-sideBox">
-                <div className="mc-about-sideBoxTitle">Need help?</div>
-                <div className="mc-about-sideBoxText">
-                  For onboarding or technical questions, start from verification.
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-outline-memory btn-extend"
-                  onClick={() => navigate("/verify")}
-                >
-                  Go to Verify
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-
-/* =====================
-   COMPONENTS
-   ===================== */
-function TestimonialCard({ t }) {
-  return (
-    <div className="mc-miniCard">
-      <div className="mc-miniQuote">
-        <span className="mc-miniQuoteMark">“</span>
-        <span className="mc-miniText">{t.comment}</span>
-      </div>
-
-      <div className="mc-miniFooter">
-        <div className="mc-miniAvatarWrap">
-          <img src={t.img} alt={t.person} className="mc-miniAvatar" />
-        </div>
-
-        <div className="mc-miniMeta">
-          <div className="mc-miniName">{t.person}</div>
-          <div className="mc-miniSub">
-            <span className="mc-miniOrg">{t.institution}</span>
-          </div>
-        </div>
-
-        <div className="mc-miniStars" title={`${t.stars}/5`}>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <span
-              key={i}
-              className={`mc-star ${i < (t.stars || 0) ? "isOn" : ""}`}
-            >
-              ★
+      <section id="home" className="mcHomeHero">
+        <div className="mcHomeGridGlow" aria-hidden="true" />
+        <div className="mcHomeHeroInner">
+          <div className="mcHomePill">
+            <span className="mcHomePillIcon">
+              <ShieldCheck size={14} />
             </span>
-          ))}
+            <span>Blockchain-Powered Academic Verification</span>
+          </div>
+
+          <h1 className="mcHomeHeroTitle">
+            <span className="mcHomeHeroTitleTop">The Future of</span>{" "}
+            <span className="mcHomeHeroTitleAccent">Academic Integrity</span>
+          </h1>
+
+          <p className="mcHomeHeroSub">
+            Memory-Chain certifies, verifies, and preserves academic research on
+            the blockchain — ensuring your work is tamper-proof and globally
+            recognized.
+          </p>
+
+          <div className="mcHomeHeroActions">
+            <button type="button" className="btn btn-memory mcHomeCtaBtn">
+              Get Started <ArrowRight size={16} />
+            </button>
+            <button type="button" className="btn btn-outline-memory mcHomeGhostBtn">
+              How It Works <ArrowRight size={16} />
+            </button>
+          </div>
+
+          <div className="mcHomeStats">
+            <div className="mcHomeStat">
+              <div className="mcHomeStatValue">12K+</div>
+              <div className="mcHomeStatLabel">Theses Verified</div>
+            </div>
+            <div className="mcHomeStat">
+              <div className="mcHomeStatValue">150+</div>
+              <div className="mcHomeStatLabel">Institutions</div>
+            </div>
+            <div className="mcHomeStat">
+              <div className="mcHomeStatValue">99.9%</div>
+              <div className="mcHomeStatLabel">Uptime</div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* SEE IT IN ACTION */}
+      <section className="mcHomeSection">
+        <div className="mcHomeSectionInner">
+          <div className="mcHomeKicker">SEE IT IN ACTION</div>
+          <h2 className="mcHomeH2">
+            How <span className="mcHomeAccent">Memory-Chain</span> Works
+          </h2>
+          <p className="mcHomeLead">
+            Watch how institutions and researchers use our platform to certify
+            and verify academic work.
+          </p>
+
+          <div className="mcHomeVideoCard">
+            <button type="button" className="mcHomePlayBtn" aria-label="Play">
+              <Play size={18} />
+            </button>
+            <div className="mcHomeVideoCaption">Platform Demo — Coming Soon</div>
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURES */}
+      <section id="features" className="mcHomeSection">
+        <div className="mcHomeSectionInner">
+          <div className="mcHomeKicker">PLATFORM FEATURES</div>
+          <h2 className="mcHomeH2">
+            Everything You Need for{" "}
+            <span className="mcHomeAccent">Academic Trust</span>
+          </h2>
+
+          <div className="mcHomeGrid3">
+            <FeatureCard
+              icon={Fingerprint}
+              title="Blockchain Certification"
+              desc="Each thesis is hashed and recorded on-chain, creating an immutable proof of authenticity."
+            />
+            <FeatureCard
+              icon={ShieldCheck}
+              title="Instant Verification"
+              desc="Verify any document in seconds using its unique hash — no account required."
+            />
+            <FeatureCard
+              icon={Building2}
+              title="Institutional Management"
+              desc="Universities manage members, approve submissions, and track certifications from one dashboard."
+            />
+            <FeatureCard
+              icon={Search}
+              title="Academic Discovery"
+              desc="Explore a global repository of verified theses across institutions and disciplines."
+            />
+            <FeatureCard
+              icon={Users}
+              title="Member Governance"
+              desc="Approve or reject researchers, assign roles, and maintain institutional standards."
+            />
+            <FeatureCard
+              icon={Lock}
+              title="Tamper-Proof Records"
+              desc="Once certified, records cannot be altered, ensuring lifelong document integrity."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* STEPS */}
+      <section id="verification" className="mcHomeSection">
+        <div className="mcHomeSectionInner">
+          <div className="mcHomeKicker">HOW IT WORKS</div>
+          <h2 className="mcHomeH2">
+            Verification in <span className="mcHomeAccent">4 Simple</span> Steps
+          </h2>
+
+          <div className="mcHomeSteps">
+            <StepCard n="01" title="Upload Document" desc="Submit your thesis file to generate a unique cryptographic hash." />
+            <StepCard n="02" title="Institutional Review" desc="Your institution reviews and approves the submission." />
+            <StepCard n="03" title="On-Chain Certification" desc="The hash is recorded on the blockchain with a timestamp." />
+            <StepCard n="04" title="Public Verification" desc="Anyone can verify the document's authenticity instantly." />
+          </div>
+
+          <div className="mcHomeCenter">
+            <button type="button" className="btn btn-outline-memory mcHomeTryBtn">
+              <ShieldCheck size={16} />
+              Try Verification Now
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section id="pricing" className="mcHomeSection">
+        <div className="mcHomeSectionInner">
+          <div className="mcHomeKicker">PRICING</div>
+          <h2 className="mcHomeH2">
+            Plans That <span className="mcHomeAccent">Scale</span> With You
+          </h2>
+          <p className="mcHomeLead">
+            From individual researchers to large institutions — choose the plan
+            that fits your needs.
+          </p>
+
+          <div className="mcHomePricing">
+            <PriceCard
+              title="Researcher"
+              subtitle="For individual academics"
+              price="Free"
+              priceNote=""
+              bullets={[
+                "Up to 3 thesis uploads",
+                "Public verification link",
+                "Basic academic profile",
+                "Community support",
+              ]}
+              cta="Get Started Free"
+              variant="ghost"
+            />
+
+            <PriceCard
+              title="Institution"
+              subtitle="For universities & labs"
+              price="$99"
+              priceNote="/month"
+              badge="MOST POPULAR"
+              bullets={[
+                "Unlimited thesis uploads",
+                "Member management dashboard",
+                "Institutional branding",
+                "Batch certification",
+                "Analytics & reporting",
+                "Priority support",
+              ]}
+              cta="Start Free Trial"
+              variant="primary"
+            />
+
+            <PriceCard
+              title="Enterprise"
+              subtitle="For consortiums & networks"
+              price="Custom"
+              priceNote=""
+              bullets={[
+                "Everything in Institution",
+                "Multi-campus deployment",
+                "Custom API integrations",
+                "SLA & dedicated account manager",
+                "White-label options",
+                "On-premise available",
+              ]}
+              cta="Contact Sales"
+              variant="ghost"
+              disabled
+            />
+          </div>
+
+          <h3 className="mcHomeH3">Power-Up With <span className="mcHomeAccent">Add-ons</span></h3>
+
+          <div className="mcHomeAddons">
+            <AddonCard icon={BarChart3} price="$29/mo" title="Advanced Analytics" desc="Deep insights into verification trends & institutional metrics." />
+            <AddonCard icon={Globe} price="$49/mo" title="API Access" desc="RESTful API to integrate Memory-Chain into your existing systems." />
+            <AddonCard icon={BookOpen} price="$19/mo" title="Bulk Certification" desc="Certify up to 500 theses per batch with automated workflows." />
+            <AddonCard icon={Lock} price="$39/mo" title="Private Repository" desc="Keep theses private with restricted access and embargo periods." />
+          </div>
+        </div>
+      </section>
+
+      {/* TWO MISSIONS */}
+      <section className="mcHomeSection">
+        <div className="mcHomeSectionInner">
+          <div className="mcHomeKicker">BUILT FOR YOU</div>
+          <h2 className="mcHomeH2">
+            One Platform, <span className="mcHomeAccent">Two Missions</span>
+          </h2>
+          <p className="mcHomeLead">
+            Whether you're an institution seeking to modernize certification or a
+            researcher protecting your life's work.
+          </p>
+
+          <div className="mcHomeTwoCols">
+            <MissionCard
+              icon={FileCheck2}
+              title="For Institutions"
+              subtitle="Enterprise-grade academic infrastructure"
+              bullets={[
+                "Automated thesis certification pipeline",
+                "Real-time member & submission management",
+                "Institutional analytics & reporting dashboard",
+                "API integration with existing systems",
+                "White-label deployment options",
+                "Dedicated institutional support",
+              ]}
+              cta="Request Institutional Demo"
+              variant="primary"
+            />
+
+            <MissionCard
+              icon={GraduationCap}
+              title="For Researchers"
+              subtitle="Your work, permanently verified"
+              bullets={[
+                "Permanent proof of your research work",
+                "Global visibility across institutions",
+                "One-click verification sharing",
+                "Build your verified academic portfolio",
+                "Cross-institutional recognition",
+                "Free document verification forever",
+              ]}
+              cta="Create Free Account"
+              variant="ghost"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* FINAL CTA + FOOTER */}
+      <section className="mcHomeFinal">
+        <div className="mcHomeFinalInner">
+          <div className="mcHomeFinalIcon">
+            <LayoutGrid size={22} />
+          </div>
+          <h2 className="mcHomeFinalTitle">Ready to Secure Your Research?</h2>
+          <p className="mcHomeFinalSub">
+            Join hundreds of institutions and thousands of researchers who trust
+            Memory-Chain for academic verification.
+          </p>
+          <button type="button" className="btn btn-memory mcHomeFinalBtn">
+            Start Now — It's Free <ArrowRight size={16} />
+          </button>
+        </div>
+
+        <footer className="mcHomeFooter">
+          <div className="mcHomeFooterInner">
+            <div className="mcHomeFooterBrand">
+              <span className="mcHomeFooterIcon">
+                <LayoutGrid size={16} />
+              </span>
+              <span className="mcHomeFooterText">Memory-Chain</span>
+            </div>
+
+            <div className="mcHomeFooterLinks">
+              <button type="button" className="mcHomeFooterLink" onClick={() => scrollTo("features")}>
+                Features
+              </button>
+              <button type="button" className="mcHomeFooterLink" onClick={() => scrollTo("verification")}>
+                Verification
+              </button>
+              <button type="button" className="mcHomeFooterLink" onClick={() => scrollTo("about")}>
+                About
+              </button>
+            </div>
+
+            <div className="mcHomeFooterCopy">© 2024 Memory-Chain. All rights reserved.</div>
+          </div>
+        </footer>
+      </section>
     </div>
   );
-}
+};
 
-function StepPro({ n, title, subtitle }) {
-  return (
-    <div className="mc-about-stepW">
-      <div className="d-flex align-items-start gap-3">
-        <div className="mc-about-stepBubbleW">
-          <span className="mc-about-stepNumW">{n}</span>
-        </div>
+const FeatureCard = ({ icon: Icon, title, desc }) => (
+  <div className="mcHomeCard">
+    <div className="mcHomeCardIcon">
+      <Icon size={18} />
+    </div>
+    <div className="mcHomeCardTitle">{title}</div>
+    <div className="mcHomeCardDesc">{desc}</div>
+  </div>
+);
 
-        <div className="flex-grow-1">
-          <div className="mc-about-stepTitleW">{title}</div>
-          {subtitle ? <div className="mc-about-stepSubW">{subtitle}</div> : null}
-        </div>
+const StepCard = ({ n, title, desc }) => (
+  <div className="mcHomeStep">
+    <div className="mcHomeStepNum">{n}</div>
+    <div className="mcHomeStepTitle">{title}</div>
+    <div className="mcHomeStepDesc">{desc}</div>
+  </div>
+);
+
+const PriceCard = ({
+  title,
+  subtitle,
+  price,
+  priceNote,
+  bullets,
+  cta,
+  variant = "ghost",
+  badge,
+  disabled = false,
+}) => (
+  <div className={`mcHomePrice ${disabled ? "isDisabled" : ""} ${variant === "primary" ? "isPrimary" : ""}`}>
+    {badge ? <div className="mcHomePriceBadge">{badge}</div> : null}
+    <div className="mcHomePriceTop">
+      <div className="mcHomePriceTitle">{title}</div>
+      <div className="mcHomePriceSub">{subtitle}</div>
+    </div>
+
+    <div className="mcHomePriceValue">
+      <span className="mcHomePriceAmount">{price}</span>
+      {priceNote ? <span className="mcHomePriceNote">{priceNote}</span> : null}
+    </div>
+
+    <ul className="mcHomePriceList">
+      {bullets.map((b) => (
+        <li key={b}>
+          <CheckCircle2 size={16} />
+          <span>{b}</span>
+        </li>
+      ))}
+    </ul>
+
+    <button
+      type="button"
+      className={`btn ${variant === "primary" ? "btn-memory" : "btn-outline-memory"} mcHomePriceBtn`}
+      disabled={disabled}
+    >
+      {cta}
+    </button>
+  </div>
+);
+
+const AddonCard = ({ icon: Icon, price, title, desc }) => (
+  <div className="mcHomeAddon">
+    <div className="mcHomeAddonIcon">
+      <Icon size={18} />
+    </div>
+    <div className="mcHomeAddonMeta">
+      <div className="mcHomeAddonPrice">{price}</div>
+      <div className="mcHomeAddonTitle">{title}</div>
+      <div className="mcHomeAddonDesc">{desc}</div>
+    </div>
+  </div>
+);
+
+const MissionCard = ({ icon: Icon, title, subtitle, bullets, cta, variant = "ghost" }) => (
+  <div className={`mcHomeMission ${variant === "primary" ? "isPrimary" : ""}`}>
+    <div className="mcHomeMissionHead">
+      <div className="mcHomeMissionIcon">
+        <Icon size={18} />
+      </div>
+      <div>
+        <div className="mcHomeMissionTitle">{title}</div>
+        <div className="mcHomeMissionSub">{subtitle}</div>
       </div>
     </div>
-  );
-}
+
+    <ul className="mcHomeMissionList">
+      {bullets.map((b) => (
+        <li key={b}>
+          <CheckCircle2 size={16} />
+          <span>{b}</span>
+        </li>
+      ))}
+    </ul>
+
+    <button type="button" className={`btn ${variant === "primary" ? "btn-memory" : "btn-outline-memory"} mcHomeMissionBtn`}>
+      {cta}
+    </button>
+  </div>
+);
+
+export default Home;

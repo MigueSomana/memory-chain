@@ -9,69 +9,68 @@ import {
   getAuthToken,
 } from "../../utils/authSession";
 import { useParams } from "react-router-dom";
+import { Upload } from "lucide-react";
+import { useToast } from "../../utils/toast"; 
 
 // Componente: Página de Actualización de Tesis
-const UploadThesis = () => {
+const UpdateThesis = () => {
   const IDT = useParams();
-  var idUser = getIdUser();
-  var idInstitution = getIdInstitution();
+
+  let idUser = getIdUser();
+  const idInstitution = getIdInstitution();
+
+  // tu lógica actual (la mantengo tal cual)
   if (getIdUser() !== null) {
     idUser = "me";
   }
+
   const [institutionOptions, setInstitutionOptions] = useState([]);
-  const [setLoadingInst] = useState(true);
+  const [, setLoadingInst] = useState(true);
+
   const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+  // ✅ Toast real por context
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchInstitutions = async () => {
       try {
         const token =
           getAuthToken?.() || localStorage.getItem("memorychain_token");
-        const headers = token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/institutions`,
           headers ? { headers } : undefined
         );
+
         setInstitutionOptions(res.data || []);
       } catch (err) {
         console.error("Error loading institutions:", err);
+        showToast?.({
+          message: "Error loading institutions.",
+          type: "danger",
+          duration: 2600,
+        });
       } finally {
         setLoadingInst(false);
       }
     };
 
     fetchInstitutions();
-  }, []);
+  }, [API_BASE_URL, showToast]);
 
   return (
-    <div
-      className="d-flex"
-      style={{ minHeight: "100vh", background: "#f6f7f9" }}
-    >
+    <div className="d-flex" style={{ minHeight: "100vh" }}>
       <NavbarReal />
       <div className="flex-grow-1">
-        <Layout
-          showBack
-          title="Update Thesis"
-          icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="currentColor"
-              class="bi bi-file-earmark-arrow-up-fill nav-icon"
-              viewBox="0 0 16 16"
-            >
-              <path d="M9.293 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.707A1 1 0 0 0 13.707 4L10 .293A1 1 0 0 0 9.293 0M9.5 3.5v-2l3 3h-2a1 1 0 0 1-1-1M6.354 9.854a.5.5 0 0 1-.708-.708l2-2a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 8.707V12.5a.5.5 0 0 1-1 0V8.707z" />
-            </svg>
-          }
-        >
+        <Layout showBack title="Update Thesis" icon={<Upload />}>
           <FormThesis
             institutionOptions={institutionOptions}
             idUser={idUser}
             idInstitution={idInstitution}
             idThesis={IDT.id}
+            showToast={showToast} // ✅ CLAVE
           />
         </Layout>
       </div>
@@ -79,4 +78,4 @@ const UploadThesis = () => {
   );
 };
 
-export default UploadThesis;
+export default UpdateThesis;

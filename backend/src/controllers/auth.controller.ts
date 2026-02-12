@@ -14,41 +14,52 @@ interface JwtPayload {
   type: TokenType;
 }
 
-// Secreto para firmar/verificar JWT (debe venir en .env)
-const JWT_SECRET = process.env.JWT_SECRET as string;
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// helper: normaliza educationalEmails para asegurar status
+function normalizeEducationalEmails(input: any) {
+  if (!Array.isArray(input)) return [];
+  return input.map((e) => ({
+    institution: String(e?.institution ?? "").trim(),
+    email: e?.email ? String(e.email).trim() : undefined,
+    status:
+      e?.status && ["PENDING", "APPROVED", "REJECTED"].includes(String(e.status))
+        ? String(e.status)
+        : "PENDING",
+  })).filter((e) => e.institution.length > 0);
+}
 
 // Registro de usuarios normales
 export async function register(req: Request, res: Response) {
   try {
-    const {
-      name,
-      lastname,
-      email,
-      password,
-      educationalEmails,
-      role,
-    } = req.body;
+    if (!JWT_SECRET) {
+      return res
+        .status(500)
+        .json({ message: "JWT_SECRET no está configurado en el servidor" });
+    }
 
-    // Evita duplicar cuentas con el mismo email
+    const { name, lastname, email, password, educationalEmails, role, wallet } =
+      req.body;
+
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: "El email ya está registrado" });
     }
 
-    // Crea el usuario (idealmente password llega ya hasheada desde el model/middleware)
     const user = await User.create({
       name,
       lastname,
       email,
       password,
-      educationalEmails: educationalEmails ?? [], // por defecto vacío
+      educationalEmails: normalizeEducationalEmails(educationalEmails),
       role:
         role && Object.values(UserRole).includes(role)
           ? role
-          : UserRole.STUDENT, // rol por defecto
+          : UserRole.STUDENT,
+      wallet: wallet ? String(wallet).trim() : undefined,
     });
 
-    return res.status(201).json(user); // password ya viene oculto por toJSON
+    return res.status(201).json(user); // toJSON quita password
   } catch (err) {
     console.error("Error register", err);
     return res.status(500).json({ message: "Error del servidor" });
@@ -58,6 +69,12 @@ export async function register(req: Request, res: Response) {
 // Registro de instituciones
 export async function registerInstitution(req: Request, res: Response) {
   try {
+    if (!JWT_SECRET) {
+      return res
+        .status(500)
+        .json({ message: "JWT_SECRET no está configurado en el servidor" });
+    }
+
     const {
       name,
       description,
@@ -70,22 +87,20 @@ export async function registerInstitution(req: Request, res: Response) {
       logo,
       isMember,
       canVerify,
+      wallet,
     } = req.body;
 
-    // Evita duplicar instituciones con el mismo email
     const existing = await Institution.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: "El email ya está registrado" });
     }
 
-    // Validación mínima de password
     if (!password || String(password).length < 8) {
       return res
         .status(400)
         .json({ message: "La contraseña debe tener al menos 8 caracteres" });
     }
 
-    // Crea la institución (idealmente password llega ya hasheada)
     const institution = await Institution.create({
       name,
       description,
@@ -93,14 +108,14 @@ export async function registerInstitution(req: Request, res: Response) {
       website,
       email,
       password,
-      emailDomains: emailDomains ?? [], // dominios institucionales permitidos
-      type: type ?? "UNIVERSITY", // tipo por defecto
+      emailDomains: emailDomains ?? [],
+      type: type ?? "UNIVERSITY",
       logo: logo ?? "",
-      isMember: isMember ?? false, // membresía por defecto
-      canVerify: canVerify ?? false, // permiso de certificar por defecto
+      isMember: isMember ?? false,
+      canVerify: canVerify ?? false,
+      wallet: wallet ? String(wallet).trim() : undefined,
     });
 
-    // toJSON del modelo ya quita el password
     return res.status(201).json(institution);
   } catch (err) {
     console.error("Error registerInstitution", err);
@@ -108,90 +123,59 @@ export async function registerInstitution(req: Request, res: Response) {
   }
 }
 
-// Login unificado: primero intenta como usuario, si no existe intenta como institución
+// Login unificado
 export async function login(req: Request, res: Response) {
   try {
+    if (!JWT_SECRET) {
+      return res
+        .status(500)
+        .json({ message: "JWT_SECRET no está configurado en el servidor" });
+    }
+
     const { email, password } = req.body;
 
-    // 1) Intentar como usuario normal
     const user = await User.findOne({ email });
     if (user) {
-      let isMatch = false;
-
-      // Aquí normalmente iría bcrypt.compare(password, user.password)
-      // En tu caso estás comparando directo (posible legacy / texto plano)
-      try {
-        if(password === user.password){
-        isMatch = true;
-      }
-      } catch {
-        isMatch = false;
-      }
-
-      // fallback por compatibilidad con contraseñas en texto plano antiguas
-      if (!isMatch && password === user.password) {
-        isMatch = true;
-      }
-
+      const isMatch = password === user.password; // tu lógica actual
       if (!isMatch) {
         return res.status(400).json({ message: "Credenciales inválidas" });
       }
 
-      // Payload de JWT para usuario
       const payload: JwtPayload = {
         userId: user._id.toString(),
         type: "USER",
       };
 
-      // Firma token con expiración
       const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 
       return res.json({
         token,
         type: "USER",
-        user: user.toJSON(), // sin password
+        user: user.toJSON(),
       });
     }
 
-    // 2) Si no es usuario, intentar como institución
     const institution = await Institution.findOne({ email });
     if (!institution) {
       return res.status(400).json({ message: "Credenciales inválidas" });
     }
 
-    let isInstMatch = false;
-
-    // Igual que arriba: aquí normalmente sería bcrypt.compare(...)
-    try {
-      if(password === institution.password){
-        isInstMatch = true;
-      }
-    } catch {
-      isInstMatch = false;
-    }
-
-    // fallback por si están en texto plano
-    if (!isInstMatch && password === institution.password) {
-      isInstMatch = true;
-    }
-
+    const isInstMatch = password === institution.password; // tu lógica actual
     if (!isInstMatch) {
       return res.status(400).json({ message: "Credenciales inválidas" });
     }
 
-    // Payload de JWT para institución
     const payload: JwtPayload = {
       institutionId: institution._id.toString(),
       type: "INSTITUTION",
     };
 
-    // Firma token con expiración
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 
     return res.json({
       token,
       type: "INSTITUTION",
-      institution: institution.toJSON(), // sin password
+      institution: institution.toJSON(),
     });
   } catch (err) {
     console.error("Error login", err);

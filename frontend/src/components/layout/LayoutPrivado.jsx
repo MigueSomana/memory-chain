@@ -1,14 +1,8 @@
 import React, { useState } from "react";
-import { BackIcon, PlusIcon, CopyIcon, SupportIcon } from "../../utils/icons";
-import {
-  getAuthActor,
-  getIdUser,
-  getIdInstitution,
-} from "../../utils/authSession";
-import {
-  BookMarked,
-  School
-} from "lucide-react";
+import { BackIcon, SupportIcon } from "../../utils/icons";
+import { getAuthActor } from "../../utils/authSession";
+import { BookMarked, University,Upload } from "lucide-react";
+import { NavLink } from "react-router-dom";
 
 const Segmented = ({ options, value, onChange }) => (
   <div className="mcSegment" role="tablist" aria-label="Segmented switch">
@@ -37,7 +31,6 @@ const Segmented = ({ options, value, onChange }) => (
   </div>
 );
 
-
 const LayoutPrivado = ({
   icon,
   title,
@@ -45,15 +38,19 @@ const LayoutPrivado = ({
 
   showSwitch = false,
   showBack = false,
-  showID = false,
+  showUp = false,
 
   activeKey: controlledKey,
   onChange,
 
   // ✅ ahora soporta iconos por opción (para verse EXACTO al screenshot)
   options = [
-    { key: "thesis", label: "Theses", icon: <BookMarked size={18}/> },
-    { key: "institution", label: "Institutions", icon: <School size={18} /> },
+    { key: "thesis", label: "Theses", icon: <BookMarked size={18} /> },
+    {
+      key: "institution",
+      label: "Institutions",
+      icon: <University size={18} />,
+    },
   ],
   defaultKey = "thesis",
 }) => {
@@ -63,36 +60,6 @@ const LayoutPrivado = ({
   const handleChange = (key) => {
     if (onChange) onChange(key);
     else setUncontrolledKey(key);
-  };
-
-  const actor = getAuthActor();
-  const actorId =
-    actor === "institution"
-      ? getIdInstitution()
-      : actor === "user"
-      ? getIdUser()
-      : null;
-
-  const copyToClipboard = async (text) => {
-    if (!text) return;
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        return;
-      }
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.left = "-9999px";
-      ta.style.top = "-9999px";
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-    } catch (err) {
-      console.error("Failed to copy text: ", err);
-    }
   };
 
   const backHref =
@@ -128,20 +95,20 @@ const LayoutPrivado = ({
                 <span>Back</span>
               </a>
             )}
-
-            {showID && (
-              <button
+            {showUp && (
+              <NavLink
+                to={"/new-upload"}
                 type="button"
-                className="mcIdBadge"
-                title={actorId ? "Click to copy ID" : "No ID available"}
-                onClick={() => copyToClipboard(actorId)}
+                className="btn btn-memory mcSortBtn"
               >
-                <span className="mcIdLabel">ID:</span>
-                <span className="mcIdValue">{actorId || "—"}</span>
-                <span className="mcIdCopy" aria-hidden="true">
-                  {CopyIcon}
+                <span
+                  className="d-flex align-items-center justify-content-center"
+                  aria-hidden="true"
+                >
+                  <Upload size={18} className="mx-2 py-0" />
+                  New Upload
                 </span>
-              </button>
+              </NavLink>
             )}
           </div>
         </div>

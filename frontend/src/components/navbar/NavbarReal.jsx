@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   User,
   LogOut,
-  School,
+  University,
   Users,
   Heart,
 } from "lucide-react";
@@ -65,7 +65,7 @@ const NavbarReal = () => {
       {
         key: "profile",
         label: "Profile",
-        icon: isInstitution ? <School /> : <User />,
+        icon: isInstitution ? <University /> : <User />,
         href: isInstitution ? "/profile-institution" : "/profile-personal",
       },
     ],

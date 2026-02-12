@@ -21,30 +21,31 @@ const ModalLogIn = () => {
         style={{ zIndex: 1055 }}
       >
         <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content bg-mc-dark text-white">
-            <div className="modal-body container">
-              <div className="row">
-                <div className="button-close-modal-fix">
-                  <button
-                    type="button"
-                    className="btn-close btn-close-white"
-                    data-bs-dismiss="modal"
-                    aria-label="Close"
-                  />
-                </div>
+          {/* sin bg-mc-dark: este modal es “light” como la referencia */}
+          <div className="modal-content mcLoginModalContent">
+            {/* botón X custom arriba derecha */}
+            <button
+              type="button"
+              className="mcLoginCloseBtn"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+              title="Close"
+            >
+              ×
+            </button>
 
-                <FormLogin
-                  loginModalId={LOGIN_MODAL_ID}
-                  registerModalId={REGISTER_MODAL_ID}
-                  prefillEmail={prefillEmail}
-                />
-              </div>
+            <div className="modal-body mcLoginBody">
+              <FormLogin
+                loginModalId={LOGIN_MODAL_ID}
+                registerModalId={REGISTER_MODAL_ID}
+                prefillEmail={prefillEmail}
+              />
             </div>
           </div>
         </div>
       </div>
 
-      {/* ===== REGISTER MODAL (SIBLING, NO ANIDADO) ===== */}
+      {/* ===== REGISTER MODAL (SIBLING) ===== */}
       <ModalRegister
         modalId={REGISTER_MODAL_ID}
         loginModalId={LOGIN_MODAL_ID}

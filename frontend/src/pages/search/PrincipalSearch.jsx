@@ -2,7 +2,7 @@ import React, { Suspense, lazy } from "react";
 import NavbarReal from "../../components/navbar/NavbarReal";
 import Layout from "../../components/layout/LayoutPrivado";
 import { Search } from "lucide-react";
-
+ 
 // Carga diferida (Lazy Loading)
 const ThesisSearch = lazy(() => import("../search/ThesisSearch"));
 
@@ -18,7 +18,7 @@ const PrincipalSearch = () => {
   return (
     <div
       className="d-flex justify-content-between"
-      style={{ minHeight: "100vh", background: "#f6f7f9" }}
+      style={{ minHeight: "100vh" }}
     >
       <NavbarReal />
 

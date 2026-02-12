@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { getAuthRole, getAuthToken } from "../../utils/authSession";
-import ModalView from "../../components/modal/ModalView";
+import ModalViewThesis from "../../components/modal/ModalViewThesis";
 import axios from "axios";
+import { useToast } from "../../utils/toast";
 import {
   Eye,
   Quote,
@@ -12,7 +13,7 @@ import {
   Funnel,
   ChevronDown,
   GraduationCap,
-  School,
+  University,
   Binoculars,
   ArrowDown01,
   ArrowUp10,
@@ -20,7 +21,8 @@ import {
   ArrowUpZA,
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
-  UserPen
+  UserPen,
+  BadgeCheck,
 } from "lucide-react";
 
 // ===================== Configuración base =====================
@@ -117,8 +119,18 @@ const getTimeForSort = (t) => {
   return 0;
 };
 
-const statusUi = (raw) => {
+// ✅ Status UI con Independiente
+const statusUi = (raw, isIndependent) => {
   const s = normalizeStatus(raw);
+
+  // Independiente: por defecto neutro, si está APPROVED -> verde
+  if (isIndependent) {
+    if (s === "APPROVED") {
+      return { label: "Independent Research", tone: "certified" };
+    }
+    return { label: "Independent Research", tone: "neutral" };
+  }
+
   if (s === "APPROVED") return { label: "Certified", tone: "certified" };
   if (s === "PENDING") return { label: "Pending", tone: "pending" };
   if (s === "REJECTED") return { label: "Rejected", tone: "rejected" };
@@ -149,6 +161,7 @@ const ThesisSearch = ({
   // ---------- Estados de carga/errores ----------
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const { showToast } = useToast();
 
   // ---------- Búsqueda + Filtros ----------
   const [query, setQuery] = useState("");
@@ -162,7 +175,10 @@ const ThesisSearch = ({
   // ✅ si está locked, forzamos institución por id internamente
   // (este state solo aplica cuando NO está locked)
   const [institutionFilter, setInstitutionFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all"); // all | APPROVED | PENDING
+
+  // ✅ status filter incluye "independent"
+  // all | APPROVED | PENDING | INDEPENDENT
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // ---------- Orden + Paginación ----------
   const [sortBy, setSortBy] = useState("recent");
@@ -172,11 +188,12 @@ const ThesisSearch = ({
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // ✅ cuando cambia el lock, resetea página y limpia instituciónFilter (porque ya no aplica)
+  // ✅ cuando cambia el lock, resetea filtros que podrían dejarte en 0 resultados
   useEffect(() => {
     setPage(1);
     if (lockedId) {
-      setInstitutionFilter("all"); // no se usa, pero lo dejamos en un estado neutro
+      setInstitutionFilter("all"); // no se usa, pero neutro
+      setStatusFilter("all"); // ✅ evita quedar pegado en INDEPENDENT en focus
     }
   }, [lockedId]);
 
@@ -187,13 +204,11 @@ const ThesisSearch = ({
         setLoading(true);
         setLoadError("");
 
-        const headers = token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses`,
-          headers ? { headers } : undefined,
+          headers ? { headers } : undefined
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
@@ -214,14 +229,18 @@ const ThesisSearch = ({
 
           const userLiked =
             Array.isArray(t.likedBy) && currentUserId
-              ? t.likedBy.some(
-                  (u) => String(u?._id ?? u) === String(currentUserId),
-                )
+              ? t.likedBy.some((u) => String(u?._id ?? u) === String(currentUserId))
               : false;
 
           const derivedYear = getYearFromThesis(t);
 
-          return { ...t, likes: likesCount, userLiked, derivedYear };
+          return {
+            ...t,
+            likes: likesCount,
+            userLiked,
+            derivedYear,
+            quotes: t.quotes ?? 0, // ✅ nuevo backend
+          };
         });
 
         setTheses(mapped);
@@ -254,7 +273,7 @@ const ThesisSearch = ({
 
         const res = await axios.get(
           `${API_BASE_URL}/api/institutions`,
-          headers ? { headers } : undefined,
+          headers ? { headers } : undefined
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
@@ -284,7 +303,7 @@ const ThesisSearch = ({
     }
 
     const unique = Array.from(byId.values()).sort((a, b) =>
-      a.name.localeCompare(b.name),
+      a.name.localeCompare(b.name)
     );
 
     return [{ id: "all", name: "All Institutions" }, ...unique];
@@ -308,6 +327,8 @@ const ThesisSearch = ({
       if (status === "REJECTED") return false;
 
       const instId = getInstitutionId(t.institution);
+      const isIndependent = !instId;
+
       const instName = getInstitutionName(t);
       const authorsSearch = buildAuthorsSearchString(t.authors);
 
@@ -337,10 +358,24 @@ const ThesisSearch = ({
         yearNum >= Number(minYear) &&
         yearNum <= Number(maxYear);
 
-      const matchesStatus =
-        selectedStatus === "ALL"
-          ? status === "APPROVED" || status === "PENDING"
-          : status === selectedStatus;
+      // ✅ Status filter con "INDEPENDENT"
+      // - INDEPENDENT: solo tesis sin institución
+      // - APPROVED/PENDING: solo tesis CON institución (independientes no responden)
+      // - ALL: (APPROVED/PENDING con institución) + (independientes)
+      let matchesStatus = true;
+
+      if (selectedStatus === "INDEPENDENT") {
+        // si está locked, este filtro no debería existir,
+        // pero por seguridad: en locked no devolvemos nada independiente
+        matchesStatus = !isLockedInstitution && isIndependent;
+      } else if (selectedStatus === "ALL") {
+        matchesStatus =
+          isIndependent || status === "APPROVED" || status === "PENDING";
+      } else if (selectedStatus === "APPROVED" || selectedStatus === "PENDING") {
+        matchesStatus = !isIndependent && status === selectedStatus;
+      } else {
+        matchesStatus = false;
+      }
 
       // ✅ FILTRADO REAL POR INSTITUTION:
       // - si está locked => SOLO esas tesis
@@ -348,8 +383,8 @@ const ThesisSearch = ({
       const matchesInstitution = isLockedInstitution
         ? instId === lockedId
         : selectedInstId
-          ? instId === selectedInstId
-          : true;
+        ? instId === selectedInstId
+        : true;
 
       return (
         matchesInstitution &&
@@ -425,12 +460,12 @@ const ThesisSearch = ({
 
   const pageItems = useMemo(
     () => filteredOrdered.slice(start, end),
-    [filteredOrdered, start, end],
+    [filteredOrdered, start, end]
   );
 
   const pagesArray = useMemo(
     () => Array.from({ length: totalPages }, (_, i) => i + 1),
-    [totalPages],
+    [totalPages]
   );
 
   const go = (p) => setPage(p);
@@ -439,7 +474,7 @@ const ThesisSearch = ({
   const handleView = (thesis) => {
     setSelectedForView(thesis);
 
-    const el = document.getElementById("modalView");
+    const el = document.getElementById("modalViewThesis");
     if (!el) return;
 
     const modal = window.bootstrap?.Modal?.getOrCreateInstance(el, {
@@ -520,8 +555,8 @@ const ThesisSearch = ({
       degreeRaw.includes("phd") || degreeRaw.includes("doctor")
         ? "Doctoral dissertation"
         : degreeRaw.includes("master")
-          ? "Master’s thesis"
-          : "Bachelor’s thesis";
+        ? "Master’s thesis"
+        : "Bachelor’s thesis";
 
     const instName =
       typeof thesis?.institution === "object" && thesis?.institution
@@ -529,9 +564,7 @@ const ThesisSearch = ({
         : "";
 
     const url = `http://localhost:3000/view/${thesis._id}`;
-    const bracket = instName
-      ? `[${thesisType}, ${instName}]`
-      : `[${thesisType}]`;
+    const bracket = instName ? `[${thesisType}, ${instName}]` : `[${thesisType}]`;
     const base = `${authors} (${year}). ${title} ${bracket}`;
     return url ? `${base}. ${url}` : `${base}.`;
   }
@@ -540,8 +573,53 @@ const ThesisSearch = ({
     try {
       const citation = buildThesisApa7Citation(thesis, gateway);
       const ok = await copyToClipboard(citation);
-      if (ok) alert("Bibliographic Citation Copied ✅");
-      else alert("Failed Copied ❌");
+
+      if (ok) {
+        showToast({
+          message: "Citation copied to clipboard",
+          type: "success",
+          icon: BadgeCheck,
+          duration: 2200,
+        });
+
+        // ✅ increment quotes en backend
+        try {
+          const resp = await axios.post(
+            `${API_BASE_URL}/api/theses/${thesis._id}/quote`
+          );
+          const updatedThesis = resp?.data?.thesis;
+
+          if (updatedThesis?._id) {
+            setTheses((prev) =>
+              prev.map((t) =>
+                String(t._id) === String(updatedThesis._id)
+                  ? { ...t, quotes: updatedThesis.quotes ?? (t.quotes ?? 0) + 1 }
+                  : t
+              )
+            );
+          } else {
+            setTheses((prev) =>
+              prev.map((t) =>
+                String(t._id) === String(thesis._id)
+                  ? { ...t, quotes: (t.quotes ?? 0) + 1 }
+                  : t
+              )
+            );
+          }
+        } catch (e) {
+          console.error("Error incrementing quote count:", e);
+          // fallback local
+          setTheses((prev) =>
+            prev.map((t) =>
+              String(t._id) === String(thesis._id)
+                ? { ...t, quotes: (t.quotes ?? 0) + 1 }
+                : t
+            )
+          );
+        }
+      } else {
+        alert("Failed Copied ❌");
+      }
     } catch (e) {
       console.error(e);
       alert("Failed Copied ❌");
@@ -558,9 +636,7 @@ const ThesisSearch = ({
       const res = await axios.post(
         `${API_BASE_URL}/api/theses/${id}/like`,
         null,
-        {
-          headers,
-        },
+        { headers }
       );
 
       const { thesis, liked: isLiked } = res.data || {};
@@ -585,10 +661,17 @@ const ThesisSearch = ({
                 : preservedInstitution,
             department: thesis.department ?? preservedDepartment,
           };
-        }),
+        })
       );
 
       setLiked((prev) => ({ ...prev, [id]: !!isLiked }));
+
+      showToast({
+        message: isLiked ? "Added to likes" : "Removed from likes",
+        type: "success",
+        icon: isLiked ? HeartPlus : HeartMinus,
+        duration: 2000,
+      });
     } catch (err) {
       console.error("Error toggling like:", err);
     }
@@ -622,22 +705,21 @@ const ThesisSearch = ({
   const degreeLabel =
     degree === "all" ? "All Degrees" : String(degree || "All Degrees");
 
-  // ✅ en modo locked mostramos el nombre fijo
   const instLabel = isLockedInstitution
     ? lockedInstitutionName || "Institution"
     : institutionFilter === "all"
-      ? "All Institutions"
-      : (() => {
-          const found = institutionOptions.find(
-            (x) => String(x.id) === String(institutionFilter),
-          );
-          return found?.name || "All Institutions";
-        })();
+    ? "All Institutions"
+    : (() => {
+        const found = institutionOptions.find(
+          (x) => String(x.id) === String(institutionFilter)
+        );
+        return found?.name || "All Institutions";
+      })();
 
   // ===================== Render principal =====================
   return (
     <div className="mcExploreWrap">
-      <ModalView thesis={selectedForView} />
+      <ModalViewThesis thesis={selectedForView} />
 
       <div className="mcExploreContainer">
         {/* ===== TOP ROW (desktop one line) ===== */}
@@ -674,7 +756,6 @@ const ThesisSearch = ({
             />
           </div>
 
-          {/* Count (hidden in mobile via CSS) */}
           <div className="mcTopMeta">
             <span className="mcCountStrong">{filteredOrdered.length}</span>
             <span className="mcCountText">
@@ -682,7 +763,6 @@ const ThesisSearch = ({
             </span>
           </div>
 
-          {/* Sort */}
           <div className="mcSortWrap dropdown">
             <button
               className="mcSortBtn"
@@ -703,7 +783,9 @@ const ThesisSearch = ({
               {SORT_OPTIONS.map((opt) => (
                 <li key={opt.key}>
                   <button
-                    className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
+                    className={`dropdown-item ${
+                      sortBy === opt.key ? "active" : ""
+                    }`}
                     onClick={() => {
                       setSortBy(opt.key);
                       setPage(1);
@@ -720,7 +802,7 @@ const ThesisSearch = ({
 
         {/* ===== GRID ===== */}
         <div className="mcExploreGrid">
-          {/* Filters (hidden on mobile) */}
+          {/* Filters */}
           <aside className="mcFilters">
             <div className="mcFiltersCard">
               <div className="mcFiltersHead">
@@ -740,12 +822,20 @@ const ThesisSearch = ({
                     {[
                       { key: "APPROVED", label: "Certified" },
                       { key: "PENDING", label: "Pending" },
+
+                      // ✅ NO mostrar Independent cuando está locked (focus por institución)
+                      ...(!isLockedInstitution
+                        ? [{ key: "INDEPENDENT", label: "Independent" }]
+                        : []),
+
                       { key: "all", label: "All" },
                     ].map((s) => (
                       <button
                         key={s.key}
                         type="button"
-                        className={`mcPill ${statusFilter === s.key ? "is-active" : ""}`}
+                        className={`mcPill ${
+                          statusFilter === s.key ? "is-active" : ""
+                        }`}
                         onClick={() => {
                           setPage(1);
                           setStatusFilter(s.key);
@@ -794,7 +884,7 @@ const ThesisSearch = ({
                   </div>
                 </div>
 
-                {/* Language dropdown */}
+                {/* Language */}
                 <div className="mcField">
                   <div className="mcFieldLabel">Language</div>
 
@@ -815,7 +905,9 @@ const ThesisSearch = ({
                           <li key={l}>
                             <button
                               type="button"
-                              className={`dropdown-item ${language === l ? "active" : ""}`}
+                              className={`dropdown-item ${
+                                language === l ? "active" : ""
+                              }`}
                               onClick={() => {
                                 setPage(1);
                                 setLanguage(l);
@@ -824,13 +916,13 @@ const ThesisSearch = ({
                               {l === "all" ? "All Languages" : l.toUpperCase()}
                             </button>
                           </li>
-                        ),
+                        )
                       )}
                     </ul>
                   </div>
                 </div>
 
-                {/* Degree dropdown */}
+                {/* Degree */}
                 <div className="mcField">
                   <div className="mcFieldLabel">Academic Degree</div>
 
@@ -850,7 +942,9 @@ const ThesisSearch = ({
                         <li key={d}>
                           <button
                             type="button"
-                            className={`dropdown-item ${degree === d ? "active" : ""}`}
+                            className={`dropdown-item ${
+                              degree === d ? "active" : ""
+                            }`}
                             onClick={() => {
                               setPage(1);
                               setDegree(d);
@@ -864,11 +958,10 @@ const ThesisSearch = ({
                   </div>
                 </div>
 
-                {/* Institution dropdown */}
+                {/* Institution */}
                 <div className="mcField">
                   <div className="mcFieldLabel">Institution</div>
 
-                  {/* ✅ en locked: label fijo y NO dropdown */}
                   {isLockedInstitution ? (
                     <div className="mcSelectBtn" style={{ cursor: "default" }}>
                       <span className="mcSelectText">{instLabel}</span>
@@ -891,10 +984,14 @@ const ThesisSearch = ({
                           <li key={opt.id}>
                             <button
                               type="button"
-                              className={`dropdown-item ${String(institutionFilter) === String(opt.id) ? "active" : ""}`}
+                              className={`dropdown-item ${
+                                String(institutionFilter) === String(opt.id)
+                                  ? "active"
+                                  : ""
+                              }`}
                               onClick={() => {
                                 setPage(1);
-                                setInstitutionFilter(opt.id); // ✅ ahora guarda ID
+                                setInstitutionFilter(opt.id);
                               }}
                             >
                               {opt.name}
@@ -918,7 +1015,6 @@ const ThesisSearch = ({
                       setMinYear(1980);
                       setMaxYear(now);
 
-                      // ✅ si está locked no se toca la institución (porque se fuerza por lockedId)
                       if (!isLockedInstitution) setInstitutionFilter("all");
 
                       setStatusFilter("all");
@@ -940,26 +1036,29 @@ const ThesisSearch = ({
                 const rowKey = `${t._id}-${start + idx}`;
                 const isLiked = liked[t._id] ?? t.userLiked ?? false;
 
+                const instId = getInstitutionId(t.institution);
+                const isIndependent = !instId;
+
                 const instNameRaw = getInstitutionName(t);
                 const year = Number.isFinite(Number(t.derivedYear))
                   ? Number(t.derivedYear)
                   : getYearFromThesis(t);
 
-                const sUI = statusUi(t.status);
+                const sUI = statusUi(t.status, isIndependent);
 
                 const authorsText = Array.isArray(t.authors)
-                ? t.authors
-                    .map((a) =>
-                      typeof a === "string"
-                        ? a
-                        : `${a.lastname ?? ""} ${a.name ?? ""}`.trim(),
-                    )
-                    .filter(Boolean)
-                    .join(", ")
-                : "";
+                  ? t.authors
+                      .map((a) =>
+                        typeof a === "string"
+                          ? a
+                          : `${a.lastname ?? ""} ${a.name ?? ""}`.trim()
+                      )
+                      .filter(Boolean)
+                      .join(", ")
+                  : "";
 
                 const degreeText = safeDegreeLabel(t.degree);
-                const citedCount = Number(t.citedCount ?? t.cited ?? 0);
+                const citedCount = Number(t.quotes ?? 0);
 
                 return (
                   <article key={rowKey} className={`mcCard ${sUI.tone}`}>
@@ -978,21 +1077,21 @@ const ThesisSearch = ({
                         {t.title}
                       </h3>
 
-                      <div className="mcCardAuthors mcMetaRow" title={authorsText}>
+                      <div
+                        className="mcCardAuthors mcMetaRow"
+                        title={authorsText}
+                      >
                         <span className="mcMetaIcon" aria-hidden="true">
-                            
-                              <UserPen size={18} />
-                          </span>
-                          <span className="mcMetaText">
-                        {authorsText || "—"}
+                          <UserPen size={18} />
                         </span>
+                        <span className="mcMetaText">{authorsText || "—"}</span>
                       </div>
 
                       <div className="mcCardMeta">
                         <div className="mcMetaRow" title={instNameRaw}>
                           <span className="mcMetaIcon" aria-hidden="true">
                             {instNameRaw ? (
-                              <School size={18} />
+                              <University size={18} />
                             ) : (
                               <Binoculars size={18} />
                             )}
@@ -1015,10 +1114,7 @@ const ThesisSearch = ({
                       {Array.isArray(t.keywords) && t.keywords.length > 0 && (
                         <div className="mcTags">
                           {t.keywords.slice(0, 3).map((k, kidx) => (
-                            <span
-                              key={`${rowKey}-kw-${kidx}`}
-                              className="mcTag"
-                            >
+                            <span key={`${rowKey}-kw-${kidx}`} className="mcTag">
                               {k}
                             </span>
                           ))}
@@ -1035,7 +1131,10 @@ const ThesisSearch = ({
                       <div className="mcCardFooter">
                         <div className="mcMetrics">
                           <span className="mcMetric">
-                            <span className="mcMetricIcon fix1" aria-hidden="true">
+                            <span
+                              className="mcMetricIcon fix1"
+                              aria-hidden="true"
+                            >
                               <TextQuote size={18} />
                             </span>
                             <span className="mcMetricVal">{citedCount}</span>
@@ -1043,7 +1142,10 @@ const ThesisSearch = ({
                           </span>
 
                           <span className="mcMetric">
-                            <span className="mcMetricIcon fix1" aria-hidden="true">
+                            <span
+                              className="mcMetricIcon fix1"
+                              aria-hidden="true"
+                            >
                               <Heart size={18} />
                             </span>
                             <span className="mcMetricVal">{t.likes ?? 0}</span>
@@ -1073,7 +1175,9 @@ const ThesisSearch = ({
                           {role !== "INSTITUTION" && (
                             <button
                               type="button"
-                              className={`mcIconBtn ${isLiked ? "is-liked" : ""}`}
+                              className={`mcIconBtn ${
+                                isLiked ? "is-liked" : ""
+                              }`}
                               title={isLiked ? "Unlike" : "Like"}
                               onClick={() => handleToggleLike(t._id)}
                             >
@@ -1114,7 +1218,9 @@ const ThesisSearch = ({
                 {pagesArray.map((p) => (
                   <button
                     key={`p-${p}`}
-                    className={`mcPagerNum ${p === currentPage ? "is-active" : ""}`}
+                    className={`mcPagerNum ${
+                      p === currentPage ? "is-active" : ""
+                    }`}
                     type="button"
                     onClick={() => go(p)}
                   >

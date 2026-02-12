@@ -1,37 +1,40 @@
 import { Router } from "express";
-import { authMiddleware } from "../middleware/auth";
 import {
   getAllTheses,
   getThesisById,
+  getThesesByInstitutionId,
   createThesis,
   updateThesis,
   setThesisStatus,
   toggleLikeThesis,
-  getThesesByInstitutionId,
+  incrementQuoteThesis,
 } from "../controllers/thesis.controller";
-import { uploadPdf } from "../config/multer"; // middleware para subir PDFs
+
+import { authMiddleware } from "../middleware/auth";
+
+// Si ya tienes tu middleware de PDF, reemplázalo.
+// Este fallback usa multer memory storage.
+import multer from "multer";
+const upload = multer();
 
 const router = Router();
 
-// Crear thesis (requiere auth, acepta PDF opcional)
-router.post("/", authMiddleware, uploadPdf.single("pdf"), createThesis);
-
-// Editar thesis (solo el uploader, PDF opcional)
-router.patch("/:id", authMiddleware, uploadPdf.single("pdf"), updateThesis);
-
-// Ver todas las thesis
+// Públicos
 router.get("/", getAllTheses);
-
-// Ver thesis por institution
-router.get("/sub/:idInstitution", getThesesByInstitutionId);
-
-// Ver thesis por ID
+router.get("/institution/:idInstitution", getThesesByInstitutionId);
 router.get("/:id", getThesisById);
 
-// Cambiar status de thesis (aprobación/rechazo, requiere auth)
+// Crear / Editar (requiere USER + PDF opcional en update)
+router.post("/", authMiddleware, upload.single("file"), createThesis);
+router.patch("/:id", authMiddleware, upload.single("file"), updateThesis);
+
+// Cambiar status (certificar/rechazar) (USER miembro o INSTITUTION)
 router.patch("/:id/status", authMiddleware, setThesisStatus);
 
-// Like/Unlike Thesis
+// Likes (USER)
 router.post("/:id/like", authMiddleware, toggleLikeThesis);
+
+// Quotes (público o protegido, tú decides)
+router.post("/:id/quote", incrementQuoteThesis);
 
 export default router;

@@ -17,5 +17,3 @@ export enum CertificationStatus {
   APPROVED = "APPROVED",
   REJECTED = "REJECTED",
 }
-
-export type HashAlgorithm = "sha256" | "sha3" | "keccak256";

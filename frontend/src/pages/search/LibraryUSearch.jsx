@@ -1,11 +1,12 @@
+// LibraryUSearch.jsx
 import React, { useMemo, useState, useEffect } from "react";
 import axios from "axios";
 import { getAuthToken, getAuthInstitution } from "../../utils/authSession";
-import ModalView from "../../components/modal/ModalView";
+import ModalViewThesis from "../../components/modal/ModalViewThesis";
+import ModalCertificate from "../../components/modal/ModalCertificate"; // ✅ nuevo
 
 import {
   Eye,
-  ChevronDown,
   Copy,
   ArrowDown01,
   ArrowUp10,
@@ -13,7 +14,7 @@ import {
   ArrowUpZA,
   TextQuote,
   Heart,
-  School,
+  University,
   Check,
   BadgeCheck,
   OctagonMinus,
@@ -22,10 +23,15 @@ import {
   FingerprintPattern,
   Funnel,
   UserPen,
+  ChevronDown,
 } from "lucide-react";
 
 // ===================== CONFIG GLOBAL =====================
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+// ✅ NUEVO: endpoint correcto para certificados (según tus rutas nuevas)
+const CERTIFICATE_BASE =
+  import.meta.env.VITE_CERT_API_PATH || "/api/certificates";
 
 // ===================== SORT OPTIONS =====================
 const SORT_OPTIONS = [
@@ -78,7 +84,7 @@ const getYearFromThesis = (t) => {
   }
   if (t?.createdAt) {
     const ms = new Date(t.createdAt).getTime();
-    if (!Number.isNaN(ms)) return new Date(ms).getFullYear();
+    if (!Number.isNaN(ms)) return new Date(t.createdAt).getFullYear();
   }
   const y = Number(t?.year);
   if (Number.isFinite(y) && y > 0) return y;
@@ -114,23 +120,12 @@ const getStatusChip = (rawStatus) => {
   const s = normalizeStatus(rawStatus);
 
   if (s === "APPROVED") {
-    return {
-      Icon: BadgeCheck,
-      toneClass: "mcStatusChip--approved",
-    };
+    return { Icon: BadgeCheck, toneClass: "mcStatusChip--approved" };
   }
-
   if (s === "REJECTED") {
-    return {
-      Icon: OctagonMinus,
-      toneClass: "mcStatusChip--rejected",
-    };
+    return { Icon: OctagonMinus, toneClass: "mcStatusChip--rejected" };
   }
-
-  return {
-    Icon: Clock3,
-    toneClass: "mcStatusChip--pending",
-  };
+  return { Icon: Clock3, toneClass: "mcStatusChip--pending" };
 };
 
 const isStatusLocked = (raw) => normalizeStatus(raw) === "APPROVED";
@@ -170,10 +165,14 @@ const LibraryUSearch = () => {
 
   // pagination
   const [page, setPage] = useState(1);
-  const pageSize = 12; // ✅ 3 columnas: 12 encaja mejor (3x4)
+  const pageSize = 12;
 
-  // modal
+  // modal view
   const [selectedThesisView, setSelectedThesisView] = useState(null);
+
+  // ✅ modal certificate
+  const [certificateData, setCertificateData] = useState(null);
+  const [selectedThesisCert, setSelectedThesisCert] = useState(null);
 
   // copy toast
   const [copiedId, setCopiedId] = useState(null);
@@ -190,24 +189,22 @@ const LibraryUSearch = () => {
           return;
         }
 
-        const headers = token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
+        // ✅ endpoint real
         const res = await axios.get(
-          `${API_BASE_URL}/api/theses/sub/${authInst._id}`,
-          headers ? { headers } : undefined,
+          `${API_BASE_URL}/api/theses/institution/${authInst._id}`,
+          headers ? { headers } : undefined
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
 
-        // preserva likes/cited si vienen en backend; si no, default 0
         setTheses(
           data.map((t) => ({
             ...t,
             likes: Number(t.likes ?? 0),
-            citedCount: Number(t.citedCount ?? t.cited ?? 0),
-          })),
+            quotes: Number(t.quotes ?? 0),
+          }))
         );
       } catch (err) {
         console.error("Error loading institution theses:", err);
@@ -242,8 +239,7 @@ const LibraryUSearch = () => {
         degree.includes(q) ||
         fileHash.includes(q);
 
-      const matchesStatus =
-        selectedStatus === "ALL" || status === selectedStatus;
+      const matchesStatus = selectedStatus === "ALL" || status === selectedStatus;
 
       return matchesQ && matchesStatus;
     });
@@ -289,14 +285,15 @@ const LibraryUSearch = () => {
   const start = (currentPage - 1) * pageSize;
   const end = start + pageSize;
 
-  const pageItems = useMemo(
-    () => filteredOrdered.slice(start, end),
-    [filteredOrdered, start, end],
-  );
+  const pageItems = useMemo(() => filteredOrdered.slice(start, end), [
+    filteredOrdered,
+    start,
+    end,
+  ]);
 
   const pagesArray = useMemo(
     () => Array.from({ length: totalPages }, (_, i) => i + 1),
-    [totalPages],
+    [totalPages]
   );
 
   const go = (p) => setPage(p);
@@ -305,7 +302,7 @@ const LibraryUSearch = () => {
   const handleView = (thesis) => {
     setSelectedThesisView(thesis);
 
-    const el = document.getElementById("modalView");
+    const el = document.getElementById("modalViewThesis");
     if (!el) return;
 
     const modal = window.bootstrap?.Modal?.getOrCreateInstance(el, {
@@ -324,7 +321,7 @@ const LibraryUSearch = () => {
       const res = await axios.patch(
         `${API_BASE_URL}/api/theses/${thesisId}/status`,
         { status: newStatus },
-        { headers },
+        { headers }
       );
 
       const updated = res?.data?.thesis || res?.data || null;
@@ -333,12 +330,79 @@ const LibraryUSearch = () => {
         prev.map((t) =>
           String(t._id) === String(thesisId)
             ? { ...t, status: updated?.status ?? newStatus }
-            : t,
-        ),
+            : t
+        )
       );
     } catch (err) {
       console.error("Error updating thesis status:", err);
       alert("Failed to update status ❌");
+    }
+  };
+
+  // ✅ quotes (endpoint real público)
+  const handleAddQuote = async (thesisId) => {
+    try {
+      const res = await axios.post(`${API_BASE_URL}/api/theses/${thesisId}/quote`);
+
+      const updated = res?.data?.thesis || res?.data || null;
+      const newQuotes = Number(updated?.quotes ?? updated?.quote ?? updated?.count ?? NaN);
+
+      setTheses((prev) =>
+        prev.map((t) => {
+          if (String(t._id) !== String(thesisId)) return t;
+          return {
+            ...t,
+            quotes: Number.isFinite(newQuotes)
+              ? newQuotes
+              : Number(t.quotes ?? 0) + 1,
+          };
+        })
+      );
+    } catch (err) {
+      console.error("Error incrementing quotes:", err);
+      alert("Failed to add quote ❌");
+    }
+  };
+
+  // ✅ abrir certificado
+  const openCertificateModal = () => {
+    const el = document.getElementById("modalCertificate");
+    if (!el) return;
+    const modal = window.bootstrap?.Modal?.getOrCreateInstance(el);
+    modal?.show();
+  };
+
+  // ✅ FIX PRINCIPAL: endpoint correcto + manejo 404 + no borrar thesis
+  const handleCertificate = async (thesis) => {
+    try {
+      if (!thesis?._id) return;
+
+      setSelectedThesisCert(thesis);
+      setCertificateData(null);
+
+      const res = await axios.get(
+        `${API_BASE_URL}${CERTIFICATE_BASE}/thesis/${thesis._id}`,
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+      );
+
+      setCertificateData(res.data);
+      openCertificateModal();
+    } catch (err) {
+      console.error(err);
+
+      const code = err?.response?.status;
+
+      // 404 = no certificado (según tu backend)
+      if (code === 404) {
+        setCertificateData(null);
+        // si quieres abrir el modal igual, lo abrimos para que el usuario vea que no hay data
+        openCertificateModal();
+        alert("Esta tesis aún no está certificada.");
+        return;
+      }
+
+      setCertificateData(null);
+      alert("No se pudo obtener el certificado.");
     }
   };
 
@@ -373,10 +437,19 @@ const LibraryUSearch = () => {
 
   return (
     <div className="mcExploreWrap">
-      <ModalView thesis={selectedThesisView} />
+      <ModalViewThesis thesis={selectedThesisView} />
+
+      {/* ✅ modal certificate */}
+      <ModalCertificate
+        thesis={selectedThesisCert}
+        certificate={certificateData}
+        onClose={() => {
+          setCertificateData(null);
+          setSelectedThesisCert(null);
+        }}
+      />
 
       <div className="mcExploreContainer">
-        {/* Membership warning */}
         {!canVerify && (
           <div className="mcAlert mcAlertDanger">
             <span className="mcAlertIcon" aria-hidden="true">
@@ -389,9 +462,8 @@ const LibraryUSearch = () => {
           </div>
         )}
 
-        {/* ===================== TOP ROW (one line) ===================== */}
+        {/* ===================== TOP ROW ===================== */}
         <div className="mcTopRow mcLibTopRow">
-          {/* Search smaller */}
           <div className="mcSearch mcSearchSm">
             <span className="mcSearchIcon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
@@ -419,7 +491,7 @@ const LibraryUSearch = () => {
               }}
             />
           </div>
-          {/* Count */}
+
           <div className="mcTopMeta mcTopMetaInline">
             <span className="mcCountStrong">{filteredOrdered.length}</span>
             <span className="mcCountText">
@@ -427,7 +499,6 @@ const LibraryUSearch = () => {
             </span>
           </div>
 
-          {/* Sort */}
           <div className="mcSortWrap dropdown">
             <button
               className="mcSortBtn"
@@ -439,9 +510,7 @@ const LibraryUSearch = () => {
               <span className="mcSortIcon" aria-hidden="true">
                 {activeSortOption.icon}
               </span>
-              <span className="mcSortLabelDesktop">
-                {activeSortOption.label}
-              </span>
+              <span className="mcSortLabelDesktop">{activeSortOption.label}</span>
             </button>
 
             <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
@@ -462,7 +531,6 @@ const LibraryUSearch = () => {
             </ul>
           </div>
 
-          {/* Filter by status */}
           <div className="mcSortWrap dropdown">
             <button
               className="mcSortBtn"
@@ -474,18 +542,14 @@ const LibraryUSearch = () => {
               <span className="mcSortIcon" aria-hidden="true">
                 <Funnel size={18} />
               </span>
-              <span className="mcSortLabelDesktop">
-                Filter: {statusFilterLabel}
-              </span>
+              <span className="mcSortLabelDesktop">Filter: {statusFilterLabel}</span>
             </button>
 
             <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
               {STATUS_FILTER_OPTIONS.map((opt) => (
                 <li key={opt.key}>
                   <button
-                    className={`dropdown-item ${
-                      statusFilter === opt.key ? "active" : ""
-                    }`}
+                    className={`dropdown-item ${statusFilter === opt.key ? "active" : ""}`}
                     type="button"
                     onClick={() => {
                       setStatusFilter(opt.key);
@@ -499,13 +563,14 @@ const LibraryUSearch = () => {
             </ul>
           </div>
         </div>
-        {/* ===================== GRID (3 columns) ===================== */}
+
+        {/* ===================== GRID ===================== */}
         <section className="mcResults">
           <div className="mcCardsGrid mcCardsGrid3">
             {pageItems.map((t, idx) => {
               const rowKey = `${t._id}-${start + idx}`;
 
-              const tone = getStatusTone(t.status); // certified | pending | rejected
+              const tone = getStatusTone(t.status);
               const locked = isStatusLocked(t.status);
 
               const year = getYearFromThesis(t);
@@ -517,19 +582,21 @@ const LibraryUSearch = () => {
                     .map((a) =>
                       typeof a === "string"
                         ? a
-                        : `${a.lastname ?? ""} ${a.name ?? ""}`.trim(),
+                        : `${a.lastname ?? ""} ${a.name ?? ""}`.trim()
                     )
                     .filter(Boolean)
                     .join(", ")
                 : "";
 
               const fileHash = String(t.fileHash || "").trim();
-              const citedCount = Number(t.citedCount ?? 0);
+              const quotesCount = Number(t.quotes ?? 0);
               const likesCount = Number(t.likes ?? 0);
+
+              const chip = getStatusChip(t.status);
+              const StatusIcon = chip.Icon;
 
               return (
                 <article key={rowKey} className={`mcCard ${tone} mcLibCard`}>
-                  {/* ✅ barrita arriba con color por status */}
                   <div className={`mcCardBar mcCardBar--${tone}`} />
 
                   <div className="mcCardTop">
@@ -539,14 +606,12 @@ const LibraryUSearch = () => {
                         {tone === "certified"
                           ? "Verified"
                           : tone === "rejected"
-                            ? "Rejected"
-                            : "Pending"}
+                          ? "Rejected"
+                          : "Pending"}
                       </span>
                     </div>
 
-                    <div className="mcYear">
-                      {Number.isNaN(year) ? "—" : year}
-                    </div>
+                    <div className="mcYear">{Number.isNaN(year) ? "—" : year}</div>
                   </div>
 
                   <div className="mcCardBody">
@@ -554,21 +619,17 @@ const LibraryUSearch = () => {
                       {t.title}
                     </h3>
 
-                    <div
-                      className="mcCardAuthors mcMetaRow"
-                      title={authorsText}
-                    >
+                    <div className="mcCardAuthors mcMetaRow" title={authorsText}>
                       <span className="mcMetaIcon" aria-hidden="true">
                         <UserPen size={18} />
                       </span>
                       <span className="mcMetaText">{authorsText || "—"}</span>
                     </div>
 
-                    {/* ✅ Department + Degree en la misma línea como pediste */}
                     <div className="mcCardMeta">
                       <div className="mcMetaRow">
                         <span className="mcMetaIcon" aria-hidden="true">
-                          <School size={18} />
+                          <University size={18} />
                         </span>
                         <span className="mcMetaText">{dept}</span>
                       </div>
@@ -581,11 +642,7 @@ const LibraryUSearch = () => {
                       </div>
                     </div>
 
-                    {/* ✅ Hash input copiables */}
-                    <div
-                      className="mcHashCopyWrap mt-3 mb-3"
-                      title={fileHash || ""}
-                    >
+                    <div className="mcHashCopyWrap mt-3 mb-3" title={fileHash || ""}>
                       <span className="mcHashPrefix">
                         <FingerprintPattern size={18} />
                       </span>
@@ -604,7 +661,9 @@ const LibraryUSearch = () => {
                       </span>
 
                       <button
-                        className={`mcHashCopyBtn ${copiedId === String(t._id) ? "is-copied" : ""}`}
+                        className={`mcHashCopyBtn ${
+                          copiedId === String(t._id) ? "is-copied" : ""
+                        }`}
                         type="button"
                         title="Copy file hash"
                         onClick={async () => {
@@ -626,25 +685,23 @@ const LibraryUSearch = () => {
 
                     <div className="mcCardDivider" />
 
-                    {/* ✅ vuelve cited + likes */}
                     <div className="mcCardFooter">
                       <div className="mcMetrics">
-                        <span className="mcMetric">
-                          <span
-                            className="mcMetricIcon fix1"
-                            aria-hidden="true"
-                          >
+                        <button
+                          type="button"
+                          className="mcMetric mcMetricBtn"
+                          title="Add quote"
+                          onClick={() => handleAddQuote(t._id)}
+                        >
+                          <span className="mcMetricIcon fix1" aria-hidden="true">
                             <TextQuote size={18} />
                           </span>
-                          <span className="mcMetricVal">{citedCount}</span>
+                          <span className="mcMetricVal">{quotesCount}</span>
                           <span className="mcMetricLbl">cited</span>
-                        </span>
+                        </button>
 
                         <span className="mcMetric">
-                          <span
-                            className="mcMetricIcon fix1"
-                            aria-hidden="true"
-                          >
+                          <span className="mcMetricIcon fix1" aria-hidden="true">
                             <Heart size={18} />
                           </span>
                           <span className="mcMetricVal">{likesCount}</span>
@@ -662,62 +719,50 @@ const LibraryUSearch = () => {
                           <Eye size={18} />
                         </button>
 
-                        {/* ✅ Change status dropdown (locked on APPROVED) */}
                         {canVerify && (
                           <div className="dropdown">
-                            {(() => {
-                              const chip = getStatusChip(t.status);
-                              const StatusIcon = chip.Icon;
+                            <button
+                              type="button"
+                              className={`mcStatusChip ${chip.toneClass} ${
+                                locked ? "is-locked" : ""
+                              }`}
+                              data-bs-toggle={locked ? undefined : "dropdown"}
+                              aria-expanded="false"
+                              title={locked ? "Open certificate" : "Change status"}
+                              // ✅ si está aprobado: click abre certificado
+                              onClick={() => {
+                                if (locked) handleCertificate(t);
+                              }}
+                            >
+                              <StatusIcon size={18} />
+                              {!locked && (
+                                <span className="mcStatusChipCaret" aria-hidden="true">
+                                  <ChevronDown size={16} />
+                                </span>
+                              )}
+                            </button>
 
-                              return (
-                                <>
-                                  <button
-                                    type="button"
-                                    className={`mcStatusChip ${chip.toneClass} ${
-                                      locked ? "is-locked" : ""
-                                    }`}
-                                    data-bs-toggle="dropdown"
-                                    aria-expanded="false"
-                                    disabled={locked}
-                                    title={
-                                      locked
-                                        ? "Status locked (Verified)"
-                                        : "Change status"
-                                    }
-                                  >
-                                    <StatusIcon size={18} />
-                                  </button>
+                            {!locked && (
+                              <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
+                                {STATUS_CHANGE_OPTIONS.map((opt) => {
+                                  const isCurrent =
+                                    normalizeStatus(opt.key) === normalizeStatus(t.status);
 
-                                  {!locked && (
-                                    <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
-                                      {STATUS_CHANGE_OPTIONS.map((opt) => {
-                                        const isCurrent =
-                                          normalizeStatus(opt.key) ===
-                                          normalizeStatus(t.status);
-
-                                        return (
-                                          <li key={opt.key}>
-                                            <button
-                                              type="button"
-                                              className={`dropdown-item ${isCurrent ? "active" : ""}`}
-                                              onClick={() =>
-                                                handleChangeStatus(
-                                                  t._id,
-                                                  opt.key,
-                                                )
-                                              }
-                                              disabled={isCurrent}
-                                            >
-                                              {opt.label}
-                                            </button>
-                                          </li>
-                                        );
-                                      })}
-                                    </ul>
-                                  )}
-                                </>
-                              );
-                            })()}
+                                  return (
+                                    <li key={opt.key}>
+                                      <button
+                                        type="button"
+                                        className={`dropdown-item ${isCurrent ? "active" : ""}`}
+                                        onClick={() => handleChangeStatus(t._id, opt.key)}
+                                        disabled={isCurrent}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
                           </div>
                         )}
                       </div>
@@ -727,12 +772,9 @@ const LibraryUSearch = () => {
               );
             })}
 
-            {pageItems.length === 0 && (
-              <div className="mcMuted">No theses found.</div>
-            )}
+            {pageItems.length === 0 && <div className="mcMuted">No theses found.</div>}
           </div>
 
-          {/* Pagination */}
           <div className="mcPager">
             <button
               className="mcPagerBtn"

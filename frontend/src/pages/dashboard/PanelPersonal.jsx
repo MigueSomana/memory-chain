@@ -1,29 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { getAuthToken, getIdUser } from "../../utils/authSession";
-import {
-  MetricTableIcon,
-  LikeTableIcon,
-  AproveTableIcon,
-  HeartFill,
-  StatusIcon,
-  HeartIcon,
-} from "../../utils/icons";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import {
+  BookCheck,
+  Heart,
+  ChartPie,
+  Binoculars,
+  BookMarked,
+  BookHeart,
+  Building2,
+} from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 const safeNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const normalizeStatus = (s) => String(s || "").toUpperCase();
-
-const renderIcon = (icon, size = 40) => {
-  if (React.isValidElement(icon)) {
-    return React.cloneElement(icon, {
-      style: { width: size, height: size, ...icon.props?.style },
-    });
-  }
-  return icon;
-};
 
 const prettyStatus = (key) => {
   if (key === "APPROVED") return "Approved";
@@ -34,19 +26,10 @@ const prettyStatus = (key) => {
 // ===================== Helpers de IDs (robusto) =====================
 function getAnyId(v) {
   if (!v) return null;
-
-  // si viene tipo { $oid: "..." }
   if (typeof v === "object" && v.$oid) return String(v.$oid);
-
-  // si viene populated { _id: "..."} o {_id: {$oid:"..."}}
   if (typeof v === "object" && v._id) return getAnyId(v._id);
-
-  // si viene { id: "..." }
   if (typeof v === "object" && v.id) return String(v.id);
-
-  // si viene string
   if (typeof v === "string") return v;
-
   return null;
 }
 
@@ -54,7 +37,7 @@ function getAnyId(v) {
 const getInstitutionName = (thesis) => {
   const inst = thesis?.institution;
   if (!inst) return "";
-  if (typeof inst === "string") return inst;
+  if (typeof inst === "string") return inst; // a veces podría venir solo el id
   return inst?.name || "";
 };
 
@@ -65,20 +48,18 @@ function getInstitutionUI(thesis) {
   return {
     hasInstitution,
     line: hasInstitution
-      ? `${instName}${thesis?.department ? ` - ${thesis.department}` : ""}`
-      : "Investigación Independiente",
+      ? `${instName}${thesis?.department ? ` • ${thesis.department}` : ""}`
+      : "Independent Research",
   };
 }
 
-// ✅ NUEVO: pertenece al usuario por ID (uploadedBy o authors incluye id)
+// ✅ pertenece al usuario por ID (uploadedBy o authors incluye id)
 function thesisBelongsToUser(thesis, userId) {
   if (!userId) return false;
 
-  // 1) dueño real
   const uploadedById = getAnyId(thesis?.uploadedBy);
   if (uploadedById && String(uploadedById) === String(userId)) return true;
 
-  // 2) fallback: authors contiene userId
   const authors = Array.isArray(thesis?.authors) ? thesis.authors : [];
   return authors.some((a) => {
     const aid = getAnyId(a);
@@ -94,21 +75,60 @@ const trimLabel = (text, max = 22) => {
   return s.slice(0, max - 1) + "…";
 };
 
+const pct = (num, den) => {
+  const n = safeNum(num);
+  const d = safeNum(den);
+  if (d <= 0) return 0;
+  return Math.round((n / d) * 100);
+};
+
+// ✅ Dropdown minimal + compatible con mcDropdownMenu
+const DashDropdown = ({ value, options, onChange, width = 190 }) => {
+  const current = options.find((o) => o.value === value) || options[0];
+  return (
+    <div className="dropdown mcDashDd" style={{ width }}>
+      <button
+        type="button"
+        className="btn btn-outline-memory mcDashDdBtn dropdown-toggle pd-fix"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+        title={current?.label || ""}
+      >
+        <span className="mcDashDdText">{current?.label || "Select"}</span>
+      </button>
+
+      <ul className="dropdown-menu mcDropdownMenu">
+        {options.map((o) => (
+          <li key={o.value}>
+            <button
+              type="button"
+              className={`dropdown-item ${value === o.value ? "active" : ""}`}
+              onClick={() => onChange(o.value)}
+            >
+              {o.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const PanelPersonal = () => {
   const token = useMemo(() => getAuthToken(), []);
-  const userId = useMemo(() => getIdUser(), []); // ✅ actor=user
+  const userId = useMemo(() => getIdUser(), []);
 
   const [theses, setTheses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
   // ✅ Tabla Status: filtro + paginación micro
-  const [statusFilter, setStatusFilter] = useState("ALL"); // ALL | APPROVED | PENDING | REJECTED
-  const [tablePage, setTablePage] = useState(1);
-  const tablePageSize = 5;
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusPage, setStatusPage] = useState(1);
+  const statusPageSize = 5;
 
   // ✅ Tabla Likes: orden + paginación micro
-  const [likesOrder, setLikesOrder] = useState("DESC"); // ASC | DESC
+  const [likesOrder, setLikesOrder] = useState("DESC");
   const [likesPage, setLikesPage] = useState(1);
   const likesPageSize = 5;
 
@@ -123,7 +143,6 @@ const PanelPersonal = () => {
           return;
         }
 
-        // ✅ aquí sí conviene usar token si existe
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
         const res = await axios.get(
@@ -132,10 +151,7 @@ const PanelPersonal = () => {
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
-
-        // ✅ NUEVO FILTRO (igual que Library)
         const onlyMine = data.filter((t) => thesisBelongsToUser(t, userId));
-
         setTheses(onlyMine);
       } catch (err) {
         console.error(err);
@@ -149,7 +165,9 @@ const PanelPersonal = () => {
     fetchMyTheses();
   }, [token, userId]);
 
-  // ✅ métricas
+  // =========================
+  // ✅ TOP METRICS
+  // =========================
   const totalTheses = theses.length;
 
   const approvedTheses = useMemo(
@@ -162,11 +180,16 @@ const PanelPersonal = () => {
     [theses]
   );
 
-  // ✅ conteo por status (donut 1)
+  const independentCount = useMemo(
+    () => theses.filter((t) => !String(getInstitutionName(t) || "").trim()).length,
+    [theses]
+  );
+
+  // =========================
+  // ✅ DONUT 1: STATUS
+  // =========================
   const statusCounts = useMemo(() => {
-    let approved = 0;
-    let pending = 0;
-    let rejected = 0;
+    let approved = 0, pending = 0, rejected = 0;
 
     theses.forEach((t) => {
       const st = normalizeStatus(t.status);
@@ -178,7 +201,7 @@ const PanelPersonal = () => {
     return { approved, pending, rejected };
   }, [theses]);
 
-  const donutData = useMemo(
+  const statusDonutData = useMemo(
     () => [
       { name: "Approved", value: statusCounts.approved, key: "APPROVED" },
       { name: "Pending", value: statusCounts.pending, key: "PENDING" },
@@ -187,105 +210,89 @@ const PanelPersonal = () => {
     [statusCounts]
   );
 
-  const donutTotal = useMemo(
-    () => donutData.reduce((acc, d) => acc + safeNum(d.value), 0),
-    [donutData]
+  const statusDonutTotal = useMemo(
+    () => statusDonutData.reduce((acc, d) => acc + safeNum(d.value), 0),
+    [statusDonutData]
   );
 
-  // ✅ TABLA Status: filtrar por status
-  const tableFilteredTheses = useMemo(() => {
+  const statusTableFiltered = useMemo(() => {
     const f = String(statusFilter || "ALL").toUpperCase();
     if (f === "ALL") return theses;
     return theses.filter((t) => normalizeStatus(t.status) === f);
   }, [theses, statusFilter]);
 
-  // ✅ TABLA Status: orden (más reciente primero)
-  const tableSortedTheses = useMemo(() => {
-    return [...tableFilteredTheses].sort((a, b) => {
+  const statusTableSorted = useMemo(() => {
+    return [...statusTableFiltered].sort((a, b) => {
       const da = new Date(a.updatedAt || a.createdAt || 0).getTime();
       const db = new Date(b.updatedAt || b.createdAt || 0).getTime();
       return db - da;
     });
-  }, [tableFilteredTheses]);
+  }, [statusTableFiltered]);
 
-  // ✅ TABLA Status: paginación micro (5)
-  const tableTotalPages = useMemo(() => {
-    return Math.max(1, Math.ceil(tableSortedTheses.length / tablePageSize));
-  }, [tableSortedTheses.length]);
+  const statusTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(statusTableSorted.length / statusPageSize)),
+    [statusTableSorted.length]
+  );
 
-  const tableCurrentPage = Math.min(Math.max(1, tablePage), tableTotalPages);
+  const statusCurrentPage = Math.min(Math.max(1, statusPage), statusTotalPages);
 
+  useEffect(() => setStatusPage(1), [statusFilter]);
   useEffect(() => {
-    setTablePage(1);
-  }, [statusFilter]);
-
-  useEffect(() => {
-    if (tablePage > tableTotalPages) setTablePage(tableTotalPages);
+    if (statusPage > statusTotalPages) setStatusPage(statusTotalPages);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableTotalPages]);
+  }, [statusTotalPages]);
 
-  const tablePageItems = useMemo(() => {
-    const start = (tableCurrentPage - 1) * tablePageSize;
-    const end = start + tablePageSize;
-    return tableSortedTheses.slice(start, end);
-  }, [tableSortedTheses, tableCurrentPage]);
+  const statusPageItems = useMemo(() => {
+    const start = (statusCurrentPage - 1) * statusPageSize;
+    return statusTableSorted.slice(start, start + statusPageSize);
+  }, [statusTableSorted, statusCurrentPage]);
 
-  const canPrev = tableCurrentPage > 1;
-  const canNext = tableCurrentPage < tableTotalPages;
+  const statusCanPrev = statusCurrentPage > 1;
+  const statusCanNext = statusCurrentPage < statusTotalPages;
 
-  // ✅ DONUT Likes: Top 3 + Others
-  const thesesSortedByLikesDesc = useMemo(() => {
-    return [...theses].sort((a, b) => safeNum(b.likes) - safeNum(a.likes));
-  }, [theses]);
+  // =========================
+  // ✅ DONUT 2: LIKES (Top3 + Others)
+  // =========================
+  const thesesSortedByLikesDesc = useMemo(
+    () => [...theses].sort((a, b) => safeNum(b.likes) - safeNum(a.likes)),
+    [theses]
+  );
 
   const likesTop3DonutData = useMemo(() => {
     if (!thesesSortedByLikesDesc.length) return [];
-
     const top3 = thesesSortedByLikesDesc.slice(0, 3).map((t, idx) => ({
       key: String(t._id || `TOP_${idx}`),
       name: trimLabel(t.title, 22),
       value: safeNum(t.likes),
     }));
-
     const othersSum = thesesSortedByLikesDesc
       .slice(3)
       .reduce((acc, t) => acc + safeNum(t.likes), 0);
 
     const final = [...top3];
-    if (othersSum > 0) {
-      final.push({
-        key: "OTHERS",
-        name: "Others",
-        value: othersSum,
-      });
-    }
-
+    if (othersSum > 0) final.push({ key: "OTHERS", name: "Others", value: othersSum });
     return final;
   }, [thesesSortedByLikesDesc]);
 
-  const likesDonutTotal = useMemo(() => {
-    return likesTop3DonutData.reduce((acc, d) => acc + safeNum(d.value), 0);
-  }, [likesTop3DonutData]);
+  const likesDonutTotal = useMemo(
+    () => likesTop3DonutData.reduce((acc, d) => acc + safeNum(d.value), 0),
+    [likesTop3DonutData]
+  );
 
-  // ✅ Tabla Likes: ordenar ASC/DESC por likes
   const likesTableSorted = useMemo(() => {
     const dir = String(likesOrder || "DESC").toUpperCase();
-    const sorted = [...theses].sort(
-      (a, b) => safeNum(a.likes) - safeNum(b.likes)
-    );
+    const sorted = [...theses].sort((a, b) => safeNum(a.likes) - safeNum(b.likes));
     return dir === "ASC" ? sorted : sorted.reverse();
   }, [theses, likesOrder]);
 
-  const likesTotalPages = useMemo(() => {
-    return Math.max(1, Math.ceil(likesTableSorted.length / likesPageSize));
-  }, [likesTableSorted.length]);
+  const likesTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(likesTableSorted.length / likesPageSize)),
+    [likesTableSorted.length]
+  );
 
   const likesCurrentPage = Math.min(Math.max(1, likesPage), likesTotalPages);
 
-  useEffect(() => {
-    setLikesPage(1);
-  }, [likesOrder]);
-
+  useEffect(() => setLikesPage(1), [likesOrder]);
   useEffect(() => {
     if (likesPage > likesTotalPages) setLikesPage(likesTotalPages);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -293,15 +300,90 @@ const PanelPersonal = () => {
 
   const likesPageItems = useMemo(() => {
     const start = (likesCurrentPage - 1) * likesPageSize;
-    const end = start + likesPageSize;
-    return likesTableSorted.slice(start, end);
+    return likesTableSorted.slice(start, start + likesPageSize);
   }, [likesTableSorted, likesCurrentPage]);
 
   const likesCanPrev = likesCurrentPage > 1;
   const likesCanNext = likesCurrentPage < likesTotalPages;
 
-  if (loading)
-    return <div className="container py-3 text-muted">Loading dashboard…</div>;
+  // =========================
+  // ✅ NUEVO: Theses by Institution (Top4 + Independent)
+  // =========================
+  const instAgg = useMemo(() => {
+    const map = new Map(); // name -> count
+    let independent = 0;
+
+    theses.forEach((t) => {
+      const name = String(getInstitutionName(t) || "").trim();
+      if (!name) {
+        independent += 1;
+        return;
+      }
+      map.set(name, (map.get(name) || 0) + 1);
+    });
+
+    const list = Array.from(map.entries())
+      .map(([name, count]) => ({ name, value: safeNum(count) }))
+      .sort((a, b) => safeNum(b.value) - safeNum(a.value));
+
+    return { list, independent };
+  }, [theses]);
+
+  const instTableTop4 = useMemo(() => instAgg.list.slice(0, 4), [instAgg.list]);
+
+  const instDonutData = useMemo(() => {
+    // Gráfico: Top4 + Others + Independent (si existe)
+    const top = instAgg.list.slice(0, 4);
+    const othersSum = instAgg.list
+      .slice(4)
+      .reduce((acc, x) => acc + safeNum(x.value), 0);
+
+    const data = top.map((x) => ({
+      key: `INST_${x.name}`,
+      name: trimLabel(x.name, 24),
+      value: safeNum(x.value),
+    }));
+
+    if (othersSum > 0) data.push({ key: "INST_OTHERS", name: "Others", value: othersSum });
+    if (instAgg.independent > 0)
+      data.push({
+        key: "INST_INDEPENDENT",
+        name: "Independent Research",
+        value: safeNum(instAgg.independent),
+      });
+
+    return data;
+  }, [instAgg]);
+
+  const instDonutTotal = useMemo(
+    () => instDonutData.reduce((acc, d) => acc + safeNum(d.value), 0),
+    [instDonutData]
+  );
+
+  // =========================
+  // ✅ palettes
+  // =========================
+  const STATUS_COLORS = {
+    APPROVED: "#20C997",
+    PENDING: "#F5C542",
+    REJECTED: "#FF4D4D",
+  };
+
+  const statusLegendColors = [
+    STATUS_COLORS.APPROVED,
+    STATUS_COLORS.PENDING,
+    STATUS_COLORS.REJECTED,
+  ];
+
+  const LIKES_COLORS = ["#20C997", "#0d6efd", "#6f42c1", "#adb5bd"];
+
+  // ✅ NUEVO: palette para instituciones (Top + Others + Independent)
+  const INST_COLORS = ["#20C997", "#0d6efd", "#6f42c1", "#F5C542", "#adb5bd", "#495057"];
+
+  // =========================
+  // Render: loading/error base
+  // =========================
+  if (loading) return <div className="container py-3 text-muted">Loading dashboard…</div>;
 
   if (loadError) {
     return (
@@ -311,561 +393,408 @@ const PanelPersonal = () => {
     );
   }
 
-  // estilos suaves (NO tocamos, solo sombra en className)
-  const cardStyle = { borderRadius: 16, minHeight: 140 };
-  const titleStyle = { fontWeight: 700, fontSize: 18, color: "#495057" };
-  const iconRow = {
-    marginTop: 12,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 14,
-  };
-  const bigNumber = {
-    fontSize: 40,
-    fontWeight: 700,
-    color: "#212529",
-    lineHeight: 1,
+  // =========================
+  // ✅ UI components
+  // =========================
+  const MetricCard = ({ title, icon: Icon, value }) => (
+    <div className="mcTile">
+      <div className="mcTileTop">
+        <div className="mcTileTitle">{title}</div>
+        <div className="mcTileIcon">{Icon ? <Icon size={18} /> : null}</div>
+      </div>
+      <div className="mcTileValue">{value}</div>
+    </div>
+  );
+
+  const Pager = ({ onPrev, onNext, canPrev, canNext }) => (
+    <div className="mcPagerMini" role="group" aria-label="Pagination">
+      <button
+        type="button"
+        className="mcPagerMiniBtn"
+        onClick={onPrev}
+        disabled={!canPrev}
+        title="Previous"
+        aria-label="Previous"
+      >
+        ‹
+      </button>
+      <button
+        type="button"
+        className="mcPagerMiniBtn"
+        onClick={onNext}
+        disabled={!canNext}
+        title="Next"
+        aria-label="Next"
+      >
+        ›
+      </button>
+    </div>
+  );
+
+  const DashCard = ({ title, icon: Icon, right, children, className = "" }) => (
+    <div className={`mcDashCard ${className}`}>
+      <div className="mcDashHead">
+        <div className="mcDashHeadLeft md-fix">
+          <div className="mcDashHeadTitle">
+            <span className="mcDashHeadIcon">{Icon ? <Icon size={18} /> : null}</span>
+            <span className="mcDashHeadText">{title}</span>
+          </div>
+        </div>
+        {right ? <div className="mcDashHeadRight">{right}</div> : null}
+      </div>
+      <div className="mcDashBody">{children}</div>
+    </div>
+  );
+
+  const DonutWithLegend = ({ data, total, colors, centerLabel }) => {
+    const safeTotal = safeNum(total);
+    return (
+      <div className="mcDonutStack">
+        <div className="mcDonutChartSolo">
+          {safeTotal === 0 ? (
+            <div className="mcEmpty">No data to display.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius="62%"
+                  outerRadius="86%"
+                  paddingAngle={2}
+                  stroke="transparent"
+                >
+                  {data.map((entry, idx) => (
+                    <Cell
+                      key={entry.key || entry.name || idx}
+                      fill={colors[idx] || "#adb5bd"}
+                    />
+                  ))}
+                </Pie>
+
+                <Tooltip formatter={(value, name) => [`${value}`, `${name}`]} />
+
+                <text
+                  x="50%"
+                  y="50%"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 900,
+                    fill: "rgba(255,255,255,.92)",
+                  }}
+                >
+                  {safeTotal}
+                </text>
+                <text
+                  x="50%"
+                  y="58%"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    fill: "rgba(255,255,255,.55)",
+                    letterSpacing: ".08em",
+                  }}
+                >
+                  {String(centerLabel || "TOTAL").toUpperCase()}
+                </text>
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="mcLegendBox">
+          <div className="mcLegendList">
+            {(data || []).map((d, idx) => (
+              <div className="mcLegendRow2" key={d.key || `${d.name}-${idx}`}>
+                <div className="mcLegendLeft2" title={d.name}>
+                  <span
+                    className="mcDot"
+                    style={{ background: colors[idx] || "#adb5bd" }}
+                  />
+                  <span className="mcLegendName">{trimLabel(d.name, 26)}</span>
+                </div>
+
+                <div className="mcLegendRight2">
+                  {safeNum(d.value)}{" "}
+                  <span className="mcLegendPct">({pct(d.value, safeTotal)}%)</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  const DONUT_COLORS = {
-    APPROVED: "#198754",
-    PENDING: "#ffc107",
-    REJECTED: "#dc3545",
-  };
+  // ✅ Dropdown options
+  const STATUS_FILTER_OPTIONS = [
+    { value: "ALL", label: "All statuses" },
+    { value: "APPROVED", label: "Approved" },
+    { value: "PENDING", label: "Pending" },
+    { value: "REJECTED", label: "Rejected" },
+  ];
 
-  // Likes donut palette (4 slices max: 3 + others)
-  const LIKES_COLORS = ["#0d6efd", "#20c997", "#6f42c1", "#adb5bd"];
+  const LIKES_ORDER_OPTIONS = [
+    { value: "DESC", label: "Likes: High → Low" },
+    { value: "ASC", label: "Likes: Low → High" },
+  ];
 
   return (
-    <div className="container py-3">
-      {/* TOP CARDS */}
-      <div className="row g-3">
-        <div className="col-12 col-md-6 col-xl-3">
-          <a
-            href="/my-list-like"
-            className="btn btn-danger w-100 mc-card-shadow"
-            style={{ ...cardStyle, padding: 16 }}
-          >
-            <div className="t-white" style={{ fontWeight: 700, fontSize: 18 }}>
-              List of Like
-            </div>
-            <div style={iconRow}>{renderIcon(HeartFill, 45)}</div>
-          </a>
-        </div>
-
-        <div className="col-12 col-md-6 col-xl-3">
-          <div className="card mc-card-shadow" style={cardStyle}>
-            <div className="card-body text-center">
-              <div style={titleStyle}>Total Thesis</div>
-              <div style={iconRow}>
-                {renderIcon(MetricTableIcon, 40)}
-                <div style={bigNumber}>{totalTheses}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-12 col-md-6 col-xl-3">
-          <div className="card mc-card-shadow" style={cardStyle}>
-            <div className="card-body text-center">
-              <div style={titleStyle}>Verified Thesis</div>
-              <div style={iconRow}>
-                {renderIcon(AproveTableIcon, 40)}
-                <div style={bigNumber}>{approvedTheses}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-12 col-md-6 col-xl-3">
-          <div className="card mc-card-shadow" style={cardStyle}>
-            <div className="card-body text-center">
-              <div style={titleStyle}>Total Likes</div>
-              <div style={iconRow}>
-                {renderIcon(LikeTableIcon, 40)}
-                <div style={bigNumber}>{totalLikes}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="mcDashWrap">
+      {/* ======= METRICS GRID ======= */}
+      <div className="mcTilesGrid">
+        <MetricCard title="Research independent" icon={Binoculars} value={independentCount} />
+        <MetricCard title="Total Thesis" icon={BookMarked} value={totalTheses} />
+        <MetricCard title="Verified Thesis" icon={BookCheck} value={approvedTheses} />
+        <MetricCard title="Total Likes" icon={BookHeart} value={totalLikes} />
       </div>
 
-      {/* ======== 1) STATUS SECTION ======== */}
-      <div className="row g-3 mt-1">
-        {/* LEFT: Donut Status */}
-        <div className="col-12 col-lg-6">
-          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
-            <div className="card-body">
-              <div
-                className="text-center"
-                style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
-              >
-                Thesis Status Distribution
-              </div>
+      {/* ======= STATUS (Donut + Table) ======= */}
+      <div className="mcDashGrid2">
+        <DashCard title="Thesis Status" icon={ChartPie}>
+          <DonutWithLegend
+            data={statusDonutData}
+            total={statusDonutTotal}
+            colors={statusLegendColors}
+            centerLabel="Total"
+          />
+        </DashCard>
 
-              <div style={{ height: 295 }}>
-                {donutTotal === 0 ? (
-                  <div className="text-muted d-flex align-items-center justify-content-center h-100">
-                    <i>No data to display.</i>
-                  </div>
+        <DashCard
+          title="Thesis Status"
+          icon={ChartPie}
+          className="mcDashCard--table"
+          right={
+            <>
+              <DashDropdown
+                value={statusFilter}
+                options={STATUS_FILTER_OPTIONS}
+                onChange={setStatusFilter}
+                width={200}
+              />
+              <Pager
+                onPrev={() => setStatusPage((p) => Math.max(1, p - 1))}
+                onNext={() => setStatusPage((p) => Math.min(statusTotalPages, p + 1))}
+                canPrev={statusCanPrev}
+                canNext={statusCanNext}
+              />
+            </>
+          }
+        >
+          <div className="mcTableFrame">
+            <table className="table table-sm align-middle mb-0 mcDashTable">
+              <thead>
+                <tr>
+                  <th style={{ width: "75%" }}>Title</th>
+                  <th className="text-end">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {statusTableSorted.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="mcMuted">
+                      No theses found.
+                    </td>
+                  </tr>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={donutData}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius="60%"
-                        outerRadius="85%"
-                        paddingAngle={2}
-                        stroke="transparent"
-                      >
-                        {donutData.map((entry) => (
-                          <Cell
-                            key={entry.key}
-                            fill={DONUT_COLORS[entry.key] || "#6c757d"}
-                          />
-                        ))}
-                      </Pie>
+                  statusPageItems.map((t) => {
+                    const st = normalizeStatus(t.status);
+                    const pillClass =
+                      st === "APPROVED"
+                        ? "mcPill mcPill--green"
+                        : st === "REJECTED"
+                        ? "mcPill mcPill--red"
+                        : "mcPill mcPill--yellow";
 
-                      <Tooltip
-                        formatter={(value, name) => [`${value}`, `${name}`]}
-                      />
+                    const instLine = getInstitutionUI(t).line;
 
-                      <text
-                        x="50%"
-                        y="50%"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        style={{
-                          fontSize: 20,
-                          fontWeight: 800,
-                          fill: "#212529",
-                        }}
-                      >
-                        {donutTotal}
-                      </text>
-                      <text
-                        x="50%"
-                        y="58%"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        style={{ fontSize: 12, fill: "#6c757d" }}
-                      >
-                        Total
-                      </text>
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-
-              <div className="d-flex flex-wrap gap-2 mt-2 justify-content-center align-items-center">
-                {["APPROVED", "PENDING", "REJECTED"].map((k) => (
-                  <span
-                    key={k}
-                    className="badge text-bg-light"
-                    style={{ border: "1px solid rgba(0,0,0,.08)" }}
-                  >
-                    <span
-                      style={{
-                        display: "inline-block",
-                        width: 10,
-                        height: 10,
-                        borderRadius: 999,
-                        background: DONUT_COLORS[k],
-                        verticalAlign: "middle",
-                      }}
-                    />
-                    &nbsp;&nbsp;
-                    {prettyStatus(k)}:{" "}
-                    <strong>
-                      {k === "APPROVED"
-                        ? statusCounts.approved
-                        : k === "REJECTED"
-                        ? statusCounts.rejected
-                        : statusCounts.pending}
-                    </strong>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT: Table Status */}
-        <div className="col-12 col-lg-6">
-          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                <div
-                  style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
-                >
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      lineHeight: 1,
-                    }}
-                  >
-                    <span
-                      style={{ display: "inline-flex", alignItems: "center" }}
-                    >
-                      {StatusIcon}
-                    </span>
-                    Thesis Status
-                  </span>
-                </div>
-
-                <div className="d-flex align-items-center gap-2">
-                  <select
-                    className="form-select form-select-sm"
-                    style={{ width: 180 }}
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
-                    <option value="ALL">All</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="REJECTED">Rejected</option>
-                  </select>
-
-                  <div className="btn-group" role="group" aria-label="Table pagination">
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={() => setTablePage((p) => Math.max(1, p - 1))}
-                      disabled={!canPrev}
-                      title="Previous"
-                    >
-                      ‹
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={() => setTablePage((p) => Math.min(tableTotalPages, p + 1))}
-                      disabled={!canNext}
-                      title="Next"
-                    >
-                      ›
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="table-responsive mt-2" style={{ maxHeight: 320 }}>
-                <table className="table table-sm align-middle mb-0">
-                  <thead>
-                    <tr>
-                      <th style={{ width: "70%" }}>Title</th>
-                      <th className="text-end">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tableSortedTheses.length === 0 ? (
-                      <tr>
-                        <td colSpan={2} className="text-muted">
-                          No theses found.
+                    return (
+                      <tr key={t._id}>
+                        <td title={t.title || ""}>
+                          <div className="mcTitleCell">{t.title || "—"}</div>
+                          <div className="mcSubCell">{instLine}</div>
+                        </td>
+                        <td className="text-end">
+                          <span className={pillClass}>{prettyStatus(st)}</span>
                         </td>
                       </tr>
-                    ) : (
-                      tablePageItems.map((t) => {
-                        const st = normalizeStatus(t.status);
-
-                        const badgeClass =
-                          st === "APPROVED"
-                            ? "text-bg-success"
-                            : st === "REJECTED"
-                            ? "text-bg-danger"
-                            : "text-bg-warning";
-
-                        const instLine = getInstitutionUI(t).line;
-
-                        return (
-                          <tr key={t._id}>
-                            <td title={t.title || ""}>
-                              <div
-                                style={{
-                                  maxWidth: 480,
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  fontWeight: 600,
-                                  color: "#212529",
-                                }}
-                              >
-                                {t.title || "—"}
-                              </div>
-
-                              <div className="text-muted" style={{ fontSize: 12 }}>
-                                {instLine}
-                              </div>
-                            </td>
-
-                            <td className="text-end t-white">
-                              <span className={`t-white badge ${badgeClass}`}>
-                                {prettyStatus(st)}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="text-muted mt-2" style={{ fontSize: 12 }}>
-                Showing{" "}
-                {tableSortedTheses.length === 0
-                  ? 0
-                  : (tableCurrentPage - 1) * tablePageSize + 1}
-                {"–"}
-                {Math.min(tableCurrentPage * tablePageSize, tableSortedTheses.length)} of{" "}
-                {tableSortedTheses.length}
-              </div>
-            </div>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
+
+          <div className="mcFoot mcFoot--split">
+            <span>
+              Showing{" "}
+              {statusTableSorted.length === 0
+                ? 0
+                : (statusCurrentPage - 1) * statusPageSize + 1}{" "}
+              – {Math.min(statusCurrentPage * statusPageSize, statusTableSorted.length)} of{" "}
+              {statusTableSorted.length}
+            </span>
+          </div>
+        </DashCard>
       </div>
 
-      {/* ======== 2) LIKES SECTION ======== */}
-      <div className="row g-3 mt-1">
-        {/* LEFT: Donut Likes */}
-        <div className="col-12 col-lg-6">
-          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
-            <div className="card-body">
-              <div
-                className="text-center"
-                style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
-              >
-                Likes Distribution
-              </div>
+      {/* ======= LIKES (Donut + Table) ======= */}
+      <div className="mcDashGrid2">
+        <DashCard title="Likes Distribution" icon={Heart}>
+          <DonutWithLegend
+            data={likesTop3DonutData}
+            total={likesDonutTotal}
+            colors={LIKES_COLORS}
+            centerLabel="Total Likes"
+          />
+        </DashCard>
 
-              <div style={{ height: 295 }}>
-                {likesDonutTotal === 0 ? (
-                  <div className="text-muted d-flex align-items-center justify-content-center h-100 wrap">
-                    <i>No likes to display.</i>
-                  </div>
+        <DashCard
+          title="Thesis Likes"
+          icon={Heart}
+          className="mcDashCard--table"
+          right={
+            <>
+              <DashDropdown
+                value={likesOrder}
+                options={LIKES_ORDER_OPTIONS}
+                onChange={setLikesOrder}
+                width={210}
+              />
+              <Pager
+                onPrev={() => setLikesPage((p) => Math.max(1, p - 1))}
+                onNext={() => setLikesPage((p) => Math.min(likesTotalPages, p + 1))}
+                canPrev={likesCanPrev}
+                canNext={likesCanNext}
+              />
+            </>
+          }
+        >
+          <div className="mcTableFrame">
+            <table className="table table-sm align-middle mb-0 mcDashTable">
+              <thead>
+                <tr>
+                  <th style={{ width: "78%" }}>Title</th>
+                  <th className="text-end">Likes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {likesTableSorted.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="mcMuted">
+                      No theses found.
+                    </td>
+                  </tr>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={likesTop3DonutData}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius="60%"
-                        outerRadius="85%"
-                        paddingAngle={2}
-                        stroke="transparent"
-                      >
-                        {likesTop3DonutData.map((entry, idx) => (
-                          <Cell
-                            key={entry.key}
-                            fill={LIKES_COLORS[idx] || "#adb5bd"}
-                          />
-                        ))}
-                      </Pie>
+                  likesPageItems.map((t) => {
+                    const instLine = getInstitutionUI(t).line;
 
-                      <Tooltip
-                        formatter={(value, name) => [`${value}`, `${name}`]}
-                      />
-
-                      <text
-                        x="50%"
-                        y="50%"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        style={{
-                          fontSize: 20,
-                          fontWeight: 800,
-                          fill: "#212529",
-                        }}
-                      >
-                        {likesDonutTotal}
-                      </text>
-                      <text
-                        x="50%"
-                        y="58%"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        style={{ fontSize: 12, fill: "#6c757d" }}
-                      >
-                        Total Likes
-                      </text>
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-
-              <div className="d-flex flex-wrap gap-2 mt-2 justify-content-center align-items-center">
-                {likesTop3DonutData.map((d, idx) => (
-                  <span
-                    key={d.key}
-                    className="badge text-bg-light"
-                    style={{ border: "1px solid rgba(0,0,0,.08)" }}
-                    title={d.name}
-                  >
-                    <span
-                      style={{
-                        display: "inline-block",
-                        width: 10,
-                        height: 10,
-                        borderRadius: 999,
-                        background: LIKES_COLORS[idx] || "#adb5bd",
-                        verticalAlign: "middle",
-                      }}
-                    />
-                    &nbsp;&nbsp;
-                    {trimLabel(d.name, 18)}: <strong>{safeNum(d.value)}</strong>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT: Table Likes */}
-        <div className="col-12 col-lg-6">
-          <div className="card mc-card-shadow" style={{ borderRadius: 16 }}>
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                <div
-                  style={{ fontWeight: 700, fontSize: 18, color: "#495057" }}
-                >
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      lineHeight: 1,
-                    }}
-                  >
-                    <span
-                      style={{ display: "inline-flex", alignItems: "center" }}
-                    >
-                      {HeartIcon}
-                    </span>
-                    Thesis Likes
-                  </span>
-                </div>
-
-                <div className="d-flex align-items-center gap-2">
-                  <select
-                    className="form-select form-select-sm"
-                    style={{ width: 180 }}
-                    value={likesOrder}
-                    onChange={(e) => setLikesOrder(e.target.value)}
-                  >
-                    <option value="DESC">Likes: High → Low</option>
-                    <option value="ASC">Likes: Low → High</option>
-                  </select>
-
-                  <div className="btn-group" role="group" aria-label="Likes pagination">
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={() => setLikesPage((p) => Math.max(1, p - 1))}
-                      disabled={!likesCanPrev}
-                      title="Previous"
-                    >
-                      ‹
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={() => setLikesPage((p) => Math.min(likesTotalPages, p + 1))}
-                      disabled={!likesCanNext}
-                      title="Next"
-                    >
-                      ›
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="table-responsive mt-2" style={{ maxHeight: 320 }}>
-                <table className="table table-sm align-middle mb-0">
-                  <thead>
-                    <tr>
-                      <th style={{ width: "80%" }}>Title</th>
-                      <th className="text-end">Likes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {likesTableSorted.length === 0 ? (
-                      <tr>
-                        <td colSpan={2} className="text-muted">
-                          No theses found.
+                    return (
+                      <tr key={t._id}>
+                        <td title={t.title || ""}>
+                          <div className="mcTitleCell">{t.title || "—"}</div>
+                          <div className="mcSubCell">{instLine}</div>
                         </td>
+                        <td className="text-end mcNumCell">{safeNum(t.likes)}</td>
                       </tr>
-                    ) : (
-                      likesPageItems.map((t) => {
-                        const instLine = getInstitutionUI(t).line;
-
-                        return (
-                          <tr key={t._id}>
-                            <td title={t.title || ""}>
-                              <div
-                                style={{
-                                  maxWidth: 480,
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  fontWeight: 600,
-                                  color: "#212529",
-                                }}
-                              >
-                                {t.title || "—"}
-                              </div>
-                              <div className="text-muted" style={{ fontSize: 12 }}>
-                                {instLine}
-                              </div>
-                            </td>
-                            <td className="text-end" style={{ fontWeight: 800 }}>
-                              {safeNum(t.likes)}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="text-muted mt-2" style={{ fontSize: 12 }}>
-                Showing{" "}
-                {likesTableSorted.length === 0
-                  ? 0
-                  : (likesCurrentPage - 1) * likesPageSize + 1}
-                {"–"}
-                {Math.min(likesCurrentPage * likesPageSize, likesTableSorted.length)} of{" "}
-                {likesTableSorted.length}
-              </div>
-            </div>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
 
-        <div className=" d-flex justify-content-center align-items-center mt-6">
-          <button
-            type="button"
-            className="btn btn-memory w-66 mx-6"
-            style={{
-              height: 46,
-              borderRadius: 14,
-              fontWeight: 700,
-            }}
-            onClick={() => {
-              window.scrollTo({
-                top: 0,
-                behavior: "smooth",
-              });
-            }}
-          >
-            Scroll Top
-          </button>
-        </div>
+          <div className="mcFoot mcFoot--split">
+            <span>
+              Showing{" "}
+              {likesTableSorted.length === 0
+                ? 0
+                : (likesCurrentPage - 1) * likesPageSize + 1}{" "}
+              – {Math.min(likesCurrentPage * likesPageSize, likesTableSorted.length)} of{" "}
+              {likesTableSorted.length}
+            </span>
+          </div>
+        </DashCard>
+      </div>
+
+      {/* ======= NUEVO: INSTITUTIONS (Donut + Top4 Table) ======= */}
+      <div className="mcDashGrid2">
+        <DashCard title="Theses by Institution" icon={Building2}>
+          <DonutWithLegend
+            data={instDonutData}
+            total={instDonutTotal}
+            colors={INST_COLORS}
+            centerLabel="Theses"
+          />
+        </DashCard>
+
+        <DashCard
+          title="Institution Ranking"
+          icon={Building2}
+          className="mcDashCard--table"
+          right={
+            <div className="mcDashMiniTag" title="Top 4 institutions + independent">
+              Showing top 4
+            </div>
+          }
+        >
+          <div className="mcTableFrame">
+            <table className="table table-sm align-middle mb-0 mcDashTable">
+              <thead>
+                <tr>
+                  <th style={{ width: "78%" }}>Institution</th>
+                  <th className="text-end">Theses</th>
+                </tr>
+              </thead>
+              <tbody>
+                {instTableTop4.length === 0 && instAgg.independent === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="mcMuted">
+                      No theses found.
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {instTableTop4.map((row) => (
+                      <tr key={row.name}>
+                        <td title={row.name}>
+                          <div className="mcTitleCell">{row.name}</div>
+                          <div className="mcSubCell">Academic institution</div>
+                        </td>
+                        <td className="text-end mcNumCell">{safeNum(row.value)}</td>
+                      </tr>
+                    ))}
+
+                    {/* Independent siempre separado */}
+                    <tr>
+                      <td title="Independent Research">
+                        <div className="mcTitleCell">Independent</div>
+                        <div className="mcSubCell">No institution</div>
+                      </td>
+                      <td className="text-end mcNumCell">{safeNum(instAgg.independent)}</td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mcFoot mcFoot--split">
+            <span>
+              Showing{" "}
+              {statusTableSorted.length === 0
+                ? 0
+                : (statusCurrentPage - 1) * statusPageSize + 1}{" "}
+              – {Math.min(statusCurrentPage * statusPageSize, statusTableSorted.length)} of{" "}
+              {statusTableSorted.length}
+            </span>
+          </div>
+        </DashCard>
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from "react";
 import ModalCertificate from "../../components/modal/ModalCertificate";
-import ModalView from "../../components/modal/ModalView";
+import ModalViewThesis from "../../components/modal/ModalViewThesis";
 import axios from "axios";
+import { NavLink } from "react-router-dom";
 import { getAuthToken, getIdUser } from "../../utils/authSession";
 
 import {
@@ -18,7 +19,7 @@ import {
   TextQuote,
   Heart,
   FingerprintPattern,
-  School,
+  University,
   GraduationCap,
   Binoculars,
   UserPen,
@@ -27,7 +28,7 @@ import {
 // ===================== CONFIG GLOBAL (API) =====================
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-// ===================== SORT OPTIONS (con iconos como LibraryUSearch) =====================
+// ===================== SORT OPTIONS =====================
 const SORT_OPTIONS = [
   { key: "recent", label: "Most recent", icon: <ArrowDown01 size={18} /> },
   { key: "oldest", label: "Oldest", icon: <ArrowUp10 size={18} /> },
@@ -119,12 +120,12 @@ function thesisBelongsToUser(thesis, userId) {
 // helpers status
 const normalizeStatus = (s) => String(s || "").toUpperCase();
 
-// ✅ tone como LibraryUSearch + caso especial "Not certified" (independiente + pending/rejected)
+// ✅ tone como LibraryUSearch + caso especial "Not certified"
 const getCardTone = (thesis) => {
   const status = normalizeStatus(thesis?.status);
   const instUI = getInstitutionUI(thesis);
 
-  // especial: independiente + NO aprobado => gris (notcertified)
+  // independiente + NO aprobado => gris (notcertified)
   if (!instUI.hasInstitution && status !== "APPROVED") return "notcertified";
 
   if (status === "APPROVED") return "certified";
@@ -179,7 +180,7 @@ const LibraryPSearch = () => {
 
   // pagination
   const [page, setPage] = useState(1);
-  const pageSize = 12; // ✅ para layout tipo explorer (3 columnas)
+  const pageSize = 12;
 
   // modal
   const [certificateData, setCertificateData] = useState(null);
@@ -224,14 +225,12 @@ const LibraryPSearch = () => {
             ...t,
             likes: likesCount,
             userLiked,
-            citedCount: Number(t.citedCount ?? t.cited ?? 0),
+            // ✅ nuevo backend: quotes
+            quotes: Number(t.quotes ?? 0),
           };
         });
 
         setTheses(mapped);
-
-        const likedMap = {};
-        mapped.forEach((t) => (likedMap[t._id] = !!t.userLiked));
       } catch (err) {
         console.error("Error loading user theses:", err);
         setLoadError("Error loading theses. Please try again later.");
@@ -248,7 +247,7 @@ const LibraryPSearch = () => {
     const q = query.trim().toLowerCase();
 
     return theses.filter((t) => {
-      const instName = getInstitutionName(t);
+      const instName = (getInstitutionName(t) || "").toLowerCase();
       const authorsSearch = buildAuthorsSearchString(t.authors);
       const keywordsSearch = Array.isArray(t.keywords)
         ? t.keywords.map((k) => String(k).toLowerCase())
@@ -259,7 +258,7 @@ const LibraryPSearch = () => {
         (t.title || "").toLowerCase().includes(q) ||
         authorsSearch.includes(q) ||
         keywordsSearch.some((k) => k.includes(q)) ||
-        instName.toLowerCase().includes(q)
+        instName.includes(q)
       );
     });
   }, [query, theses]);
@@ -334,7 +333,7 @@ const LibraryPSearch = () => {
   const handleView = (thesis) => {
     setSelectedThesisView(thesis);
 
-    const el = document.getElementById("modalView");
+    const el = document.getElementById("modalViewThesis");
     if (!el) return;
 
     const modal = window.bootstrap?.Modal?.getOrCreateInstance(el, {
@@ -349,7 +348,6 @@ const LibraryPSearch = () => {
   };
 
   const handleRequest = async (thesis) => {
-    // demo por ahora
     alert("Request Log sent (demo).");
     console.log("Request Log thesis:", thesis);
   };
@@ -379,6 +377,40 @@ const LibraryPSearch = () => {
 
     const modal = window.bootstrap?.Modal.getOrCreateInstance(el);
     modal?.show();
+  };
+
+  // ✅ NUEVO: incrementar quotes
+  const handleAddQuote = async (thesisId) => {
+    // si quieres permitir público, quita este guard y no mandes headers
+    if (!token) return;
+
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const res = await axios.post(
+        `${API_BASE_URL}/api/theses/${thesisId}/quote`,
+        null,
+        { headers },
+      );
+
+      const updated = res?.data?.thesis || res?.data || null;
+      const newQuotes = Number(updated?.quotes ?? NaN);
+
+      setTheses((prev) =>
+        prev.map((t) => {
+          if (String(t._id) !== String(thesisId)) return t;
+          return {
+            ...t,
+            quotes: Number.isFinite(newQuotes)
+              ? newQuotes
+              : Number(t.quotes ?? 0) + 1,
+          };
+        }),
+      );
+    } catch (err) {
+      console.error("Error incrementing quotes:", err);
+      alert("Failed to add quote ❌");
+    }
   };
 
   // ===================== UI STATES =====================
@@ -417,12 +449,11 @@ const LibraryPSearch = () => {
 
   return (
     <div className="mcExploreWrap">
-      <ModalView thesis={selectedThesisView} />
+      <ModalViewThesis thesis={selectedThesisView} />
 
       <div className="mcExploreContainer">
-        {/* ===================== TOP ROW (one line, como LibraryUSearch) ===================== */}
+        {/* ===================== TOP ROW ===================== */}
         <div className="mcTopRow mcLibTopRow">
-          {/* Search */}
           <div className="mcSearch mcSearchSm">
             <span className="mcSearchIcon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
@@ -451,7 +482,6 @@ const LibraryPSearch = () => {
             />
           </div>
 
-          {/* Count */}
           <div className="mcTopMeta mcTopMetaInline">
             <span className="mcCountStrong">{filteredOrdered.length}</span>
             <span className="mcCountText">
@@ -459,7 +489,6 @@ const LibraryPSearch = () => {
             </span>
           </div>
 
-          {/* Sort */}
           <div className="mcSortWrap dropdown">
             <button
               className="mcSortBtn"
@@ -494,6 +523,7 @@ const LibraryPSearch = () => {
             </ul>
           </div>
         </div>
+
         {/* ===================== GRID (3 columns) ===================== */}
         <section className="mcResults">
           <div className="mcCardsGrid mcCardsGrid3">
@@ -505,7 +535,7 @@ const LibraryPSearch = () => {
               const isPendingOrRejected =
                 status === "PENDING" || status === "REJECTED";
 
-              const tone = getCardTone(t); // certified | pending | rejected | notcertified
+              const tone = getCardTone(t);
               const statusLabel = getStatusLabel(t);
 
               const authorsText = Array.isArray(t.authors)
@@ -520,13 +550,12 @@ const LibraryPSearch = () => {
                 : "";
 
               const fileHash = String(t.fileHash || "").trim();
-              const citedCount = Number(t.citedCount ?? 0);
+              const quotesCount = Number(t.quotes ?? 0);
               const likesCount = Number(t.likes ?? 0);
               const instNameRaw = getInstitutionName(t);
 
               return (
                 <article key={rowKey} className={`mcCard ${tone} mcLibCard`}>
-                  {/* barrita arriba */}
                   <div className={`mcCardBar mcCardBar--${tone}`} />
 
                   <div className="mcCardTop">
@@ -537,7 +566,6 @@ const LibraryPSearch = () => {
                   </div>
 
                   <div className="mcCardBody">
-                    {/* ✅ info de la card: igual (título/autores/institución/department/hash/likes/cited) */}
                     <h3 className="mcCardTitle" title={t.title}>
                       {t.title}
                     </h3>
@@ -556,7 +584,7 @@ const LibraryPSearch = () => {
                       <div className="mcMetaRow" title={instNameRaw}>
                         <span className="mcMetaIcon" aria-hidden="true">
                           {instNameRaw ? (
-                            <School size={18} />
+                            <University size={18} />
                           ) : (
                             <Binoculars size={18} />
                           )}
@@ -574,7 +602,6 @@ const LibraryPSearch = () => {
                       </div>
                     </div>
 
-                    {/* ✅ Hash estilo LibraryUSearch */}
                     <div
                       className="mcHashCopyWrap mt-3 mb-3"
                       title={fileHash || ""}
@@ -597,7 +624,9 @@ const LibraryPSearch = () => {
                       </span>
 
                       <button
-                        className={`mcHashCopyBtn ${copiedId === String(t._id) ? "is-copied" : ""}`}
+                        className={`mcHashCopyBtn ${
+                          copiedId === String(t._id) ? "is-copied" : ""
+                        }`}
                         type="button"
                         title="Copy file hash"
                         onClick={async () => {
@@ -619,19 +648,24 @@ const LibraryPSearch = () => {
 
                     <div className="mcCardDivider" />
 
-                    {/* ✅ cited + likes (igual) + ✅ ACTIONS (aquí van tus reglas) */}
                     <div className="mcCardFooter">
                       <div className="mcMetrics">
-                        <span className="mcMetric">
+                        {/* ✅ Quotes: clickeable */}
+                        <button
+                          type="button"
+                          className="mcMetric mcMetricBtn"
+                          title="Add quote"
+                          onClick={() => handleAddQuote(t._id)}
+                        >
                           <span
                             className="mcMetricIcon fix1"
                             aria-hidden="true"
                           >
                             <TextQuote size={18} />
                           </span>
-                          <span className="mcMetricVal">{citedCount}</span>
-                          <span className="mcMetricLbl ">cited</span>
-                        </span>
+                          <span className="mcMetricVal">{quotesCount}</span>
+                          <span className="mcMetricLbl">cited</span>
+                        </button>
 
                         <span className="mcMetric">
                           <span
@@ -646,7 +680,6 @@ const LibraryPSearch = () => {
                       </div>
 
                       <div className="mcActions">
-                        {/* ✅ View (se mantiene) */}
                         <button
                           type="button"
                           className="mcIconBtn"
@@ -656,9 +689,7 @@ const LibraryPSearch = () => {
                           <Eye size={18} />
                         </button>
 
-                        {/* ✅ Segundo botón depende de reglas */}
                         {isApproved ? (
-                          // ✅ si está aprobada: BadgeCheck verde (como LibraryUSearch)
                           <button
                             type="button"
                             className="mcStatusChip mcStatusChip--approved is-locked"
@@ -668,17 +699,16 @@ const LibraryPSearch = () => {
                             <BadgeCheck size={18} />
                           </button>
                         ) : instUI.hasInstitution && isPendingOrRejected ? (
-                          // ✅ si es de institución y pending/rejected: SquarePen (blanco) con mismo estilo que View
-                          <a
-                            href={`http://localhost:3000/update/${t._id}`}
+                          <NavLink
+                            to={"/update/" + t._id}
+                            type="button"
                             className="mcIconBtn"
-                            title="Edit thesis"
                             onClick={() => handleEdit(t)}
+                            title="Edit thesis"
                           >
                             <SquarePen size={18} />
-                          </a>
+                          </NavLink>
                         ) : !instUI.hasInstitution && isPendingOrRejected ? (
-                          // ✅ independiente + pending/rejected: dropdown (Edit Thesis | Request Log)
                           <div className="dropdown">
                             <button
                               type="button"
@@ -692,13 +722,14 @@ const LibraryPSearch = () => {
 
                             <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
                               <li>
-                                <a
+                                <NavLink
+                                  to={"/update/" + t._id}
+                                  type="button"
                                   className="dropdown-item"
-                                  href={`http://localhost:3000/update/${t._id}`}
                                   onClick={() => handleEdit(t)}
                                 >
                                   Edit Thesis
-                                </a>
+                                </NavLink>
                               </li>
 
                               <li>
@@ -725,7 +756,6 @@ const LibraryPSearch = () => {
             )}
           </div>
 
-          {/* Pagination (estilo Memory-Chain) */}
           {filteredOrdered.length > 0 && (
             <div className="mcPager">
               <button
@@ -763,7 +793,6 @@ const LibraryPSearch = () => {
         </section>
       </div>
 
-      {/* ModalCertificate */}
       <ModalCertificate
         thesis={selectedThesis}
         certificate={certificateData}

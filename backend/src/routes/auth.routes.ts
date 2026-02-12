@@ -1,15 +1,17 @@
 import { Router } from "express";
-import { register, registerInstitution, login } from "../controllers/auth.controller";
+import {
+  login,
+  register,
+  registerInstitution,
+} from "../controllers/auth.controller";
 
 const router = Router();
 
-// Registro de usuarios normales
+// User
 router.post("/register", register);
-
-// Registro de instituciones
-router.post("/registerinst", registerInstitution);
-
-// Login unificado (usuario o institución)
 router.post("/login", login);
+
+// Institution
+router.post("/register-institution", registerInstitution);
 
 export default router;

@@ -33,7 +33,7 @@ body {
   --mc-yellow: #f5c542;
   --mc-yellow-soft: rgba(245, 197, 66, 0.3);
 
-  --mc-red: #ff4d4d;
+  --mc-red: #dc3545;
 
   --mc-radius-xl: 12px;
   --mc-radius-lg: 12px;
@@ -312,38 +312,48 @@ body {
   padding: 14px 0px 14px 0px;
 }
 
+.mcDividerFix {
+  padding: 0px 14px 0px;
+}
+
 .mcDivider {
   height: 1px;
   background: var(--mc-border);
   margin-bottom: 12px;
 }
-.mcDividerFix {
-  padding: 0px 14px 0px;
-}
 
 .mcNavLinkLogout:hover {
   background: rgba(255, 77, 77, 0.1);
   border-color: rgba(255, 77, 77, 0.18);
+  color: rgba(255, 77, 77, 0.95);
 }
 .mcNavLinkLogout:hover .mcNavIcon {
+  color: rgba(255, 77, 77, 0.95);
+}
+.mcNavLinkLogout:hover .mcNavLabel {
+  color: rgba(255, 77, 77, 0.95);
+}
+.mcNavLinkLogout.is-active .mcNavLabel {
   color: rgba(255, 77, 77, 0.95);
 }
 .mcNavLinkLogout:hover .mcNavDot {
   opacity: 1;
   background: var(--mc-red);
   transform: scale(1);
+  color: rgba(255, 77, 77, 0.95);
 }
 .mcNavLinkLogout.is-active {
   background: rgba(255, 77, 77, 0.1);
   border-color: rgba(255, 77, 77, 0.18);
 }
 .mcNavLinkLogout.is-active .mcNavIcon {
-  color: rgba(255, 77, 77, 0.95);
+  color: rgba(255, 77, 77, 0.95) !important;
 }
 .mcNavLinkLogout.is-active .mcNavDot {
   opacity: 1;
   background: var(--mc-red);
   transform: scale(1);
+  
 }
 
 /* ===================== RESPONSIVE SIDEBAR (MOBILE = COLLAPSED) ===================== */
@@ -404,7 +414,7 @@ body {
   }
 }
 
-/* ===================== LAYOUT + TOPBAR (FROM YOUR CSS) ===================== */
+/* ===================== LAYOUT + TOPBAR ===================== */
 .mcLayout {
   min-height: 100vh;
   background: var(--mc-bg);
@@ -488,16 +498,6 @@ body {
   padding: 0 18px;
 }
 
-.mcSegment {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4);
-}
-
 /* responsive topbar */
 @media (max-width: 768px) {
   .mcTopbarInner {
@@ -513,8 +513,6 @@ body {
 }
 
 /* ===================== THESIS SEARCH (EXPLORE) ===================== */
-
-/* wrapper */
 .mcExploreWrap {
   width: 100%;
   color: var(--mc-text);
@@ -535,8 +533,9 @@ body {
   margin-bottom: 18px;
 }
 
+/* search */
 .mcSearch {
-  width: 90%;
+  width: 100%;
   position: relative;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--mc-border);
@@ -567,6 +566,7 @@ body {
   color: rgba(255, 255, 255, 0.45);
 }
 
+/* meta */
 .mcTopMeta {
   display: inline-flex;
   align-items: baseline;
@@ -603,12 +603,12 @@ body {
 }
 
 .mcDropdownMenu .dropdown-item:hover {
-  background: var(--mc-green-hover); /* hover verde */
+  background: var(--mc-green-hover);
   color: #fff;
 }
 
 .mcDropdownMenu .dropdown-item.active {
-  background: var(--mc-green-ghost); /* como nav active */
+  background: var(--mc-green-ghost);
   color: #fff;
 }
 
@@ -643,7 +643,7 @@ body {
   opacity: 0.9;
 }
 
-/* Layout grid: filters + results */
+/* grid: filters + results */
 .mcExploreGrid {
   display: grid;
   grid-template-columns: 360px 1fr;
@@ -657,7 +657,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--mc-radius-xl);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-  overflow: hidden;
+  overflow: visible; /* ✅ final */
   position: sticky;
   top: 16px;
 }
@@ -698,6 +698,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow: visible; /* ✅ final */
 }
 
 .mcFieldLabel {
@@ -709,12 +710,6 @@ body {
 .mcGreenStrong {
   color: var(--mc-green);
   font-weight: 400;
-}
-
-.mcPills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
 }
 
 .mcPill {
@@ -741,6 +736,7 @@ body {
   color: var(--mc-green);
 }
 
+/* range */
 .mcRangeWrap {
   position: relative;
   height: 24px;
@@ -758,27 +754,17 @@ body {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
   outline: none;
-}
-.mcRange {
-  pointer-events: none; /* el input completo no captura */
-}
 
-.mcRange::-webkit-slider-thumb {
-  pointer-events: auto; /* pero el thumb sí */
-}
-
-.mcRange::-moz-range-thumb {
-  pointer-events: auto;
-}
-
-.mcRange {
+  pointer-events: none; /* ✅ el input completo no captura */
   z-index: 1;
 }
+
 .mcRangeTop {
   z-index: 2;
 }
 
 .mcRange::-webkit-slider-thumb {
+  pointer-events: auto; /* ✅ pero el thumb sí */
   appearance: none;
   width: 18px;
   height: 18px;
@@ -787,7 +773,9 @@ body {
   border: 2px solid var(--mc-green);
   box-shadow: 0 0 0 6px rgba(32, 201, 151, 0.1);
 }
+
 .mcRange::-moz-range-thumb {
+  pointer-events: auto;
   width: 18px;
   height: 18px;
   border-radius: 999px;
@@ -800,6 +788,7 @@ body {
 .mcSelectDd {
   width: 100%;
 }
+
 .mcSelectBtn {
   width: 100%;
   border-radius: 12px;
@@ -814,17 +803,19 @@ body {
   justify-content: space-between;
   gap: 10px;
 }
+
 .mcSelectBtn:hover {
   border-color: rgba(32, 201, 151, 0.25);
   color: #fff;
 }
+
 .mcSelectText {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Clear */
+/* clear */
 .mcFiltersActions {
   display: flex;
   justify-content: center;
@@ -846,7 +837,7 @@ body {
   color: var(--mc-green);
 }
 
-/* Cards grid */
+/* cards grid */
 .mcCardsGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -890,8 +881,14 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 999px;
+  color: var(--mc-text-gray);
+  background: var(--mc-text-gray);
 }
+
 .mcStatusDot.certified {
+  background: var(--mc-green);
+}
+.mcStatusDot.approved {
   background: var(--mc-green);
 }
 .mcStatusDot.pending {
@@ -901,6 +898,10 @@ body {
   background: var(--mc-red);
 }
 
+.mcCard.approved .mcCardTop {
+  color: var(--mc-green);
+  background: var(--mc-green-soft);
+}
 .mcCard.certified .mcCardTop {
   color: var(--mc-green);
   background: var(--mc-green-soft);
@@ -908,6 +909,10 @@ body {
 .mcCard.pending .mcCardTop {
   color: var(--mc-yellow);
   background: var(--mc-yellow-soft);
+}
+.mcCard.rejected .mcCardTop {
+  color: rgba(255, 77, 77, 0.95);
+  background: rgba(255, 77, 77, 0.1);
 }
 
 .mcYear {
@@ -918,7 +923,9 @@ body {
 .mcCardBody {
   padding: 16px 16px 14px 16px;
 }
-
+.mcCardBodyMember {
+  padding: 12px 16px 12px 16px !important;
+}
 .mcCardTitle {
   margin: 0 0 0.35rem 0;
   font-weight: 500;
@@ -945,9 +952,8 @@ body {
   font-size: 0.8rem;
   margin-bottom: 0.35rem;
   display: flex;
-  gap: 8px;
-  display: flex;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .mcMetaRow {
@@ -1063,8 +1069,9 @@ body {
   color: #fff;
 }
 
+/* ✅ última versión: liked en rojo */
 .mcIconBtn.is-liked {
-  color: var(--mc-green);
+  color: var(--mc-red) !important;
 }
 
 /* pager */
@@ -1116,11 +1123,6 @@ body {
 }
 
 /* misc */
-.mcMuted {
-  color: rgba(255, 255, 255, 0.6);
-  font-weight: 500;
-}
-
 .mcAlert {
   padding: 14px;
   border-radius: 14px;
@@ -1128,9 +1130,6 @@ body {
   border: 1px solid rgba(255, 77, 77, 0.18);
   color: rgba(255, 255, 255, 0.92);
   font-weight: 500;
-}
-.mcIconBtn.is-liked {
-  color: var(--mc-red) !important;
 }
 
 /* mobile meta line (kept but hidden by requirement) */
@@ -1141,8 +1140,7 @@ body {
   font-weight: 500;
 }
 
-/* mobile behavior: hide filters + 1 column cards + top row stacking
-   + hide thesis count in mobile */
+/* mobile behavior */
 @media (max-width: 991.98px) {
   .mcExploreGrid {
     grid-template-columns: 1fr;
@@ -1175,33 +1173,22 @@ body {
     display: none;
   }
 }
-/* ===================== BOOTSTRAP DROPDOWN OVERRIDES (FIX) ===================== */
 
+/* ===================== BOOTSTRAP DROPDOWN OVERRIDES (FIX) ===================== */
 .dropdown-menu.mcDropdownMenu {
   /* Sobrescribe variables bootstrap */
   --bs-dropdown-bg: #161616;
   --bs-dropdown-border-color: rgba(255, 255, 255, 0.1);
   --bs-dropdown-link-color: rgba(255, 255, 255, 0.82);
   --bs-dropdown-link-hover-color: #fff;
-  --bs-dropdown-link-hover-bg: rgba(
-    32,
-    201,
-    151,
-    0.18
-  ); /* hover verde transparente */
+  --bs-dropdown-link-hover-bg: rgba(32, 201, 151, 0.18);
   --bs-dropdown-link-active-color: #fff;
-  --bs-dropdown-link-active-bg: rgba(
-    32,
-    201,
-    151,
-    0.35
-  ); /* active como nav item */
+  --bs-dropdown-link-active-bg: rgba(32, 201, 151, 0.35);
 
   background-color: var(--bs-dropdown-bg) !important;
   border: 1px solid var(--bs-dropdown-border-color) !important;
   border-radius: 14px !important;
   padding: 6px !important;
-
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55) !important;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -1222,31 +1209,28 @@ body {
   color: var(--bs-dropdown-link-hover-color) !important;
 }
 
-/* active */
+/* active (✅ se queda como tu última versión: usa hover bg) */
 .dropdown-menu.mcDropdownMenu .dropdown-item.active,
 .dropdown-menu.mcDropdownMenu .dropdown-item:active {
   background-color: var(--bs-dropdown-link-hover-bg) !important;
   color: var(--bs-dropdown-link-hover-color) !important;
 }
-/* Evita que el dropdown se recorte dentro de la card */
-.mcFiltersCard {
-  overflow: visible; /* antes probablemente era hidden */
-}
 
-/* Si el body también recorta */
-.mcFiltersBody {
+/* Evita que el dropdown se recorte dentro de la card */
+.mcWizardCard {
   overflow: visible;
 }
-/* ===================== INSTITUTIONS SEARCH (cards like thesis) ===================== */
 
-/* Institution card variations */
+/* ===================== INSTITUTIONS SEARCH (cards like thesis) ===================== */
 .mcInstCard .mcCardTop {
   background: rgba(255, 255, 255, 0.02);
 }
+
 .mcInstCard.active .mcCardTop {
   background: rgba(32, 201, 151, 0.16);
   color: var(--mc-green);
 }
+
 .mcInstCard.inactive .mcCardTop {
   background: rgba(255, 77, 77, 0.1);
   color: rgba(255, 77, 77, 0.95);
@@ -1263,7 +1247,7 @@ body {
 .mcInstTitleRow {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 3px;
 }
 
 .mcInstTitleIcon {
@@ -1281,14 +1265,12 @@ body {
 .mcInstRightTop {
   color: rgba(255, 255, 255, 0.75);
 }
-.mcInstCard.active .mcInstRightTop {
-  color: rgba(255, 255, 255, 0.92);
-}
+.mcInstCard.active .mcInstRightTop,
 .mcInstCard.inactive .mcInstRightTop {
   color: rgba(255, 255, 255, 0.92);
 }
 
-/* Focus bar (single line) */
+/* Focus bar */
 .mcInstFocusBar {
   display: flex;
   align-items: center;
@@ -1358,17 +1340,14 @@ body {
   text-decoration: none;
 }
 
-/* Focus subsearch spacing */
+/* Focus layout helpers */
 .mcFocusSubWrap {
   padding-top: 0;
 }
-
-/* Focus-only layout helpers */
 .mcTopRowFocus {
   grid-template-columns: 1fr auto;
 }
 
-/* Focus filters line */
 .mcFocusFiltersRow {
   display: flex;
   align-items: flex-start;
@@ -1395,7 +1374,7 @@ body {
   min-width: 240px;
 }
 
-/* Responsive: focus bar tighter */
+/* Responsive */
 @media (max-width: 991.98px) {
   .mcInstFocusName {
     max-width: 240px;
@@ -1408,33 +1387,28 @@ body {
     grid-template-columns: 1fr auto;
   }
 }
-/* Debajo de la barra focus, se monta la ventana completa de ThesisSearch */
+
 .mcFocusThesisWindow {
   margin-top: 14px;
 }
-/* ===================== LIBRARY U: TOP ROW + GRID 3 COLS ===================== */
 
-/* Top row: 4 columnas (search + sort + filter + meta) */
+/* ===================== LIBRARY U: TOP ROW + GRID 3 COLS ===================== */
 .mcLibTopRow {
   grid-template-columns: 1fr auto auto auto;
 }
 
-/* Search más pequeño para que entren los botones */
 .mcSearchSm {
   width: 100%;
 }
 
-/* count inline (ya existe mcTopMeta, esto ayuda a alinear) */
 .mcTopMetaInline {
   justify-self: end;
 }
 
-/* 3 columnas desktop */
 .mcCardsGrid3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-/* Responsive: 2 columnas en tablets, 1 en mobile */
 @media (max-width: 1199.98px) {
   .mcCardsGrid3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1445,31 +1419,22 @@ body {
     grid-template-columns: 1fr;
   }
   .mcLibTopRow {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
     gap: 12px;
   }
-  /* oculta texto desktop en botones (ya lo haces), count se oculta por tu regla mcTopMeta display none */
 }
 
 /* ===================== LIBRARY U: CARD TOP BAR COLOR ===================== */
-
 .mcCardBar {
   width: 100%;
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* rejected (pediste clases para cambio de color) */
 .mcCardBar--rejected {
   background: rgba(255, 77, 77, 0.75);
 }
 
-/* IMPORTANTE: en tu CSS actual NO tenías estilos de top para rejected */
-.mcCard.rejected .mcCardTop {
-  color: rgba(255, 77, 77, 0.95);
-  background: rgba(255, 77, 77, 0.1);
-}
 /* ===================== HASH COPY (CODE PILL STYLE) ===================== */
-
 .mcHashCopyWrap {
   display: flex;
   align-items: center;
@@ -1486,13 +1451,11 @@ body {
   overflow: hidden;
 }
 
-/* # prefix */
 .mcHashPrefix {
   color: rgba(255, 255, 255, 0.55);
   font-weight: 500;
 }
 
-/* hash text */
 .mcHashValue {
   flex: 1;
   overflow: hidden;
@@ -1502,12 +1465,11 @@ body {
   user-select: text;
 }
 
-/* copy button */
 .mcHashCopyBtn {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  border: 1px solid #ffffff1f;
+  border: 0px solid #ffffff1f;
   background: transparent;
   color: rgba(255, 255, 255, 0.75);
   display: grid;
@@ -1524,13 +1486,11 @@ body {
   transform: scale(1.05);
 }
 
-/* copied state */
 .mcHashCopyBtn.is-copied {
   color: var(--mc-green);
   animation: mcHashPop 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* micro pop */
 @keyframes mcHashPop {
   0% {
     transform: scale(0.85);
@@ -1544,6 +1504,7 @@ body {
     transform: scale(1);
   }
 }
+
 /* ===================== STATUS CHIP (ICON + LABEL) ===================== */
 .mcStatusChip {
   height: 36px;
@@ -1569,33 +1530,30 @@ body {
   line-height: 1;
 }
 
-/* Locked (APPROVED) */
 .mcStatusChip.is-locked {
   cursor: default;
   opacity: 1;
   transform: none !important;
 }
-
-/* Tones */
+.mcStatusChipCaret{
+  gap: 0;
+}
 .mcStatusChip--approved {
   color: var(--mc-green);
 }
-
 .mcStatusChip--pending {
   color: var(--mc-yellow);
 }
-
 .mcStatusChip--rejected {
   color: var(--mc-red);
 }
-/* ===== LibraryPSearch: Approved icon chip ===== */
+
 .mcActionIconApproved {
   color: var(--mc-green) !important;
   border: 1px solid rgba(32, 201, 151, 0.22) !important;
   background: rgba(32, 201, 151, 0.1) !important;
 }
 
-/* ===== Not certified button (neutral grey) ===== */
 .mcBtnNotCertified {
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1605,32 +1563,29 @@ body {
   cursor: not-allowed;
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.25);
 }
-.mcStatusDot {
-  color: var(--mc-text-gray);
-  background: var(--mc-text-gray);
-}
 
 /* opcional: hover disabled (por si bootstrap lo altera) */
 .mcBtnNotCertified:disabled {
   opacity: 1;
 }
+
 .fix1 {
   display: flex;
   align-self: center;
 }
-/* ===================== Segmented (Match screenshot) ===================== */
 
+/* ===================== Segmented (FINAL) ===================== */
 .mcSegment {
   display: inline-flex;
   align-items: center;
   padding: 4px;
   border-radius: 14px;
-  background: #1c1c1c; /* base pill */
+  background: #1c1c1c;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Button base */
 .mcSegmentBtn {
+  position: relative; /* ✅ necesario por ::after */
   display: inline-flex;
   align-items: center;
   padding: 5px 14px;
@@ -1655,7 +1610,6 @@ body {
   color: rgba(255, 255, 255, 0.68);
 }
 
-/* Icon inherits currentColor */
 .mcSegmentOptIcon {
   display: inline-flex;
   align-items: center;
@@ -1668,13 +1622,11 @@ body {
   stroke: currentColor;
 }
 
-/* Active state */
 .mcSegmentBtn.is-active {
   background: #20c997;
-  color: #06110d; /* texto oscuro como en la imagen */
+  color: #06110d;
 }
 
-/* Glow suave alrededor del activo */
 .mcSegmentBtn.is-active::after {
   content: "";
   position: absolute;
@@ -1683,16 +1635,3899 @@ body {
   opacity: 0.9;
 }
 
-/* Focus accesible */
 .mcSegmentBtn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(32, 201, 151, 0.28);
 }
 
-/* Responsive: reduce padding */
 @media (max-width: 520px) {
   .mcSegmentBtn {
     padding: 0 14px;
     gap: 8px;
+  }
+}
+
+/* ===================== WIZARD (FormThesis Step-by-step) ===================== */
+.mcWizardWrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 28px 18px 40px 18px;
+  color: var(--mc-text);
+}
+
+/* Stepper */
+.mcWizardStepper {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 22px;
+}
+
+.mcWizardStepperRail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 22px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+
+.mcStepItem {
+  border: 0;
+  padding: 0;
+  text-align: center;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--mc-bg) !important;
+}
+
+.mcStepDot {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--mc-bg);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: grid;
+  place-items: center;
+  position: relative;
+  z-index: 2;
+  color: rgba(255, 255, 255, 0.6);
+  transition:
+    transform 180ms var(--mc-ease),
+    border-color 180ms var(--mc-ease),
+    background 180ms var(--mc-ease),
+    color 180ms var(--mc-ease);
+}
+
+.mcStepIcon svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
+
+.mcWizardCardHeadTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mcStepDot.is-active,
+.mcStepDot.is-done {
+  background: #122b24;
+  border-color: var(--mc-green);
+  color: var(--mc-green);
+}
+
+.mcStepCheck {
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.mcStepText {
+  display: grid;
+  gap: 2px;
+}
+
+.mcStepTitle {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.mcStepTitle.is-active {
+  color: var(--mc-green);
+}
+
+.mcStepSub {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Alert */
+.mcWizardAlert {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+  margin-bottom: 18px;
+}
+
+/* Main Card */
+.mcWizardCard {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.5);
+  overflow: visible; /* ✅ final */
+}
+
+.mcWizardCardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 22px 18px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mcWizardH2 {
+  margin: 0;
+  font-size: 1.65rem;
+  font-weight: 650;
+  color: #fff;
+}
+
+.mcWizardP {
+  margin: 6px 0 0 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-weight: 500;
+}
+
+.mcWizardPills {
+  display: inline-flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mcWizardMiniPill {
+  min-width: 140px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 6px;
+}
+
+.mcWizardMiniLbl {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.mcWizardMiniVal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
+.mcWizardCardBody {
+  padding: 22px;
+}
+
+/* Pane helpers */
+.mcWizardPane {
+  display: grid;
+  gap: 16px;
+}
+
+.mcWizardField {
+  display: grid;
+  gap: 8px;
+}
+
+.mcWizardLabel {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+  letter-spacing: 0.15px;
+}
+
+.mcWizardMuted {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
+}
+
+.mcWizardGrid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.mcWizardGrid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.mcWizardGrid4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr 60px;
+  gap: 12px;
+  align-items: center;
+}
+
+.mcWizardGrid3T {
+  display: grid;
+  grid-template-columns: 1fr 1fr 60px;
+  gap: 12px;
+  align-items: start;
+}
+
+.mcWizardRowBetween {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mcWizardSectionTitle {
+  font-weight: 650;
+  color: #fff;
+  font-size: 1.05rem;
+}
+
+.mcWizardDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 6px 0;
+}
+
+.mcWizardStack {
+  display: grid;
+  gap: 12px;
+}
+
+.mcWizardGroup {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 12px;
+}
+
+.mcWizardHint {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+/* Inputs */
+.mcWizardInput,
+.mcWizardTextarea {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 12px 14px;
+  outline: none;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+  transition:
+    border-color 180ms var(--mc-ease),
+    box-shadow 180ms var(--mc-ease),
+    transform 180ms var(--mc-ease);
+}
+
+.mcWizardTextarea {
+  resize: vertical;
+  min-height: 160px;
+}
+
+.mcWizardInput::placeholder,
+.mcWizardTextarea::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.mcWizardInput:focus,
+.mcWizardTextarea:focus {
+  border-color: rgba(32, 201, 151, 0.35);
+  box-shadow:
+    0 0 0 3px rgba(32, 201, 151, 0.14),
+    0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+/* dropdown toggles match wizard inputs */
+.mcWizardSelectBtn {
+  width: 100%;
+  border-radius: 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Input-group inside wizard */
+.mcWizardInputGroupInput {
+  border-radius: 14px 0 0 14px !important;
+}
+.input-group .btn.btn-outline-memory {
+  border-radius: 0 14px 14px 0 !important;
+}
+
+/* Callouts */
+.mcWizardCallout {
+  border-radius: 14px;
+  border: 1px solid rgba(32, 201, 151, 0.22);
+  background: rgba(32, 201, 151, 0.1);
+  padding: 12px 14px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.mcWizardCalloutWarn {
+  border-radius: 14px;
+  border: 1px solid rgba(245, 197, 66, 0.22);
+  background: rgba(245, 197, 66, 0.1);
+  padding: 12px 14px;
+  color: rgba(255, 255, 255, 0.88);
+  margin-top: 10px;
+}
+
+/* Keywords chips */
+.mcWizardChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mcWizardChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 600;
+}
+
+.mcWizardChipX {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+.mcWizardChipX:hover {
+  color: #fff;
+}
+
+/* Dropzone */
+.mcWizardDropzone {
+  border-radius: 18px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.18);
+  padding: 18px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.42);
+  transition:
+    border-color 180ms var(--mc-ease),
+    transform 180ms var(--mc-ease),
+    background 180ms var(--mc-ease);
+  cursor: pointer;
+}
+
+.mcWizardDropzone:hover {
+  transform: translateY(-1px);
+  border-color: rgba(32, 201, 151, 0.25);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mcWizardDropzone.is-dragging {
+  border-color: rgba(32, 201, 151, 0.55);
+  background: rgba(32, 201, 151, 0.08);
+}
+
+.mcWizardDropzone.is-disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.mcWizardDropInner {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.mcWizardDropIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.mcWizardDropTitle {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.mcWizardDropSub {
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+
+.mcWizardDropActions {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Info banner */
+.mcWizardInfoBanner {
+  margin-top: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(245, 197, 66, 0.22);
+  background: rgba(245, 197, 66, 0.12);
+  padding: 14px 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.mcWizardInfoIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.mcWizardInfoTitle {
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.92);
+  margin-bottom: 2px;
+}
+
+.mcWizardInfoText {
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+}
+
+/* Footer */
+.mcWizardFooter {
+  padding: 18px 22px 22px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mcWizardNavBtn {
+  min-width: 150px;
+  border-radius: 14px !important;
+  padding: 12px 16px !important;
+  font-weight: 700 !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+}
+
+.mcWizardArrow {
+  margin-left: 10px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Responsive */
+@media (max-width: 991.98px) {
+  .mcWizardStepper {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .mcWizardStepperRail {
+    display: none;
+  }
+
+  .mcStepItem {
+    grid-template-columns: 54px 1fr;
+    text-align: left;
+    justify-items: start;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mcStepText {
+    gap: 0;
+  }
+
+  .mcWizardGrid3,
+  .mcWizardGrid2,
+  .mcWizardGrid4,
+  .mcWizardGrid3T {
+    grid-template-columns: 1fr;
+  }
+
+  .mcWizardDropInner {
+    grid-template-columns: 1fr;
+  }
+
+  .mcWizardPills {
+    display: none;
+  }
+}
+
+/* ===================== BUTTONS (Memory theme) ===================== */
+.btn.btn-outline-memory {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 500;
+}
+
+.btn.btn-outline-memory:hover {
+  background: rgba(32, 201, 151, 0.16);
+  border-color: rgba(32, 201, 151, 0.3);
+  color: var(--mc-green);
+}
+
+.btn.btn-memory {
+  border: 1px solid rgba(32, 201, 151, 0.3);
+  background: rgba(32, 201, 151, 0.16);
+  color: var(--mc-green);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 500;
+}
+
+.btn.btn-memory:hover {
+  background: #20c997bf;
+  border-color: var(--mc-green);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.btn-outline-danger {
+  background: #ff4d4d40 !important;
+}
+.btn-outline-danger:hover {
+  background: #ff4d4d !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* ===================== REACT-DATEPICKER (Memory-Chain theme) ===================== */
+.mcDatepickerPopper {
+  z-index: 9999;
+}
+
+.mcDatepickerPopper .react-datepicker__triangle::before,
+.mcDatepickerPopper .react-datepicker__triangle::after {
+  border-bottom-color: var(--mc-panel) !important;
+}
+
+.react-datepicker.mcDatepicker {
+  background: var(--mc-panel) !important;
+  border: 1px solid var(--mc-border) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55) !important;
+  overflow: hidden;
+  font-family: "Outfit", sans-serif;
+  color: var(--mc-text);
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__header {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding-top: 10px;
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__current-month,
+.react-datepicker.mcDatepicker .react-datepicker-time__header,
+.react-datepicker.mcDatepicker .react-datepicker-year-header {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 600;
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__day-name {
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-weight: 600;
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__navigation-icon::before {
+  border-color: rgba(255, 255, 255, 0.55) !important;
+}
+.react-datepicker.mcDatepicker
+  .react-datepicker__navigation:hover
+  .react-datepicker__navigation-icon::before {
+  border-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__month {
+  margin: 10px !important;
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__day {
+  color: rgba(255, 255, 255, 0.78) !important;
+  border-radius: 12px !important;
+  transition:
+    background 160ms var(--mc-ease),
+    color 160ms var(--mc-ease),
+    transform 160ms var(--mc-ease);
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__day:hover {
+  background: var(--mc-green-hover) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  transform: translateY(-1px);
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__day--selected,
+.react-datepicker.mcDatepicker .react-datepicker__day--keyboard-selected {
+  background: var(--mc-green) !important;
+  color: #06110d !important;
+  font-weight: 700;
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__day--selected:hover,
+.react-datepicker.mcDatepicker .react-datepicker__day--keyboard-selected:hover {
+  background: rgba(32, 201, 151, 0.85) !important;
+  color: #06110d !important;
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__day--today {
+  border: 1px solid rgba(32, 201, 151, 0.55) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__day--outside-month {
+  color: rgba(255, 255, 255, 0.28) !important;
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__day--disabled {
+  color: rgba(255, 255, 255, 0.22) !important;
+  cursor: not-allowed !important;
+}
+.react-datepicker.mcDatepicker .react-datepicker__day--disabled:hover {
+  background: transparent !important;
+  transform: none !important;
+}
+
+.react-datepicker.mcDatepicker .react-datepicker__month-select,
+.react-datepicker.mcDatepicker .react-datepicker__year-select {
+  background: rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 12px !important;
+  padding: 6px 10px !important;
+  outline: none !important;
+}
+
+.react-datepicker-wrapper,
+.react-datepicker__input-container {
+  width: 100%;
+}
+
+/* ===================== WIZARD INPUT-GROUP (FINAL) ===================== */
+.mcWizardInputGroup {
+  align-items: stretch;
+}
+
+.mcWizardInputGroup .form-control,
+.mcWizardInputGroup .btn {
+  height: 48px;
+}
+
+/* input */
+.mcWizardInputGroup .form-control {
+  background: rgba(0, 0, 0, 0.25) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35) !important;
+  outline: none !important;
+}
+
+.mcWizardInputGroup .form-control::placeholder {
+  color: rgba(255, 255, 255, 0.42) !important;
+}
+
+.mcWizardInputGroup .form-control:focus {
+  border-color: rgba(32, 201, 151, 0.35) !important;
+  box-shadow:
+    0 0 0 3px rgba(32, 201, 151, 0.14),
+    0 18px 50px rgba(0, 0, 0, 0.45) !important;
+}
+
+.mcWizardInputGroup .mcWizardInputGroupInput {
+  border-right: 0 !important;
+}
+
+.mcWizardInputGroup .btn.btn-outline-memory.mcWizardInputGroupBtn {
+  background: rgba(255, 255, 255, 0.02) !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  margin-left: -1px !important;
+  border-radius: 0 14px 14px 0 !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35) !important;
+}
+
+.mcWizardInputGroup .btn.btn-outline-memory.mcWizardInputGroupBtn:hover {
+  background: rgba(32, 201, 151, 0.16) !important;
+  border-color: rgba(32, 201, 151, 0.3) !important;
+  color: var(--mc-green) !important;
+}
+
+.mcWizardInputGroup:focus-within .btn.btn-outline-memory.mcWizardInputGroupBtn {
+  border-color: rgba(32, 201, 151, 0.35) !important;
+  box-shadow:
+    0 0 0 3px rgba(32, 201, 151, 0.14),
+    0 18px 50px rgba(0, 0, 0, 0.45) !important;
+}
+
+.mcWizardInputGroup .btn.btn-outline-memory.mcWizardInputGroupBtn:disabled {
+  opacity: 0.65 !important;
+  cursor: not-allowed !important;
+  background: rgba(0, 0, 0, 0.18) !important;
+}
+
+/* ===================== KEYWORDS RIGHT PANEL ===================== */
+.mcKwGrid {
+  align-items: start;
+}
+
+.mcKwPanel {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.18);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+  padding: 12px;
+  min-height: 48px;
+  max-height: 140px;
+  overflow: auto;
+}
+
+.mcKwChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mcKwChip {
+  padding: 7px 11px;
+  font-weight: 600;
+}
+
+.mcKwPanel::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+.mcKwPanel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+.mcKwPanel::-webkit-scrollbar-thumb:hover {
+  background: rgba(32, 201, 151, 0.22);
+}
+
+.fill-y {
+  color: var(--mc-yellow);
+}
+
+/* ===================== PROFILE U (FINAL, deduplicado) ===================== */
+.mcProfileWrap {
+  width: 100%;
+  color: var(--mc-text);
+  padding: 18px 0 22px 0;
+}
+
+/* HERO */
+.mcProfileHero {
+  position: relative;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.02)
+  );
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  padding: 22px;
+}
+
+.mcProfileHeroActions {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 2;
+}
+
+/* ID pill */
+.mcIdPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(32, 201, 151, 0.25);
+  background: rgba(32, 201, 151, 0.12);
+  color: var(--mc-green);
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  transition: transform 160ms var(--mc-ease), border-color 160ms var(--mc-ease);
+  max-width: 560px;
+}
+.mcIdPill:hover {
+  transform: translateY(-1px);
+  border-color: rgba(32, 201, 151, 0.35);
+}
+.mcIdPill.is-copied {
+  border-color: rgba(32, 201, 151, 0.55);
+}
+.mcIdDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--mc-green);
+  box-shadow: 0 0 0 6px rgba(32, 201, 151, 0.12);
+}
+.mcIdText {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mcIdIcon {
+  display: grid;
+  place-items: center;
+}
+
+/* hero layout */
+.mcProfileHeroInner {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 18px;
+  align-items: stretch;
+  padding-top: 6px;
+}
+
+.mcProfileHeroLeft {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+/* Avatar */
+.mcAvatarWrap {
+  position: relative;
+  width: 145px;
+  height: 145px;
+}
+
+.mcAvatar {
+  width: 145px;
+  height: 145px;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 2px solid rgba(32, 201, 151, 0.65);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35) inset, 0 16px 40px rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.mcAvatarWrap--exLg {
+  width: 140px;
+  height: 140px;
+}
+.mcAvatar--exLg {
+  width: 140px;
+  height: 140px;
+}
+
+.mcAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mcAvatarFallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--mc-green);
+  font-weight: 800;
+  font-size: 1.45rem;
+  background: rgba(32, 201, 151, 0.08);
+}
+
+/* Camera button */
+.mcAvatarCamTL {
+  position: absolute;
+  left: -12px;
+  top: -12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.9);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform 160ms var(--mc-ease), border-color 160ms var(--mc-ease);
+}
+.mcAvatarCamTL:hover {
+  transform: scale(1.06);
+  border-color: rgba(32, 201, 151, 0.35);
+  color: #fff;
+}
+
+/* tiny remove */
+.mcRemoveMini {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 77, 77, 0.2);
+  background: rgba(255, 77, 77, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+}
+.mcRemoveMini:hover {
+  background: rgba(255, 77, 77, 0.2);
+}
+
+.mcProfileName {
+  width: 60%;
+}
+/* Meta */
+.mcProfileMeta {
+  min-width: 0;
+}
+
+.mcProfileEmailInline {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mcInlineIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* member pill row */
+.mcMemberRow {
+  margin-top: 12px;
+}
+
+.mcMemberPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+
+.mcMemberPill.is-on {
+  border: 1px solid rgba(32, 201, 151, 0.25);
+  background: rgba(32, 201, 151, 0.12);
+  color: var(--mc-green);
+}
+
+.mcMemberPill.is-off {
+  border: 1px solid rgba(255, 77, 77, 0.22);
+  background: rgba(255, 77, 77, 0.12);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.mcVdot--off {
+  background: rgba(255, 77, 77, 0.95);
+  box-shadow: 0 0 0 6px rgba(255, 77, 77, 0.15);
+}
+
+/* Stats */
+.mcProfileStatsInline {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.mcStatCard2 {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mcStatIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(32, 201, 151, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--mc-green);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25) inset, 0 12px 26px rgba(0, 0, 0, 0.35),
+    0 0 18px rgba(32, 201, 151, 0.12);
+  flex: 0 0 auto;
+}
+
+.mcStatNum2 {
+  font-size: 1.6rem;
+  color: #fff;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.mcStatLbl2 {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 650;
+}
+
+/* Banner below hero */
+.mcBanner {
+  margin-top: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+  padding: 14px 14px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-weight: 650;
+}
+
+.mcBanner.is-green {
+  border-color: rgba(32, 201, 151, 0.22);
+  background: rgba(32, 201, 151, 0.08);
+}
+.mcBanner.is-red {
+  border-color: rgba(255, 77, 77, 0.22);
+  background: rgba(255, 77, 77, 0.08);
+}
+
+.mcBannerIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Panel card */
+.mcPanelCard {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.5);
+  overflow: visible; /* (antes decía overflow: show) */
+}
+
+.mcPanelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mcPanelHeadLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mcPanelIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(32, 201, 151, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.3) inset,
+    0 10px 24px rgba(0, 0, 0, 0.35),
+    0 0 18px rgba(32, 201, 151, 0.12);
+  color: var(--mc-green);
+  flex: 0 0 auto;
+}
+
+.mcPanelBody {
+  padding: 18px;
+}
+
+.mcPanelTitle {
+  font-weight: 760;
+  color: #fff;
+  line-height: 1.1;
+}
+.mcPanelSub {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+
+/* Layout helpers */
+.mcGrid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.mt-3 {
+  margin-top: 14px !important;
+}
+
+.mcField {
+  display: grid;
+  gap: 8px;
+}
+.mcFieldLabel2 {
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.88);
+  letter-spacing: 0.15px;
+}
+
+/* Inputs */
+.mcProfileInput,
+.mcProfileTextarea {
+  width: 100%;
+  border-radius: 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  padding: 12px 14px !important;
+  outline: none !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35) !important;
+  transition:
+    border-color 180ms var(--mc-ease),
+    box-shadow 180ms var(--mc-ease),
+    transform 180ms var(--mc-ease);
+  resize: vertical;
+}
+
+.mcProfileTextarea {
+  min-height: 120px;
+  max-height: 220px;
+}
+
+.mcProfileInput::placeholder,
+.mcProfileTextarea::placeholder {
+  color: rgba(255, 255, 255, 0.42) !important;
+}
+
+.mcProfileInput:focus,
+.mcProfileTextarea:focus {
+  border-color: rgba(32, 201, 151, 0.35) !important;
+  box-shadow:
+    0 0 0 3px rgba(32, 201, 151, 0.14),
+    0 18px 50px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Invalid */
+.mcInvalid {
+  color: rgba(255, 77, 77, 0.95);
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+
+/* Chips panel */
+.mcChipsPanel {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.18);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+  padding: 12px;
+}
+
+/* Hint + warn */
+.mcHintBox {
+  height: 48px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.18);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.62);
+  font-weight: 650;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+}
+
+.mcWarn {
+  border-radius: 14px;
+  border: 1px solid rgba(245, 197, 66, 0.22);
+  background: rgba(245, 197, 66, 0.1);
+  padding: 12px 14px;
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 650;
+}
+
+/* Dropdown button fix */
+.mcWizardSelectBtnFix {
+  border-radius: 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(0, 0, 0, 0.25) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* footer actions */
+.mcProfileFooterActions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* responsive */
+@media (max-width: 991.98px) {
+  .mcProfileHeroActions {
+    position: static;
+    justify-content: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    display: flex;
+  }
+  
+.mcProfileName {
+  width: 100%;
+}
+
+  .mcProfileHeroInner {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .mcProfileHeroLeft {
+    justify-content: flex-start;
+  }
+
+  .mcProfileStatsInline {
+    grid-template-columns: 1fr;
+  }
+
+  .mcGrid2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-control {
+  max-height: 48px !important;
+}
+
+@media (max-width: 768px) {
+  .mcAvatarWrap {
+    margin: 0 auto;
+  }
+  .mcProfileName {
+    text-align: center;
+  }
+  .mcAvatarCamTL {
+    top: -10px;
+    left: -10px;
+  }
+}
+
+/* ===================== INSTITUTION PROFILE (ADD-ON ONLY) ===================== */
+.mcInstStatusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 700;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+}
+
+.mcInstStatusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.mcInstStatusPill.is-active {
+  border-color: rgba(32, 201, 151, 0.25);
+  background: rgba(32, 201, 151, 0.12);
+  color: var(--mc-green);
+}
+.mcInstStatusPill.is-active .mcInstStatusDot {
+  background: var(--mc-green);
+  box-shadow: 0 0 0 6px rgba(32, 201, 151, 0.12);
+}
+
+.mcInstStatusPill.is-inactive {
+  border-color: rgba(255, 77, 77, 0.18);
+  background: rgba(255, 77, 77, 0.1);
+  color: rgba(255, 77, 77, 0.9);
+}
+.mcInstStatusPill.is-inactive .mcInstStatusDot {
+  background: rgba(255, 77, 77, 0.9);
+  box-shadow: 0 0 0 6px rgba(255, 77, 77, 0.14);
+}
+
+.mcInstInlineIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Input-group: input + icon button glued */
+.mcInstInputGroup {
+  align-items: stretch;
+}
+.mcInstInputGroup .form-control,
+.mcInstInputGroup .btn {
+  height: 48px;
+}
+
+.mcInstInputGroupInput {
+  border-right: 0 !important;
+}
+
+.btn.btn-outline-memory.mcInstInputGroupBtn {
+  width: 54px;
+  display: grid;
+  place-items: center;
+  margin-left: -1px !important;
+  border-radius: 0 14px 14px 0 !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35) !important;
+}
+
+.mcInstInputGroup:focus-within .btn.btn-outline-memory.mcInstInputGroupBtn {
+  border-color: rgba(32, 201, 151, 0.35) !important;
+  box-shadow:
+    0 0 0 3px rgba(32, 201, 151, 0.14),
+    0 18px 50px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Chips for domains/departments */
+.mcInstChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 650;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+
+.mcInstChipText {
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcInstChipX {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.mcInstChipX:hover {
+  color: #fff;
+}
+
+@media (max-width: 991.98px) {
+  .mcInstStatusPill {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ===================== PROFILE U FIXES (END) ===================== */
+textarea.form-control.mcProfileTextarea {
+  max-height: none !important;
+}
+
+.mcTextareaDarkScroll {
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) rgba(255, 255, 255, 0.04);
+}
+
+.mcTextareaDarkScroll::-webkit-scrollbar {
+  width: 10px;
+}
+.mcTextareaDarkScroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+.mcTextareaDarkScroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+.mcTextareaDarkScroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(32, 201, 151, 0.22);
+}
+
+/* Domains/Departments input-group: botón como contraseña */
+.mcInstGroupMatchKey {
+  align-items: stretch;
+}
+
+.mcInstGroupMatchKey .form-control,
+.mcInstGroupMatchKey .btn {
+  height: 48px;
+}
+
+.mcInstGroupMatchKey .mcInstInputGroupInput {
+  border-right: 0 !important;
+}
+
+.mcInstGroupMatchKey .btn.btn-outline-memory.mcInstBtnMatchKey {
+  width: 54px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.02) !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  margin-left: -1px !important;
+  border-radius: 0 14px 14px 0 !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35) !important;
+}
+
+.mcInstGroupMatchKey .btn.btn-outline-memory.mcInstBtnMatchKey:hover {
+  background: rgba(32, 201, 151, 0.16) !important;
+  border-color: rgba(32, 201, 151, 0.3) !important;
+  color: var(--mc-green) !important;
+}
+
+.mcInstGroupMatchKey:focus-within .btn.btn-outline-memory.mcInstBtnMatchKey {
+  border-color: rgba(32, 201, 151, 0.35) !important;
+  box-shadow:
+    0 0 0 3px rgba(32, 201, 151, 0.14),
+    0 18px 50px rgba(0, 0, 0, 0.45) !important;
+}
+
+.mcInstGroupMatchKey .btn.btn-outline-memory.mcInstBtnMatchKey:disabled {
+  opacity: 0.65 !important;
+  cursor: not-allowed !important;
+  background: rgba(0, 0, 0, 0.18) !important;
+}
+
+/* ===================== GLOBAL MUTED (última definición) ===================== */
+.mcMuted {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 600;
+}
+/* ===================== AFFILIATED INSTITUTIONS (FormProfile) ===================== */
+
+.mcPanelHeadRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Panel superior "Add institution" */
+.mcAddInstPanel {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.4);
+}
+
+/* Grid de afiliadas (2 cols) */
+.mcAffGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.mcAffItem {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+/* Fila superior dentro de cada card */
+.mcAffRow {
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 58px 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Logo */
+.mcAffLogo {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 800;
+}
+
+.mcAffLogo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Centro */
+.mcAffMid {
+  min-width: 0;
+}
+
+.mcAffName {
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.15;
+}
+
+.mcAffEmail {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.62);
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Derecha */
+.mcAffRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Verified pill */
+.mcVerifiedPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(32, 201, 151, 0.25);
+  background: rgba(32, 201, 151, 0.12);
+  color: var(--mc-green);
+  font-weight: 700;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+
+.mcVdot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--mc-green);
+  box-shadow: 0 0 0 6px rgba(32, 201, 151, 0.12);
+}
+
+/* Botón editar (icon square) */
+.mcAffEditBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.85);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 160ms var(--mc-ease),
+    border-color 160ms var(--mc-ease),
+    color 160ms var(--mc-ease);
+}
+
+.mcAffEditBtn:hover {
+  transform: scale(1.05);
+  border-color: rgba(32, 201, 151, 0.25);
+  color: #fff;
+}
+
+/* Panel de edición desplegable */
+.mcAffEditPanel {
+  padding: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Empty state */
+.mcEmptyState {
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 400;
+  padding: 8px 2px;
+}
+
+/* Responsive: 1 col */
+@media (max-width: 991.98px) {
+  .mcAffGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .mcAffRow {
+    grid-template-columns: 58px 1fr;
+  }
+
+  .mcAffRight {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
+/* evita saltos raros del svg */
+.mcIconBtnIcon {
+  display: flex;
+}
+
+/* En móvil: solo icono */
+@media (max-width: 575.98px) {
+  .mcIconBtnText {
+    display: none;
+  }
+
+  /* opcional: hacerlo más cuadrado tipo action button */
+  .mcIconBtn {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}/* Add button: icon + text perfectly aligned */
+.btn.btn-outline-memory.mcAddBtn {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* icon wrapper */
+.btn.btn-outline-memory.mcAddBtn .mcAddBtnIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* if you have global svg { display:block; } this ensures it behaves nicely */
+.btn.btn-outline-memory.mcAddBtn .mcAddBtnIcon svg {
+  display: block;
+}
+
+/* Mobile: hide text, keep icon */
+@media (max-width: 575.98px) {
+  .btn.btn-outline-memory.mcAddBtn .mcAddBtnText {
+    display: none;
+  }
+
+  /* optional: make it more compact when only icon */
+  .btn.btn-outline-memory.mcAddBtn {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+.mcDashWrap{
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 18px 24px;
+  color: var(--mc-text);
+}
+
+/* Banner */
+.mcDashBanner{
+  border-radius: 14px;
+  font-weight: 750;
+}
+.mcDashBanner--ok{ background: rgba(32,201,151,.14) !important; color: var(--mc-green) !important; }
+.mcDashBanner--bad{ background: rgba(255,77,77,.14) !important; color: var(--mc-red) !important; }
+
+/* ===== Tiles (cards top) ===== */
+.mcTilesGrid{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.mcTilesGrid--second{ margin-top: 14px; }
+
+@media (max-width: 1199.98px){
+  .mcTilesGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ✅ Mobile: 2 por línea (en vez de 1) */
+@media (max-width: 575.98px){
+  .mcTilesGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 360px){
+  .mcTilesGrid{ grid-template-columns: 1fr; }
+}
+
+/* Tiles */
+.mcTile{
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+  border: 1px solid var(--mc-border);
+  border-radius: 18px;
+  padding: 20px 20px 16px;
+  min-height: 122px;
+  box-shadow: 0 22px 70px rgba(0,0,0,.45);
+  position: relative;
+  overflow: hidden;
+}
+
+.mcTileTop{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap: 10px;
+}
+
+.mcTileTitle{
+  font-weight: 800;
+  color: rgba(255,255,255,.84);
+  font-size: .95rem;
+  letter-spacing: .2px;
+}
+
+.mcTileIcon{
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display:grid;
+  place-items:center;
+  background: rgba(32,201,151,.10);
+  border: 1px solid rgba(255,255,255,.10);
+  color: var(--mc-green);
+  box-shadow: 0 12px 28px rgba(0,0,0,.40), 0 0 18px rgba(32,201,151,.10);
+}
+
+.mcTileValue{
+  margin-top: 5px;
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -.5px;
+  color: #fff;
+  line-height: 1;
+}
+
+/* ===== Dashboard grid (30/70 desktop) ===== */
+.mcDashGrid2{
+  display:grid;
+  grid-template-columns: minmax(0,.30fr) minmax(0,.70fr); /* ✅ 30/70 */
+  gap: 14px;
+  margin-top: 14px;
+}
+
+/* Mobile: se ocultan las tablas, y solo quedan los charts */
+@media (max-width: 991.98px){
+  .mcDashGrid2{ grid-template-columns: 1fr; }
+  .mcDashCard--table{ display:none !important; } /* ✅ no tables */
+}
+
+/* Cards */
+.mcDashCard{
+  border-radius: 18px;
+  border: 1px solid var(--mc-border);
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+  box-shadow: 0 22px 80px rgba(0,0,0,.55);
+  overflow: hidden;
+}
+
+.mcDashHead{
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.02);
+  display:flex;
+  align-items:center;              /* ✅ alineación vertical */
+  justify-content:space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mcDashHeadLeft{
+  min-width: 0;
+}
+
+.mcDashHeadTitle{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  font-weight: 900;
+  color: #fff;
+  font-size: 1.02rem;
+  line-height: 1.1;
+}
+
+.mcDashHeadText{
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 520px;
+}
+
+.mcDashHeadIcon{
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display:grid;
+  place-items:center;
+  background: rgba(32,201,151,.10);
+  border: 1px solid rgba(255,255,255,.10);
+  color: var(--mc-green);
+}
+
+.mcDashHeadRight{
+  display:flex;
+  align-items:center;              /* ✅ alineado con título */
+  gap: 10px;
+}
+
+.mcDashBody{
+  padding: 16px;
+}
+
+/* ===== Dropdown (orderby/filter) — minimal + compatible mcDropdownMenu ===== */
+.mcDashDd{
+  position: relative;
+}
+
+.mcDashDdBtn{
+  width: 100%;
+  min-height: 34px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.18);
+  color: rgba(255,255,255,.86);
+  padding: 7px 10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  box-shadow: none !important;
+}
+
+.mcDashDdBtn:hover{
+  background: rgba(255,255,255,.04);
+  border-color: rgba(255,255,255,.16);
+}
+
+.mcDashDdBtn:focus{
+  box-shadow: 0 0 0 .18rem rgba(32,201,151,.15) !important;
+  border-color: rgba(32,201,151,.35) !important;
+}
+
+.mcDashDdText{
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 800;
+  letter-spacing: .1px;
+}
+
+/* ===== Pager minimalista ===== */
+.mcPagerMini{
+  display:flex;
+  align-items:center;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.18);
+}
+
+.mcPagerMiniBtn{
+  width: 38px;
+  height: 34px;
+  display:grid;
+  place-items:center;
+  border: 0;
+  background: transparent;
+  color: rgba(255,255,255,.88);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.mcPagerMiniBtn + .mcPagerMiniBtn{
+  border-left: 1px solid rgba(255,255,255,.12);
+}
+
+.mcPagerMiniBtn:hover{
+  background: rgba(255,255,255,.05);
+}
+
+.mcPagerMiniBtn:disabled{
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* ===== Donut (stack + legend below) ===== */
+.mcDonutStack{
+  display:flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mcDonutChartSolo{
+  width: 100%;
+}
+
+.mcEmpty{
+  height: 280px;
+  display:grid;
+  place-items:center;
+  color: var(--mc-muted);
+  font-weight: 650;
+}
+
+/* Legend below */
+.mcLegendBox{
+  border-top: 1px solid rgba(255,255,255,.08);
+  padding-top: 12px;
+}
+
+.mcLegendList{
+  display:grid;
+  gap: 10px;
+}
+
+.mcLegendRow2{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+}
+
+.mcLegendLeft2{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mcLegendName{
+  color: rgba(255,255,255,.82);
+  font-weight: 750;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.mcLegendRight2{
+  color: rgba(255,255,255,.92);
+  font-weight: 900;
+}
+
+.mcLegendPct{
+  color: rgba(255,255,255,.55);
+  font-weight: 800;
+  margin-left: 6px;
+}
+
+.mcDot{
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display:inline-block;
+  box-shadow: 0 0 0 6px rgba(255,255,255,.06);
+}
+
+/* ===== Table frame ===== */
+.mcTableFrame{
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.18);
+  border-radius: 14px;
+  overflow: auto;
+  max-height: 410px;
+}
+
+/* Bootstrap table overrides */
+.mcDashTable{
+  margin: 0 !important;
+  color: rgba(255,255,255,.82) !important;
+  --bs-table-bg: transparent !important;
+  --bs-table-color: rgba(255,255,255,.82) !important;
+  --bs-table-striped-bg: rgba(255,255,255,.03) !important;
+  --bs-table-hover-bg: rgba(255,255,255,.04) !important;
+}
+
+.mcDashTable thead th{
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(0,0,0,.35) !important;
+  color: rgba(255,255,255,.55) !important;
+  font-weight: 800;
+  border-bottom: 1px solid rgba(255,255,255,.10) !important;
+}
+
+.mcDashTable tbody td{
+  border-top: 1px solid rgba(255,255,255,.07) !important;
+}
+
+.mcTitleCell{
+  max-width: 520px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 800;
+  color: #fff;
+}
+
+.mcSubCell{
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255,255,255,.55);
+  font-weight: 650;
+}
+
+.mcNumCell{
+  font-weight: 900;
+  color: #fff;
+}
+
+.mcMuted{
+  color: rgba(255,255,255,.55) !important;
+}
+
+.mcFoot{
+  margin-top: 10px;
+  color: rgba(255,255,255,.55);
+  font-weight: 650;
+  font-size: 12px;
+}
+.mcFoot--split{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+/* Status pills */
+.mcPill{
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: .82rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.mcPill--green{
+  border-color: rgba(32,201,151,.25);
+  background: rgba(32,201,151,.12);
+  color: var(--mc-green);
+}
+.mcPill--yellow{
+  border-color: rgba(245,197,66,.22);
+  background: rgba(245,197,66,.10);
+  color: var(--mc-yellow);
+}
+.mcPill--red{
+  border-color: rgba(255,77,77,.22);
+  background: rgba(255,77,77,.10);
+  color: var(--mc-red);
+}
+.mcPills{
+  display:flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.pd-fix{
+  padding: 0 !important;
+}
+.md-fix{
+  margin: 2px !important;
+}
+/* ===== Table header improvement ===== */
+.mcDashTable thead th{
+  padding: 12px 14px !important;                 /* más aire */
+  background: rgba(255,255,255,.02) !important;  /* leve contraste */
+  color: rgba(255,255,255,.60) !important;
+  font-weight: 800;
+  letter-spacing: .03em;
+  border-bottom: 1px solid rgba(255,255,255,.28) !important; /* línea suave */
+}
+
+/* línea divisoria entre header y contenido */
+.mcDashTable thead{
+  border-bottom: 1px solid rgba(255,255,255,.10) !important;
+}
+
+/* ===== Rows separation softer ===== */
+.mcDashTable tbody td{
+  padding: 12px 14px !important;
+  border-top: 1px solid rgba(255,255,255,.28) !important;
+}
+
+/* opcional → hover elegante tipo explorer */
+.mcDashTable tbody tr:hover td{
+  background: rgba(255,255,255,.025);
+}
+/* ===== FIX: líneas blancas de Bootstrap dentro de tables ===== */
+
+/* Bootstrap pinta border-bottom en todas las celdas */
+.mcDashTable > :not(caption) > * > *{
+  border-bottom-color: rgba(255,255,255,.28) !important;
+}
+
+/* Asegura el color de borde general del table */
+.mcDashTable{
+  --bs-table-border-color: rgba(255,255,255,.28) !important;
+  border-color: rgba(255,255,255,.28) !important;
+}
+
+/* Por si alguna regla queda colada en tr/td */
+.mcDashTable tbody tr{
+  border-color: rgba(255,255,255,.28) !important;
+}
+.mcDashTable tbody td{
+  border-top-color: rgba(255,255,255,.28) !important;
+  border-bottom-color: rgba(255,255,255,.28) !important;
+}
+
+/* modal-content transparente: quien pinta es mcPanelCard */
+.mcSheetModal {
+  background: transparent;
+  border: 0;
+  border-radius: 18px;
+}
+
+/* panel total del modal */
+.mcSheetPanel {
+  overflow: hidden;
+  background-color: var(--mc-bg);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 20px;
+}
+
+.modal-content {
+  border: 0;
+  border-radius: 25px !important;
+}
+/* padding extra del body */
+.mcSheetBody {
+  padding: 18px; /* ⬅️ pedido */
+}
+
+/* header subtitle (2 líneas) */
+.mcSheetHeadTitles {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mcSheetHeadSub {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 720px;
+}
+
+/* close sin btn-close de bootstrap */
+.mcSheetCloseBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mcSheetCloseBtn:hover {
+  background: rgba(32, 201, 151, 0.18);
+  border-color: rgba(32, 201, 151, 0.35);
+  color: #dffcf3;
+}
+
+/* GRID 3 columnas: left | divider | right */
+.mcSheetGrid2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px 360px;
+  gap: 16px;
+  align-items: start;
+}
+
+/* divisor vertical */
+.mcSheetVSplit {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.10);
+  align-self: stretch;
+  border-radius: 1px;
+}
+
+/* responsive: apila y divisor se vuelve horizontal */
+@media (max-width: 992px) {
+  .mcSheetGrid2 {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .mcSheetVSplit {
+    width: 100%;
+    height: 1px;
+  }
+}
+
+/* dividers del lado izquierdo (como la imagen) */
+.mcSheetDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.10);
+  margin: 14px 0;
+}
+
+/* headers de secciones */
+.mcSheetSecHead,
+.mcSheetSideHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(32, 201, 151, 0.95);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+
+/* texto principal */
+.mcSheetTitle {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.92);
+}
+.mcSheetText {
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* chips keywords */
+.mcSheetChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mcSheetChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(32, 201, 151, 0.18);
+  border: 1px solid rgba(32, 201, 151, 0.35);
+  color: #dffcf3;
+  font-weight: 600;
+  font-size: 12px;
+}
+.mcSheetHash {
+  opacity: 0.75;
+}
+
+/* metadata mini-cards */
+.mcSheetMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 992px) {
+  .mcSheetMetaGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.mcSheetMetaCard {
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 10px 12px;
+}
+.mcSheetMetaTop {
+  color: rgba(255, 255, 255, 0.60);
+  font-weight: 600;
+  font-size: 12px;
+  display: flex;
+  align-items: center; 
+  gap: 4px;
+}
+.mcSheetMetaVal {
+  margin-top: 4px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* RIGHT “afuera”: sin cards, solo bloques */
+.mcSheetRightBare {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* separadores internos del lado derecho */
+.mcSheetSideDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.10);
+}
+
+/* Institution top */
+.mcSheetInstTop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+.mcSheetMembLogo {
+  width: 80px;
+  height: 80px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
+  flex: 0 0 auto;
+}
+.mcSheetMembLogo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mcSheetInstLogo {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
+  flex: 0 0 auto;
+}
+.mcSheetInstLogo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mcSheetInstInfo {
+  min-width: 0;
+}
+.mcSheetInstName {
+  font-weight: 500;
+  line-height: 1.1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mcSheetInstSub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}
+.mcUserIdRow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* KV grid */
+.mcSheetKvGrid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.mcSheetKvLabel {
+  color: rgba(255, 255, 255, 0.60);
+  font-weight: 500;
+  font-size: 11px;
+}
+.mcSheetKvValue {
+  margin-top: 3px;
+  font-weight: 500;
+  font-size: 12px;
+}
+.mcSheetKvValueId {
+  margin-top: -20px;
+  font-weight: 500;
+  font-size: 12px;
+}
+.mcSheetKv--right {
+  text-align: right;
+}
+.mcSheetKvValue--accent {
+  color: #20C997;
+}
+.mcSheetKvGrid2{
+  margin-top: 0px !important;
+}
+/* People list (sin card) */
+.mcSheetPeopleListBare {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mcSheetPersonRowBare {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+.mcSheetAvatarDot {
+  width: 24px;
+  height: 24px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mc-green);
+  background: rgba(32, 201, 151, 0.18);
+  border: 1px solid rgba(32, 201, 151, 0.35);
+  flex: 0 0 auto;
+}
+.mcSheetAvatarDot--cap {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.10);
+  color: #fff;
+}
+.mcSheetPersonName {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 13px;
+}
+
+/* stats (pueden quedar como mini cards) */
+.mcSheetStatsGrid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.mcSheetStatCard {
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 12px;
+  text-align: center;
+}
+.mcSheetStatNum {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+}
+.mcSheetStatLbl {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* footer como header */
+.mcSheetFooterHead {
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+/* status pill (memory-like) */
+.mcSheetStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  user-select: none;
+  line-height: 1;
+}
+.mcSheetStatusIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mcSheetStatus--approved {
+  background: rgba(32, 201, 151, 0.18);
+  border-color: rgba(32, 201, 151, 0.35);
+  color: var(--mc-green);
+}
+.mcSheetStatus--pending {
+  background: rgba(255, 193, 7, 0.18);
+  border-color: rgba(255, 193, 7, 0.35);
+  color: var(--mc-yellow);
+}
+.mcSheetStatus--rejected {
+  background: rgba(220, 53, 69, 0.18);
+  border-color: rgba(220, 53, 69, 0.35);
+  color: var(--mc-red);
+}
+.mcSheetStatus--unknown {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.85);
+}
+/* modal-content transparente para que el panel sea el “contenedor” */
+.mcSignOutModal {
+  background: transparent;
+  border: 0;
+  border-radius: 18px;
+}
+
+/* panel total */
+.mcSignOutPanel {
+  overflow: hidden;
+  background-color: var(--mc-bg);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 20px;
+}
+
+/* body padding + look limpio como la imagen */
+.mcSignOutBody {
+  padding: 18px 18px 14px;
+}
+
+/* icon box como el cuadrito con glow suave */
+.mcSignOutIconBox {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(220, 53, 69, 0.12);
+  border: 1px solid rgba(220, 53, 69, 0.20);
+  color: #dc3545;
+
+  box-shadow: 0 10px 30px rgba(220, 53, 69, 0.18);
+}
+
+/* titles */
+.mcSignOutTitles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* mensaje tipo “cajita” de la imagen */
+.mcSignOutMsgBox {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 14px 14px;
+
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+/* meta row */
+.mcSignOutMetaRow {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.60);
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.mcSignOutDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #20c997;
+  box-shadow: 0 0 0 4px rgba(32, 201, 151, 0.14);
+}
+
+.mcSignOutMetaSep {
+  opacity: 0.55;
+}
+
+/* footer similar a header con línea superior */
+.mcSignOutFooter {
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+/* tamaños botones (como la imagen) */
+.mcSignOutBtn {
+  height: 44px;
+  border-radius: 12px;
+  padding-inline: 18px;
+}
+
+/* botón rojo sólido (sin depender de btn-danger de bootstrap) */
+.mcBtnDangerSolid {
+  background: #dc3545;
+  border: 1px solid rgba(220, 53, 69, 0.35);
+  color: #fff;
+}
+.mcBtnDangerSolid:hover {
+  filter: brightness(1.03);
+}
+
+/* si NO tienes mcSheetCloseBtn global, deja esto */
+.mcSheetCloseBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mcSheetCloseBtn:hover {
+  background: rgba(32, 201, 151, 0.18);
+  border-color: rgba(32, 201, 151, 0.35);
+  color: #dffcf3;
+}
+/* ===========================
+   LOGIN MODAL (LIGHT)
+=========================== */
+
+.mcLoginModalContent {
+  background: #ffffff;
+  color: #161616;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.20);
+  position: relative;
+}
+
+/* X arriba derecha (custom) */
+.mcLoginCloseBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.8);
+  color: rgba(0,0,0,0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  z-index: 2;
+}
+.mcLoginCloseBtn:hover {
+  background: rgba(32,201,151,0.10);
+  border-color: rgba(32,201,151,0.25);
+  color: #0b6b52;
+}
+
+/* body padding como la referencia */
+.mcLoginBody {
+  padding: 26px 26px 22px;
+}
+
+.mcLoginWrap {
+  width: 100%;
+}
+
+/* Brand top */
+.mcLoginBrand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  margin-top: 6px;
+  margin-bottom: 16px;
+}
+
+.mcLoginBrandIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: #20c997;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 14px 40px rgba(32,201,151,0.35);
+}
+
+.mcLoginBrandTitle {
+  font-weight: 900;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  margin-top: 4px;
+}
+
+.mcLoginBrandSub {
+  color: rgba(22,22,22,0.62);
+  font-weight: 700;
+  margin-top: -6px;
+}
+
+/* Provider buttons */
+.mcLoginProviders {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0 10px;
+}
+
+.mcProviderBtn {
+  height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 800;
+  color: #161616;
+}
+.mcProviderBtn:hover {
+  border-color: rgba(32,201,151,0.45);
+  box-shadow: 0 10px 24px rgba(32,201,151,0.14);
+}
+
+.mcProviderMark {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.06);
+  font-weight: 900;
+}
+
+.mcProviderIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.06);
+}
+
+/* Divider */
+.mcLoginDivider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 14px;
+}
+
+.mcLoginDividerLine {
+  height: 1px;
+  background: rgba(0,0,0,0.10);
+}
+
+.mcLoginDividerText {
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: rgba(22,22,22,0.55);
+  text-align: center;
+}
+
+/* Alert */
+.mcLoginAlert {
+  border-radius: 14px;
+  padding: 12px 12px;
+  border: 1px solid rgba(220,53,69,0.25);
+  background: rgba(220,53,69,0.08);
+  color: #b02a37;
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+/* Labels */
+.mcLoginLabel {
+  font-weight: 900;
+  margin: 10px 0 8px;
+  display: block;
+}
+
+/* input row with icons */
+.mcLoginField {
+  height: 50px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+}
+
+.mcLoginField:focus-within {
+  border-color: rgba(32,201,151,0.55);
+  box-shadow: 0 0 0 4px rgba(32,201,151,0.14);
+}
+
+.mcLoginFieldIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.05);
+  color: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mcLoginInput {
+  border: 0;
+  outline: none;
+  flex: 1;
+  font-weight: 800;
+  color: #161616;
+  background: transparent;
+}
+.mcLoginInput::placeholder {
+  color: rgba(22,22,22,0.35);
+  font-weight: 700;
+}
+
+/* password toggle */
+.mcLoginEyeBtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 0;
+  background: rgba(0,0,0,0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(0,0,0,0.55);
+}
+.mcLoginEyeBtn:hover {
+  background: rgba(32,201,151,0.10);
+  color: #0b6b52;
+}
+
+/* row between label and link */
+.mcLoginRowBetween {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.mcLoginLink {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-weight: 900;
+  color: #20c997;
+}
+.mcLoginLink:hover {
+  text-decoration: underline;
+}
+
+/* Submit */
+.mcLoginSubmit {
+  margin-top: 16px;
+  width: 100%;
+  height: 52px;
+  border-radius: 16px;
+  border: 1px solid rgba(32,201,151,0.45);
+  background: #20c997;
+  color: #ffffff;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 16px 40px rgba(32,201,151,0.25);
+}
+
+.mcLoginSubmitArrow {
+  font-size: 18px;
+  margin-left: 6px;
+}
+
+/* Footer */
+.mcLoginFooter {
+  margin-top: 16px;
+  text-align: center;
+  font-weight: 800;
+  color: rgba(22,22,22,0.55);
+}
+
+.mcLoginFooterMuted {
+  color: rgba(22,22,22,0.55);
+}
+
+.mcLoginFooterLink {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-weight: 900;
+  color: #20c997;
+}
+.mcLoginFooterLink:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 520px) {
+  .mcLoginBody {
+    padding: 20px 18px 18px;
+  }
+  .mcLoginProviders {
+    grid-template-columns: 1fr;
+  }
+}
+.modal-body {
+  background-color: var(--mc-bg);
+  color: rgba(255, 255, 255, 0.92);
+}
+.mcMetricBtn{
+  background: transparent;
+  border: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.mcMetricBtn:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* Viewport: bottom-right */
+.mcToastViewport {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none; /* no bloquea clicks en la app */
+}
+
+/* Toast base (parecido a tu screenshot) */
+.mcToast {
+  pointer-events: auto; /* el toast sí recibe hover/click */
+  min-width: 280px;
+  max-width: 420px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  padding: 12px 14px;
+  border-radius: 12px;
+
+  background: rgba(20, 20, 20, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+
+  color: rgba(255, 255, 255, 0.92);
+
+  transform: translateY(6px);
+  opacity: 0;
+  animation: mcToastIn 160ms ease-out forwards;
+}
+
+@keyframes mcToastIn {
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.mcToastLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mcToastIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  flex: 0 0 auto;
+}
+
+.mcToastMsg {
+  font-size: 13.5px;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tipos (tú controlas colores por clase) */
+.mcToast--success {
+  border-color: rgba(32, 201, 151, 0.35);
+}
+.mcToast--success .mcToastIcon {
+  background: rgba(32, 201, 151, 0.16);
+  border-color: rgba(32, 201, 151, 0.28);
+}
+
+.mcToast--info {
+  border-color: rgba(99, 179, 237, 0.35);
+}
+.mcToast--info .mcToastIcon {
+  background: rgba(99, 179, 237, 0.14);
+  border-color: rgba(99, 179, 237, 0.25);
+}
+
+.mcToast--warning {
+  border-color: rgba(245, 158, 11, 0.35);
+}
+.mcToast--warning .mcToastIcon {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.mcToast--danger {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+.mcToast--danger .mcToastIcon {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+/* Close opcional */
+.mcToastClose {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mcToastClose:hover {
+  color: rgba(255, 255, 255, 0.92);
+}
+/* === FIX: dropdown visible SIN perder bordes arriba (sin alterar tamaños) === */
+
+.mcMemberCard{
+  overflow: visible;         /* para que el dropdown no se corte */
+  position: relative;
+}
+
+/* Clip SOLO header con el mismo radio que ya tenga la card (.mcCard) */
+.mcMemberCard .mcCardHeadClip{
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  overflow: hidden;          /* recorta la bar y el top dentro del radio */
+  position: relative;        /* por si mcCardBar es absolute en tu CSS */
+}
+
+/* Dropdown por encima */
+.mcMemberCard .dropdown-menu{
+  z-index: 9999;
+}
+.mcInstMeta{
+  display: flex;
+  justify-content: space-between;
+}
+.mcLink{
+  color: var(--mc-green);
+  text-decoration: none;
+}
+/* Stats grid 3 columnas (responsive) */
+.mcSheetStatsGrid--3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+/* ===================== HOME (Landing) ===================== */
+.mcHome {
+  background: var(--mc-bg, #0f0f0f);
+  color: var(--mc-text, rgba(255, 255, 255, 0.92));
+}
+
+/* NAV */
+.mcHomeNav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(10px);
+  background: rgba(10, 10, 10, 0.55);
+  border-bottom: 1px solid var(--mc-border, rgba(255, 255, 255, 0.1));
+}
+
+.mcHomeNavInner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 14px 18px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.mcHomeBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: 0;
+  color: var(--mc-text, rgba(255,255,255,.92));
+  cursor: pointer;
+}
+
+.mcHomeBrandIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(32, 201, 151, 0.18);
+  border: 1px solid rgba(32, 201, 151, 0.35);
+  color: var(--mc-accent, #20C997);
+}
+
+.mcHomeBrandText {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.mcHomeNavLinks {
+  display: flex;
+  justify-content: center;
+  gap: 26px;
+}
+
+.mcHomeNavLink {
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.68);
+  cursor: pointer;
+  padding: 8px 6px;
+  font-weight: 500;
+}
+
+.mcHomeNavLink:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.mcHomeLoginBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+}
+
+/* HERO */
+.mcHomeHero {
+  position: relative;
+  padding: 70px 18px 40px;
+  overflow: hidden;
+  background:
+    radial-gradient(900px 380px at 50% 30%, rgba(32, 201, 151, 0.12), transparent 62%),
+    radial-gradient(700px 300px at 50% 60%, rgba(32, 201, 151, 0.06), transparent 65%),
+    linear-gradient(to bottom, rgba(0,0,0,.40), rgba(0,0,0,.35));
+}
+
+.mcHomeGridGlow {
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse at center, rgba(0,0,0,1) 40%, transparent 72%);
+  pointer-events: none;
+}
+
+.mcHomeHeroInner {
+  max-width: 980px;
+  margin: 0 auto;
+  text-align: center;
+  position: relative;
+}
+
+.mcHomePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(32, 201, 151, 0.35);
+  background: rgba(32, 201, 151, 0.10);
+  color: rgba(32, 201, 151, 0.95);
+  font-weight: 600;
+  margin-bottom: 18px;
+}
+
+.mcHomePillIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mcHomeHeroTitle {
+  font-size: clamp(42px, 5vw, 76px);
+  line-height: 1.03;
+  letter-spacing: -0.6px;
+  margin: 0;
+}
+
+.mcHomeHeroTitleTop {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.mcHomeHeroTitleAccent {
+  color: var(--mc-accent, #20C997);
+}
+
+.mcHomeHeroSub {
+  margin: 16px auto 0;
+  max-width: 760px;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 16px;
+}
+
+.mcHomeHeroActions {
+  margin-top: 22px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.mcHomeCtaBtn,
+.mcHomeGhostBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 12px 18px;
+}
+
+.mcHomeStats {
+  margin-top: 34px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  justify-items: center;
+}
+
+.mcHomeStatValue {
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.mcHomeStatLabel {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+
+/* SECTION */
+.mcHomeSection {
+  padding: 58px 18px;
+}
+
+.mcHomeSectionInner {
+  max-width: 1180px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.mcHomeKicker {
+  color: rgba(32, 201, 151, 0.9);
+  font-weight: 700;
+  letter-spacing: 2.2px;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.mcHomeH2 {
+  font-size: clamp(30px, 3vw, 44px);
+  line-height: 1.12;
+  margin: 0;
+}
+
+.mcHomeAccent {
+  color: var(--mc-accent, #20C997);
+}
+
+.mcHomeLead {
+  margin: 12px auto 0;
+  max-width: 860px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* VIDEO */
+.mcHomeVideoCard {
+  margin: 26px auto 0;
+  max-width: 980px;
+  height: clamp(320px, 40vw, 420px);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(32, 201, 151, 0.25);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.mcHomePlayBtn {
+  width: 62px;
+  height: 62px;
+  border-radius: 999px;
+  border: 1px solid rgba(32, 201, 151, 0.35);
+  background: rgba(32, 201, 151, 0.14);
+  color: var(--mc-accent, #20C997);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 0 14px rgba(32, 201, 151, 0.06);
+}
+
+.mcHomeVideoCaption {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.55);
+  font-size: 13px;
+}
+
+/* GRID 3 */
+.mcHomeGrid3 {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  text-align: left;
+}
+
+.mcHomeCard {
+  border-radius: 16px;
+  padding: 20px 20px 18px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+}
+
+.mcHomeCardIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(32, 201, 151, 0.12);
+  border: 1px solid rgba(32, 201, 151, 0.25);
+  color: var(--mc-accent, #20C997);
+  margin-bottom: 14px;
+}
+
+.mcHomeCardTitle {
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.mcHomeCardDesc {
+  margin-top: 8px;
+  color: rgba(255,255,255,0.62);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* STEPS */
+.mcHomeSteps {
+  margin-top: 26px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  text-align: center;
+}
+
+.mcHomeStep {
+  border-radius: 16px;
+  padding: 22px 18px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+.mcHomeStepNum {
+  font-weight: 900;
+  font-size: 36px;
+  color: rgba(32, 201, 151, 0.18);
+  margin-bottom: 6px;
+}
+
+.mcHomeStepTitle {
+  font-weight: 800;
+}
+
+.mcHomeStepDesc {
+  margin-top: 8px;
+  color: rgba(255,255,255,0.60);
+  font-size: 13px;
+}
+
+.mcHomeCenter {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.mcHomeTryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 10px 16px;
+}
+
+/* PRICING */
+.mcHomePricing {
+  margin-top: 26px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  text-align: left;
+  align-items: stretch;
+}
+
+.mcHomePrice {
+  position: relative;
+  border-radius: 18px;
+  padding: 22px 22px 18px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+}
+
+.mcHomePrice.isPrimary {
+  border-color: rgba(32, 201, 151, 0.35);
+  box-shadow: 0 30px 90px rgba(0,0,0,0.45);
+}
+
+.mcHomePrice.isDisabled {
+  opacity: 0.7;
+}
+
+.mcHomePriceBadge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(32, 201, 151, 0.18);
+  border: 1px solid rgba(32, 201, 151, 0.35);
+  color: rgba(32, 201, 151, 0.95);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.mcHomePriceTitle {
+  font-weight: 900;
+  font-size: 20px;
+}
+
+.mcHomePriceSub {
+  margin-top: 4px;
+  color: rgba(255,255,255,0.55);
+  font-size: 13px;
+}
+
+.mcHomePriceValue {
+  margin-top: 18px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.mcHomePriceAmount {
+  font-weight: 950;
+  font-size: 44px;
+}
+
+.mcHomePriceNote {
+  color: rgba(255,255,255,0.55);
+}
+
+.mcHomePriceList {
+  margin: 16px 0 18px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.mcHomePriceList li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: rgba(255,255,255,0.72);
+}
+
+.mcHomePriceList li svg {
+  margin-top: 2px;
+  color: var(--mc-accent, #20C997);
+}
+
+.mcHomePriceBtn {
+  width: 100%;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+/* Add-ons */
+.mcHomeH3 {
+  margin-top: 46px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 26px;
+}
+
+.mcHomeAddons {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  text-align: left;
+}
+
+.mcHomeAddon {
+  border-radius: 16px;
+  padding: 18px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.10);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+}
+
+.mcHomeAddonIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(32, 201, 151, 0.12);
+  border: 1px solid rgba(32, 201, 151, 0.25);
+  color: var(--mc-accent, #20C997);
+}
+
+.mcHomeAddonPrice {
+  color: rgba(32, 201, 151, 0.9);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.mcHomeAddonTitle {
+  margin-top: 4px;
+  font-weight: 900;
+}
+
+.mcHomeAddonDesc {
+  margin-top: 6px;
+  color: rgba(255,255,255,0.60);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Two missions */
+.mcHomeTwoCols {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  text-align: left;
+}
+
+.mcHomeMission {
+  border-radius: 18px;
+  padding: 22px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(32, 201, 151, 0.20);
+  box-shadow: 0 26px 80px rgba(0,0,0,0.38);
+}
+
+.mcHomeMission.isPrimary {
+  border-color: rgba(32, 201, 151, 0.35);
+}
+
+.mcHomeMissionHead {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.mcHomeMissionIcon {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: rgba(32, 201, 151, 0.12);
+  border: 1px solid rgba(32, 201, 151, 0.25);
+  color: var(--mc-accent, #20C997);
+}
+
+.mcHomeMissionTitle {
+  font-weight: 950;
+  font-size: 18px;
+}
+
+.mcHomeMissionSub {
+  margin-top: 2px;
+  color: rgba(255,255,255,0.55);
+  font-size: 13px;
+}
+
+.mcHomeMissionList {
+  margin: 16px 0 18px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.mcHomeMissionList li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: rgba(255,255,255,0.72);
+}
+
+.mcHomeMissionList li svg {
+  margin-top: 2px;
+  color: var(--mc-accent, #20C997);
+}
+
+.mcHomeMissionBtn {
+  width: 100%;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+/* FINAL CTA */
+.mcHomeFinal {
+  padding: 58px 18px 0;
+  background:
+    radial-gradient(900px 380px at 50% 20%, rgba(32, 201, 151, 0.12), transparent 65%),
+    linear-gradient(to bottom, rgba(0,0,0,.20), rgba(0,0,0,.45));
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.mcHomeFinalInner {
+  max-width: 980px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 52px 18px 46px;
+  border-radius: 18px;
+}
+
+.mcHomeFinalIcon {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 14px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: rgba(32, 201, 151, 0.12);
+  border: 1px solid rgba(32, 201, 151, 0.25);
+  color: var(--mc-accent, #20C997);
+}
+
+.mcHomeFinalTitle {
+  margin: 0;
+  font-weight: 950;
+  font-size: clamp(28px, 3vw, 40px);
+}
+
+.mcHomeFinalSub {
+  margin: 10px auto 0;
+  max-width: 720px;
+  color: rgba(255,255,255,0.62);
+}
+
+.mcHomeFinalBtn {
+  margin-top: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 12px 18px;
+}
+
+/* FOOTER */
+.mcHomeFooter {
+  margin-top: 32px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 18px 0;
+}
+
+.mcHomeFooterInner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 18px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.mcHomeFooterBrand {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.mcHomeFooterIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(32, 201, 151, 0.12);
+  border: 1px solid rgba(32, 201, 151, 0.25);
+  color: var(--mc-accent, #20C997);
+}
+
+.mcHomeFooterText {
+  font-weight: 800;
+}
+
+.mcHomeFooterLinks {
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+}
+
+.mcHomeFooterLink {
+  background: transparent;
+  border: 0;
+  color: rgba(255,255,255,0.60);
+  cursor: pointer;
+}
+
+.mcHomeFooterLink:hover {
+  color: rgba(255,255,255,0.88);
+}
+
+.mcHomeFooterCopy {
+  color: rgba(255,255,255,0.45);
+  font-size: 13px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 980px) {
+  .mcHomeNavLinks {
+    display: none;
+  }
+  .mcHomeStats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .mcHomeGrid3 {
+    grid-template-columns: 1fr;
+  }
+  .mcHomeSteps {
+    grid-template-columns: 1fr;
+  }
+  .mcHomePricing {
+    grid-template-columns: 1fr;
+  }
+  .mcHomeAddons {
+    grid-template-columns: 1fr;
+  }
+  .mcHomeTwoCols {
+    grid-template-columns: 1fr;
+  }
+  .mcHomeFooterInner {
+    grid-template-columns: 1fr;
+    text-align: center;
+    justify-items: center;
   }
 }

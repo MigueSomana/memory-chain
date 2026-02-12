@@ -8,14 +8,14 @@ const DashboardUniversity = () => {
   return (
     <div
       className="d-flex"
-      style={{ minHeight: "100vh", background: "#f6f7f9" }}
+      style={{ minHeight: "100vh" }}
     >
       <NavbarReal />
       <div className="flex-grow-1">
         <Layout title="Dashboard Institutional" icon={<LayoutDashboard />}>
           <PanelUniversity />
         </Layout>
-      </div>
+      </div> 
     </div>
   );
 };

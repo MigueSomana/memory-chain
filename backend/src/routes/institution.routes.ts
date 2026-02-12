@@ -1,34 +1,35 @@
 import { Router } from "express";
-import { authMiddleware } from "../middleware/auth";
 import {
   getAllInstitutions,
   getInstitutionById,
   updateInstitution,
   getInstitutionStudents,
   getInstitutionTheses,
+  setStudentInstitutionStatus,
 } from "../controllers/institution.controller";
-import { uploadImage } from "../config/multer";
+import { authMiddleware } from "../middleware/auth";
+
+// Si ya tienes uploader propio, usa el tuyo.
+// Este es un fallback simple.
+import multer from "multer";
+const upload = multer();
 
 const router = Router();
 
-// Lista todas las instituciones
+// Públicos
 router.get("/", getAllInstitutions);
-
-// Obtiene una institución por ID
 router.get("/:id", getInstitutionById);
+router.get("/:id/students", getInstitutionStudents);
+router.get("/:id/theses", getInstitutionTheses);
 
-// Obtiene los estudiantes asociados a una institución (requiere auth)
-router.get("/:id/students", authMiddleware, getInstitutionStudents);
+// Update perfil institución (auth requerido)
+router.put("/:id", authMiddleware, upload.single("file"), updateInstitution);
 
-// Obtiene las tesis de una institución (requiere auth)
-router.get("/:id/theses", authMiddleware, getInstitutionTheses);
-
-// Actualiza perfil institucional (logo + campos, multipart/form-data)
-router.put(
-  "/:id",
-  authMiddleware,
-  uploadImage.single("logo"),
-  updateInstitution
-);
+/**
+ * ✅ NUEVO: institución aprueba/rechaza estudiantes (educationalEmails.status)
+ * Auth requerido (INSTITUTION)
+ * Body: { userId, status, email?, institutionKey? }
+ */
+router.patch("/:id/students/status", authMiddleware, setStudentInstitutionStatus);
 
 export default router;

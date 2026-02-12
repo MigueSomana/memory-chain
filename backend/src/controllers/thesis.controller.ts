@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth";
-import { Thesis } from "../models/thesis.model";
-import { CertificationStatus } from "../models/types";
+import { Thesis, CertificationStatus } from "../models/thesis.model";
 import { User } from "../models/user.model";
 import { uploadPdfBufferToPinata } from "../services/pinata.service";
-import { certifyOnChain } from "../services/blockchain.service";
 import mongoose, { Types } from "mongoose";
+import { ethers } from "ethers";
+import abi from "../blockchain/ThesisCertification.abi.json";
 
 // Helpers tipados para evitar any
 type AnyRecord = Record<string, unknown>;
@@ -22,7 +22,6 @@ function parseMaybeJson<T>(v: unknown, fallback: T): T {
   return (v as T) ?? fallback;
 }
 
-// Normaliza string (trim) y retorna undefined si queda vacío
 function toOptionalTrimmedString(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const s = v.trim();
@@ -33,7 +32,6 @@ function toRequiredTrimmedString(v: unknown): string {
   return String(v ?? "").trim();
 }
 
-// Valida ObjectId (string o Types.ObjectId)
 function isValidObjectId(v: unknown): boolean {
   if (!v) return false;
   if (v instanceof Types.ObjectId) return true;
@@ -42,18 +40,16 @@ function isValidObjectId(v: unknown): boolean {
 }
 
 // ============================
-// DTO Autores/Tutores (sin email)
+// DTO Autores/Tutores
 // ============================
 type AuthorDTO = { _id?: Types.ObjectId | string; name: string; lastname: string };
 
-// Type guard: valida que un objeto tenga forma de AuthorDTO mínima
 function isAuthorDTO(x: unknown): x is AuthorDTO {
   if (!x || typeof x !== "object") return false;
   const o = x as AnyRecord;
   return typeof o.name === "string" && typeof o.lastname === "string";
 }
 
-// Limpia AuthorDTO: trim name/lastname y castea _id si es válido
 function normalizeAuthors(
   input: unknown
 ): Array<{ _id?: Types.ObjectId; name: string; lastname: string }> {
@@ -69,50 +65,84 @@ function normalizeAuthors(
       let _id: Types.ObjectId | undefined = undefined;
 
       if (isValidObjectId(maybeId)) {
-        _id =
-          maybeId instanceof Types.ObjectId
-            ? maybeId
-            : new Types.ObjectId(String(maybeId));
+        _id = new Types.ObjectId(String(maybeId));
       }
 
-      // Si _id vino inválido, lo ignoramos
-      return _id ? { _id, name, lastname } : { name, lastname };
+      return { _id, name, lastname };
     })
     .filter((a) => a.name.length && a.lastname.length);
 }
 
-// ✅ NUEVO: fuerza que el primer autor tenga _id = ownerId
+// Fuerza que el autor principal tenga el _id del creador
 function forcePrimaryAuthorId(
   authors: Array<{ _id?: Types.ObjectId; name: string; lastname: string }>,
   ownerId: Types.ObjectId
 ) {
-  if (!Array.isArray(authors) || authors.length === 0) return authors;
-
+  if (!authors.length) return authors;
   const first = authors[0];
-  // Clonamos para no mutar referencias raras
-  const cloned = [...authors];
-
-  cloned[0] = {
-    ...first,
-    _id: ownerId,
-  };
-
-  return cloned;
+  authors[0] = { ...first, _id: ownerId };
+  return authors;
 }
 
-// GET /theses?sortBy=title|createdAt|likes&order=asc|desc
-export async function getAllTheses(req: Request, res: Response) {
+// ============================
+// Blockchain helper con wallet dinámica
+// ============================
+const RPC_URL = process.env.POLYGON_RPC_URL!;
+const BACKEND_PK = process.env.BACKEND_WALLET_PRIVATE_KEY!;
+const CONTRACT_ADDRESS = process.env.CERT_CONTRACT_ADDRESS!;
+const CHAIN_ID = Number(process.env.POLYGON_CHAIN_ID || 80002);
+
+function isPrivateKey(pk?: string) {
+  if (!pk) return false;
+  const s = pk.trim();
+  return /^0x[0-9a-fA-F]{64}$/.test(s);
+}
+
+async function certifyOnChainDynamic(params: {
+  thesisId: string;
+  userId: string;
+  institutionId: string;
+  ipfsCid: string;
+  fileHash: string;
+  signerPrivateKey?: string; // si viene, se usa
+}) {
+  const provider = new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID);
+  const signerKey = isPrivateKey(params.signerPrivateKey)
+    ? params.signerPrivateKey!.trim()
+    : BACKEND_PK;
+
+  const signer = new ethers.Wallet(signerKey, provider);
+  const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+
+  // hashAlgorithm eliminado en DB, pero el contrato (si aún lo pide) puede seguir recibiendo un valor fijo
+  const hashAlgorithm = "sha256";
+
+  const tx = await contract.certify(
+    params.thesisId,
+    params.userId,
+    params.institutionId,
+    params.ipfsCid,
+    params.fileHash,
+    hashAlgorithm
+  );
+
+  const receipt = await tx.wait();
+
+  return {
+    txHash: tx.hash as string,
+    chainId: CHAIN_ID,
+    blockNumber: receipt?.blockNumber ? Number(receipt.blockNumber) : undefined,
+  };
+}
+
+// ============================
+// GET /theses
+// ============================
+export async function getAllTheses(_req: Request, res: Response) {
   try {
-    const { sortBy = "createdAt", order = "desc" } = req.query;
-
-    const sortField =
-      sortBy === "title" || sortBy === "likes" ? String(sortBy) : "createdAt";
-    const sortOrder = order === "asc" ? 1 : -1;
-
     const theses = await Thesis.find()
       .populate("uploadedBy", "name lastname")
-      .populate("institution", "name")
-      .sort({ [sortField]: sortOrder });
+      .populate("institution", "name");
 
     return res.json(theses);
   } catch (err) {
@@ -121,7 +151,6 @@ export async function getAllTheses(req: Request, res: Response) {
   }
 }
 
-// GET /theses/institution/:idInstitution
 export async function getThesesByInstitutionId(req: Request, res: Response) {
   try {
     const { idInstitution } = req.params;
@@ -132,16 +161,15 @@ export async function getThesesByInstitutionId(req: Request, res: Response) {
 
     const theses = await Thesis.find({ institution: idInstitution })
       .populate("uploadedBy", "name lastname")
-      .populate("institution", "name type country");
+      .populate("institution", "name");
 
     return res.json(theses);
   } catch (err) {
-    console.error("Error getThesesByInstitutionId:", err);
+    console.error("Error getThesesByInstitutionId", err);
     return res.status(500).json({ message: "Error del servidor" });
   }
 }
 
-// GET /theses/:id
 export async function getThesisById(req: Request, res: Response) {
   try {
     const { id } = req.params;
@@ -155,6 +183,7 @@ export async function getThesisById(req: Request, res: Response) {
       .populate("institution", "name");
 
     if (!thesis) return res.status(404).json({ message: "Tesis no encontrada" });
+
     return res.json(thesis);
   } catch (err) {
     console.error("Error getThesisById", err);
@@ -162,7 +191,7 @@ export async function getThesisById(req: Request, res: Response) {
   }
 }
 
-// POST /theses (multipart pdf + data)
+// POST /theses
 export async function createThesis(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "No autorizado" });
@@ -189,17 +218,15 @@ export async function createThesis(req: AuthRequest, res: Response) {
       if (!Number.isNaN(dateRaw.getTime())) date = dateRaw;
     }
 
-    // ✅ institution ahora es opcional (solo guardar si es válido)
+    // institution opcional
     const institutionRaw = body.institution;
     const institution = isValidObjectId(institutionRaw)
       ? new Types.ObjectId(String(institutionRaw))
       : undefined;
 
-    // ✅ authors/tutors sin email y con _id opcional
     let parsedAuthors = normalizeAuthors(body.authors);
     const parsedTutors = normalizeAuthors(body.tutors);
 
-    // keywords
     const keywords = parseMaybeJson<string[]>(body.keywords, [])
       .map((k) => String(k).trim())
       .filter((k) => k.length);
@@ -212,13 +239,15 @@ export async function createThesis(req: AuthRequest, res: Response) {
       return res.status(400).json({ message: "Debe haber al menos un autor" });
     }
 
-    // ✅ MODIFICACIÓN: el autor principal SIEMPRE tiene el _id del creador (uploadedBy)
     parsedAuthors = forcePrimaryAuthorId(parsedAuthors, req.user._id);
 
     const { cid, fileHash } = await uploadPdfBufferToPinata(
       req.file.buffer,
       req.file.originalname
     );
+
+    // ✅ regla de status según si hay institución
+    const initialStatus: CertificationStatus = institution ? "PENDING" : "NOT_CERTIFIED";
 
     const thesis = await Thesis.create({
       title,
@@ -230,13 +259,15 @@ export async function createThesis(req: AuthRequest, res: Response) {
       degree,
       field,
       date,
-      institution, // opcional
+      institution,
       department,
       uploadedBy: req.user._id,
       fileHash,
-      hashAlgorithm: "sha256",
       ipfsCid: cid,
-      status: "PENDING",
+      status: initialStatus,
+      quotes: 0,
+      likes: 0,
+      likedBy: [],
     });
 
     return res.status(201).json(thesis);
@@ -250,6 +281,7 @@ export async function createThesis(req: AuthRequest, res: Response) {
 /**
  * PATCH /theses/:id
  * Requiere: auth + (opcional) multer pdf
+ * ✅ resetea status según institución y limpia txHash/chain data
  */
 export async function updateThesis(req: AuthRequest, res: Response) {
   try {
@@ -271,7 +303,6 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       ? parseMaybeJson<AnyRecord>(req.body.data, {})
       : (req.body as AnyRecord);
 
-    // Campos permitidos
     const updates: Record<string, unknown> = {};
 
     if (body.title !== undefined) updates.title = toRequiredTrimmedString(body.title);
@@ -280,6 +311,14 @@ export async function updateThesis(req: AuthRequest, res: Response) {
     if (body.degree !== undefined) updates.degree = toRequiredTrimmedString(body.degree);
     if (body.field !== undefined) updates.field = toOptionalTrimmedString(body.field);
     if (body.department !== undefined) updates.department = toOptionalTrimmedString(body.department);
+
+    // institution (si viene)
+    if (body.institution !== undefined) {
+      const inst = isValidObjectId(body.institution)
+        ? new Types.ObjectId(String(body.institution))
+        : undefined;
+      updates.institution = inst;
+    }
 
     // date (si viene)
     if (body.date !== undefined) {
@@ -294,29 +333,25 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       if (d) updates.date = d;
     }
 
-    // authors/tutors/keywords con parsing seguro
     if (body.authors !== undefined) {
       let a = normalizeAuthors(body.authors);
       if (a.length === 0) {
         return res.status(400).json({ message: "Debe haber al menos un autor" });
       }
-
-      // ✅ MODIFICACIÓN: si actualizan authors, el autor principal queda amarrado al uploadedBy
       const ownerId = thesis.uploadedBy as Types.ObjectId;
       a = forcePrimaryAuthorId(a, ownerId);
-
       updates.authors = a;
     }
-    if (body.tutors !== undefined) {
-      updates.tutors = normalizeAuthors(body.tutors);
-    }
+
+    if (body.tutors !== undefined) updates.tutors = normalizeAuthors(body.tutors);
+
     if (body.keywords !== undefined) {
       updates.keywords = parseMaybeJson<string[]>(body.keywords, [])
         .map((k) => String(k).trim())
         .filter((k) => k.length);
     }
 
-    // ✅ Si llega PDF nuevo: re-subir y actualizar CID/hash
+    // PDF nuevo
     if (req.file) {
       const { cid, fileHash } = await uploadPdfBufferToPinata(
         req.file.buffer,
@@ -324,21 +359,20 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       );
       updates.ipfsCid = cid;
       updates.fileHash = fileHash;
-      updates.hashAlgorithm = "sha256";
     }
 
-    // ✅ Cualquier edición vuelve a PENDING (y opcionalmente podrías limpiar txHash)
-    updates.status = "PENDING";
-    // Si quieres ser estricto: al cambiar PDF o metadata, invalida certificación previa:
-    // updates.txHash = undefined;
-    // updates.chainId = undefined;
-    // updates.blockNumber = undefined;
+    // ✅ Regla: al actualizar, reset de status según institución final (nueva o existente)
+    const finalInstitution =
+      (updates.institution as Types.ObjectId | undefined) ?? thesis.institution ?? undefined;
 
-    const updated = await Thesis.findByIdAndUpdate(
-      id,
-      { $set: updates },
-      { new: true }
-    )
+    updates.status = finalInstitution ? "PENDING" : "NOT_CERTIFIED";
+
+    // ✅ Invalida certificación previa (si existía)
+    updates.txHash = undefined;
+    updates.chainId = undefined;
+    updates.blockNumber = undefined;
+
+    const updated = await Thesis.findByIdAndUpdate(id, { $set: updates }, { new: true })
       .populate("uploadedBy", "name lastname")
       .populate("institution", "name");
 
@@ -349,8 +383,7 @@ export async function updateThesis(req: AuthRequest, res: Response) {
   }
 }
 
-// PATCH /theses/:id/status (o similar)
-// Institución marca como aprobada o no
+// PATCH /theses/:id/status
 export async function setThesisStatus(req: AuthRequest, res: Response) {
   try {
     if (!req.user && !req.institution) {
@@ -371,7 +404,7 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
     const thesis = await Thesis.findById(id);
     if (!thesis) return res.status(404).json({ message: "Tesis no encontrada" });
 
-    // ✅ ahora institution puede ser opcional: sin institución NO se puede certificar
+    // sin institución no se certifica
     if (!thesis.institution) {
       return res.status(400).json({
         message: "Esta tesis no tiene institución asociada; no se puede certificar.",
@@ -380,7 +413,6 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
 
     let canCertify = false;
 
-    // Caso: user con instituciones asociadas
     if (req.user?.institutions) {
       const isMember = req.user.institutions.some(
         (instId) => instId.toString() === thesis.institution!.toString()
@@ -388,7 +420,6 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
       if (isMember) canCertify = true;
     }
 
-    // Caso: institución autenticada directamente
     if (req.institution) {
       if (req.institution._id.toString() === thesis.institution!.toString()) {
         canCertify = true;
@@ -409,13 +440,19 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
           });
         }
 
-        const onchain = await certifyOnChain({
+        // ✅ si aprueba institución y tiene wallet (private key), se firma desde ahí
+        const signerPrivateKey =
+          req.institution?.wallet && String(req.institution.wallet).trim().length
+            ? String(req.institution.wallet).trim()
+            : undefined;
+
+        const onchain = await certifyOnChainDynamic({
           thesisId: thesis._id.toString(),
           userId: thesis.uploadedBy.toString(),
           institutionId: thesis.institution.toString(),
           ipfsCid: thesis.ipfsCid,
           fileHash: thesis.fileHash,
-          hashAlgorithm: thesis.hashAlgorithm,
+          signerPrivateKey,
         });
 
         thesis.txHash = onchain.txHash;
@@ -476,6 +513,32 @@ export async function toggleLikeThesis(req: AuthRequest, res: Response) {
     return res.json({ thesis, liked: !alreadyLiked });
   } catch (err) {
     console.error("Error toggleLikeThesis", err);
+    return res.status(500).json({ message: "Error del servidor" });
+  }
+}
+
+/**
+ * ✅ NUEVO: contador de citas (quotes++)
+ * POST /theses/:id/quote  (tú lo conectas en routes)
+ */
+export async function incrementQuoteThesis(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "ID de tesis inválido" });
+    }
+
+    const updated = await Thesis.findByIdAndUpdate(
+      id,
+      { $inc: { quotes: 1 } },
+      { new: true }
+    );
+
+    if (!updated) return res.status(404).json({ message: "Tesis no encontrada" });
+
+    return res.json({ thesis: updated, quoted: true });
+  } catch (err) {
+    console.error("Error incrementQuoteThesis", err);
     return res.status(500).json({ message: "Error del servidor" });
   }
 }

@@ -20,15 +20,15 @@ function safeJsonParse<T>(value: unknown): T | undefined {
   }
 }
 
-// Devuelve todos los usuarios (sin password) + imgUrl para renderizar imagen
+// Devuelve todos los usuarios (sin password) + imgUrl
 export async function getAllUsers(_req: Request, res: Response) {
-  const users = await User.find().select("-password"); // evita exponer password
+  const users = await User.find().select("-password");
   const mapped = users.map((u) => {
     const obj = u.toObject();
     return {
       ...obj,
-      imgUrl: buildImgUrl(obj.img), // URL base64 lista para el frontend
-      img: undefined, // evita mandar el buffer crudo por la API
+      imgUrl: buildImgUrl(obj.img),
+      img: undefined,
     };
   });
   return res.json(mapped);
@@ -36,14 +36,14 @@ export async function getAllUsers(_req: Request, res: Response) {
 
 // Devuelve el usuario autenticado actual (perfil)
 export async function getMe(req: AuthRequest, res: Response) {
-  const u = req.user; // viene del middleware auth
+  const u = req.user;
   if (!u) return res.status(401).json({ message: "No autorizado" });
 
   const obj = u.toObject();
   return res.json({
     ...obj,
-    imgUrl: buildImgUrl(obj.img), // imagen lista para mostrar
-    img: undefined, // no enviar binario
+    imgUrl: buildImgUrl(obj.img),
+    img: undefined,
   });
 }
 
@@ -72,13 +72,11 @@ export async function getUserBasicById(req: Request, res: Response) {
   }
 }
 
-// ✅ Actualiza datos del usuario logueado
-// Soporta multipart/form-data (campos + archivo de imagen)
+// Actualiza datos del usuario logueado
 export async function updateMe(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "No autorizado" });
 
-    // Lista blanca de campos que SI se pueden actualizar
     const allowedFields = [
       "name",
       "lastname",
@@ -86,70 +84,158 @@ export async function updateMe(req: AuthRequest, res: Response) {
       "email",
       "educationalEmails",
       "institutions",
+      "wallet",     // ✅ nuevo
       "removeImg",
     ] as const;
 
     const updates: Record<string, unknown> = {};
 
-    // Copia solo los campos permitidos desde el body
     for (const key of allowedFields) {
       if (req.body[key] !== undefined) {
         updates[key] = req.body[key];
       }
     }
 
-    // ✅ Si vienen arrays como string en FormData, los convertimos a JSON real
     const parsedEdu = safeJsonParse<unknown[]>(updates.educationalEmails);
     if (parsedEdu) updates.educationalEmails = parsedEdu;
 
     const parsedInst = safeJsonParse<string[]>(updates.institutions);
     if (parsedInst) updates.institutions = parsedInst;
 
-    // Bandera para borrar imagen (acepta 1/true)
+    if (updates.wallet !== undefined) {
+      updates.wallet = String(updates.wallet).trim();
+    }
+
     const removeImg =
       String(req.body.removeImg || "").toLowerCase() === "1" ||
       String(req.body.removeImg || "").toLowerCase() === "true";
 
-    // Si pidieron borrar imagen, la removemos del documento
     if (removeImg) {
-      updates.img = undefined; // o null según tu esquema (aquí lo limpias)
+      updates.img = undefined;
     }
 
-    // ✅ Si llega archivo, lo guardamos como binario en MongoDB
     if (req.file) {
       updates.img = {
-        data: req.file.buffer, // buffer del archivo subido
-        contentType: req.file.mimetype, // mime type (png/jpg/etc)
+        data: req.file.buffer,
+        contentType: req.file.mimetype,
       };
     }
 
-    // Actualiza al usuario y devuelve el documento actualizado
     const updated = await User.findByIdAndUpdate(
       req.user._id,
-      { $set: updates, ...(removeImg ? { $unset: { img: 1 } } : {}) }, // unset borra el campo img del documento
-      { new: true } // devuelve el nuevo documento
-    ).select("-password"); // nunca enviar password
+      { $set: updates, ...(removeImg ? { $unset: { img: 1 } } : {}) },
+      { new: true }
+    ).select("-password");
 
     if (!updated) return res.status(404).json({ message: "Usuario no encontrado" });
 
     const obj = updated.toObject();
     return res.json({
       ...obj,
-      imgUrl: buildImgUrl(obj.img), // genera la URL base64 para frontend
-      img: undefined, // no enviar el buffer crudo
+      imgUrl: buildImgUrl(obj.img),
+      img: undefined,
     });
   } catch (err) {
     console.error("Error updateMe", err);
     return res.status(500).json({ message: "Error del servidor" });
   }
 }
+export async function setUserEducationalStatus(req: AuthRequest, res: Response) {
+  try {
+    // ✅ acepta USER o INSTITUTION (igual que setThesisStatus)
+    if (!req.user && !req.institution) {
+      return res.status(401).json({ message: "No autorizado" });
+    }
 
+    const { id } = req.params; // userId a modificar
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de usuario inválido" });
+    }
+
+    const institutionId = String(req.body?.institutionId ?? "").trim();
+    const statusRaw = String(req.body?.status ?? "").trim().toUpperCase();
+
+    if (!institutionId) {
+      return res.status(400).json({ message: "institutionId es requerido" });
+    }
+    if (!["PENDING", "APPROVED", "REJECTED"].includes(statusRaw)) {
+      return res.status(400).json({ message: "Status inválido" });
+    }
+
+    // ✅ permisos: o viene institution token y coincide con institutionId,
+    // o viene user token y el user es miembro de esa institution
+    let canManage = false;
+
+    if (req.institution) {
+      if (String(req.institution._id) === String(institutionId)) canManage = true;
+    }
+
+    if (!canManage && req.user?.institutions) {
+      const isMember = req.user.institutions.some(
+        (instId) => String(instId) === String(institutionId),
+      );
+      if (isMember) canManage = true;
+    }
+
+    if (!canManage) {
+      return res
+        .status(403)
+        .json({ message: "No autorizado para gestionar esta institución" });
+    }
+
+    const target = await User.findById(id);
+    if (!target) return res.status(404).json({ message: "Usuario no encontrado" });
+
+    const eduArr = Array.isArray(target.educationalEmails)
+      ? target.educationalEmails
+      : [];
+
+    // Busca entry por institution (en tu modelo es string)
+    const idx = eduArr.findIndex((e: any) => {
+      const inst = String(e?.institution ?? "").trim();
+      return inst === String(institutionId);
+    });
+
+    if (idx >= 0) {
+      // ✅ compatibilidad modelo viejo: si no hay status, lo agregamos
+      const prev: any = eduArr[idx] || {};
+      eduArr[idx] = {
+        institution: String(prev?.institution ?? institutionId),
+        email: prev?.email ? String(prev.email) : undefined,
+        status: statusRaw,
+      } as any;
+    } else {
+      // si no existe, lo creamos
+      eduArr.push({
+        institution: institutionId,
+        email: undefined,
+        status: statusRaw,
+      } as any);
+    }
+
+    target.educationalEmails = eduArr as any;
+    await target.save();
+
+    const obj = target.toObject();
+
+    return res.json({
+      updated: { institution: institutionId, status: statusRaw },
+      user: {
+        ...obj,
+        imgUrl: buildImgUrl(obj.img),
+        img: undefined,
+      },
+    });
+  } catch (err) {
+    console.error("Error setUserEducationalStatus", err);
+    return res.status(500).json({ message: "Error del servidor" });
+  }
+}
 // Devuelve las tesis a las que el usuario dio like (con populate)
 export async function getMyLikedTheses(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "No autorizado" });
 
-    // Trae el usuario con las tesis likeadas ya pobladas
     const user = await User.findById(req.user._id).populate("likedTheses");
     return res.json(user?.likedTheses ?? []);
   } catch (err) {

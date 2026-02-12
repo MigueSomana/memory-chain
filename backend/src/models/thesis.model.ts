@@ -1,7 +1,11 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 
-// Estados posibles del proceso de certificación
-export type CertificationStatus = "PENDING" | "APPROVED" | "REJECTED";
+// Estados posibles del proceso de certificación (incluye NOT_CERTIFIED)
+export type CertificationStatus =
+  | "NOT_CERTIFIED"
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED";
 
 // Estructura básica para autores y tutores
 export interface IAuthor {
@@ -15,10 +19,10 @@ export interface IAuthor {
 const AuthorSchema = new Schema<IAuthor>(
   {
     _id: { type: Schema.Types.ObjectId, ref: "User", required: false },
-    name: { type: String, required: true, trim: true }, // Nombre del autor
-    lastname: { type: String, required: true, trim: true }, // Apellido
+    name: { type: String, required: true, trim: true },
+    lastname: { type: String, required: true, trim: true },
   },
-  { _id: false },
+  { _id: false }
 );
 
 // Interfaz principal de la tesis
@@ -31,21 +35,23 @@ export interface IThesis extends Document {
   language: string;
   degree: string;
   field?: string;
-  date?: Date; // fecha completa (día/mes/año)
+  date?: Date;
 
   likes: number;
   likedBy: Types.ObjectId[];
+  quotes: number;
 
   institution?: Types.ObjectId;
   department?: string;
+
   status: CertificationStatus;
+
   uploadedBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 
   // Información del archivo y su anclaje en blockchain
   fileHash: string;
-  hashAlgorithm: "sha256";
   ipfsCid: string;
   txHash?: string;
   chainId?: number;
@@ -55,99 +61,64 @@ export interface IThesis extends Document {
 // Esquema de Mongoose para tesis académicas
 const ThesisSchema = new Schema<IThesis>(
   {
-    // Título de la tesis
     title: { type: String, required: true, trim: true },
 
-    // Lista de autores (al menos uno obligatorio)
     authors: {
       type: [AuthorSchema],
       required: true,
       validate: [(v: IAuthor[]) => v.length > 0, "At least one author."],
     },
 
-    // Tutores o directores de tesis
     tutors: {
       type: [AuthorSchema],
       default: [],
     },
 
-    // Resumen académico
     summary: { type: String, required: true, trim: true },
 
-    // Palabras clave para búsquedas
     keywords: {
       type: [String],
       default: [],
     },
 
-    // Idioma de la tesis
     language: { type: String, required: true, trim: true },
-
-    // Grado académico (ej: Bachelor, Master, PhD)
     degree: { type: String, required: true, trim: true },
 
-    // Área o campo de estudio
     field: { type: String, trim: true },
-
-    // Fecha de publicación (día/mes/año)
     date: { type: Date },
 
-    // Contador de likes
     likes: { type: Number, default: 0 },
-
-    // Usuarios que dieron like (evita duplicados a nivel lógica)
     likedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
 
-    // Institución a la que pertenece la tesis
+    quotes: { type: Number, default: 0 },
+
     institution: {
       type: Schema.Types.ObjectId,
       ref: "Institution",
     },
 
-    // Departamento o facultad
     department: { type: String, trim: true },
 
-    // Estado de certificación
     status: {
       type: String,
-      enum: ["PENDING", "APPROVED", "REJECTED"],
-      default: "PENDING",
+      enum: ["NOT_CERTIFIED", "PENDING", "APPROVED", "REJECTED"],
+      default: "NOT_CERTIFIED",
     },
 
-    // Usuario que subió la tesis
     uploadedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
     },
 
-    // Hash criptográfico del archivo original
     fileHash: { type: String, required: true },
 
-    // Algoritmo usado para generar el hash
-    hashAlgorithm: {
-      type: String,
-      enum: ["sha256", "sha3", "keccak256"],
-      required: true,
-      default: "sha256",
-    },
-
-    // CID del archivo almacenado en IPFS
     ipfsCid: { type: String, required: true },
 
-    // Hash de la transacción en blockchain
     txHash: { type: String },
-
-    // Red blockchain usada (ej: Polygon Amoy)
     chainId: { type: Number },
-
-    // Bloque donde quedó registrada la transacción
     blockNumber: { type: Number },
   },
-  {
-    // Agrega createdAt y updatedAt automáticamente
-    timestamps: true,
-  },
+  { timestamps: true }
 );
 
-// Modelo final de la colección Thesis
 export const Thesis = mongoose.model<IThesis>("Thesis", ThesisSchema);

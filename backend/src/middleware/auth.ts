@@ -21,7 +21,7 @@ interface JwtPayload {
 }
 
 // Secreto para verificar el JWT (desde variables de entorno)
-const JWT_SECRET = process.env.JWT_SECRET as string;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Middleware de autenticación
 // Verifica JWT y adjunta user o institution al request
@@ -30,6 +30,12 @@ export async function authMiddleware(
   res: Response,
   next: NextFunction
 ) {
+  if (!JWT_SECRET) {
+    return res
+      .status(500)
+      .json({ message: "JWT_SECRET no está configurado en el servidor" });
+  }
+
   const authHeader = req.headers.authorization;
 
   // Verifica que el header exista y tenga formato Bearer
@@ -47,11 +53,9 @@ export async function authMiddleware(
     if (payload.type === "USER" && payload.userId) {
       const user = await User.findById(payload.userId);
 
-      // Usuario inexistente o desactivado
-      if (!user || !user.isActive) {
-        return res
-          .status(401)
-          .json({ message: "Usuario inválido o inactivo" });
+      // Usuario inexistente
+      if (!user) {
+        return res.status(401).json({ message: "Usuario inválido o inexistente" });
       }
 
       // Adjunta el usuario autenticado al request

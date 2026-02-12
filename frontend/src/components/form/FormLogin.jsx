@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import logo from "../../assets/logo.png";
 import { EyeIcon, EyeSlashIcon } from "../../utils/icons";
 import { saveAuthSession } from "../../utils/authSession";
+import { Blocks, Mail, Lock, Github } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -30,7 +30,6 @@ const FormLogin = ({ loginModalId, registerModalId, prefillEmail }) => {
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // cuando te registras, prefillEmail cambia
   useEffect(() => {
     if (prefillEmail) setEmail(prefillEmail);
   }, [prefillEmail]);
@@ -83,35 +82,83 @@ const FormLogin = ({ loginModalId, registerModalId, prefillEmail }) => {
   };
 
   const openRegister = () => {
-    // cierra login, abre register
     hideModal(loginModalId);
     setTimeout(() => showModal(registerModalId), 150);
   };
 
+  const oauthDemo = (provider) => {
+    alert(`${provider} login (demo)`);
+  };
+
   return (
-    <div className="container fix-form-modal">
-      <form className="form-signin" onSubmit={handleSubmit}>
-        <div className="text-center spaced-fix">
-          <img src={logo} alt="Logo" height="70px" />
-          <p className="my-4">
-            Protect your research with the world's most secure decentralized
-            library
-          </p>
+    <div className="mcLoginWrap">
+      {/* ICON + TITLES */}
+      <div className="mcLoginBrand">
+        <div className="mcLoginBrandIcon" aria-hidden="true">
+          <Blocks size={22} />
         </div>
 
-        {errorMsg && (
-          <div className="alert alert-danger mt-2" role="alert">
-            {errorMsg}
-          </div>
-        )}
+        <div className="mcLoginBrandTitle">Memory-Chain</div>
+        <div className="mcLoginBrandSub">
+          Welcome back to academic verification
+        </div>
+      </div>
 
-        <div className="form-label-group">
-          <label htmlFor="inputEmail">Email address</label>
+      {/* OAUTH BUTTONS */}
+      <div className="mcLoginProviders">
+        <button
+          type="button"
+          className="mcProviderBtn"
+          onClick={() => oauthDemo("Google")}
+          disabled={loading}
+        >
+          <span className="mcProviderMark" aria-hidden="true">
+            G
+          </span>
+          <span className="mcProviderText">Google</span>
+        </button>
+
+        <button
+          type="button"
+          className="mcProviderBtn"
+          onClick={() => oauthDemo("GitHub")}
+          disabled={loading}
+        >
+          <span className="mcProviderIcon" aria-hidden="true">
+            <Github size={18} />
+          </span>
+          <span className="mcProviderText">GitHub</span>
+        </button>
+      </div>
+
+      {/* DIVIDER */}
+      <div className="mcLoginDivider">
+        <span className="mcLoginDividerLine" />
+        <span className="mcLoginDividerText">OR CONTINUE WITH EMAIL</span>
+        <span className="mcLoginDividerLine" />
+      </div>
+
+      {errorMsg && (
+        <div className="mcLoginAlert" role="alert">
+          {errorMsg}
+        </div>
+      )}
+
+      {/* FORM */}
+      <form onSubmit={handleSubmit} className="mcLoginForm" autoComplete="on">
+        {/* Email */}
+        <label className="mcLoginLabel" htmlFor="inputEmail">
+          Email Address
+        </label>
+        <div className="mcLoginField">
+          <span className="mcLoginFieldIcon" aria-hidden="true">
+            <Mail size={18} />
+          </span>
           <input
-            type="email"
             id="inputEmail"
-            className="form-control"
-            placeholder="Email address"
+            type="email"
+            className="mcLoginInput"
+            placeholder="you@institution.edu"
             required
             autoFocus
             value={email}
@@ -120,55 +167,72 @@ const FormLogin = ({ loginModalId, registerModalId, prefillEmail }) => {
           />
         </div>
 
-        <div className="form-label-group mt-3">
-          <label htmlFor="inputPassword">Password</label>
-          <div className="input-group">
-            <input
-              type={showPass ? "text" : "password"}
-              id="inputPassword"
-              className="form-control"
-              placeholder="Password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-            />
-            <button
-              type="button"
-              className="btn password-toggle-btn-login d-flex align-items-center"
-              onClick={() => setShowPass((v) => !v)}
-              tabIndex={-1}
-              disabled={loading}
-            >
-              {showPass ? EyeSlashIcon : EyeIcon}
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-3 mt-3 form-check">
-          <input
-            id="rememberMe"
-            className="form-check-input mc-check"
-            type="checkbox"
-            disabled={loading}
-          />
-          <label htmlFor="rememberMe" className="form-check-label">
-            Remember me
+        {/* Password header row */}
+        <div className="mcLoginRowBetween">
+          <label className="mcLoginLabel" htmlFor="inputPassword">
+            Password
           </label>
-        </div>
-
-        <div className="row">
-          <button
-            type="submit"
-            className="btn btn-memory px-4 gap-3 my-1"
-            disabled={loading}
-          >
-            {loading ? "Logging in..." : "Log in"}
-          </button>
 
           <button
             type="button"
-            className="btn btn-outline-memory px-4 my-2"
+            className="mcLoginLink"
+            onClick={() => alert("Forgot password (demo)")}
+            disabled={loading}
+          >
+            Forgot password?
+          </button>
+        </div>
+
+        {/* Password */}
+        <div className="mcLoginField">
+          <span className="mcLoginFieldIcon" aria-hidden="true">
+            <Lock size={18} />
+          </span>
+
+          <input
+            id="inputPassword"
+            type={showPass ? "text" : "password"}
+            className="mcLoginInput"
+            placeholder="••••••••"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
+          />
+
+          <button
+            type="button"
+            className="mcLoginEyeBtn"
+            onClick={() => setShowPass((v) => !v)}
+            tabIndex={-1}
+            disabled={loading}
+            aria-label={showPass ? "Hide password" : "Show password"}
+            title={showPass ? "Hide password" : "Show password"}
+          >
+            {showPass ? EyeSlashIcon : EyeIcon}
+          </button>
+        </div>
+
+        {/* Primary button */}
+        <button
+          type="submit"
+          className="mcLoginSubmit"
+          disabled={loading}
+        >
+          <span className="mcLoginSubmitText">
+            {loading ? "Signing In..." : "Sign In"}
+          </span>
+          <span className="mcLoginSubmitArrow" aria-hidden="true">
+            →
+          </span>
+        </button>
+
+        {/* footer */}
+        <div className="mcLoginFooter">
+          <span className="mcLoginFooterMuted">Don't have an account?</span>{" "}
+          <button
+            type="button"
+            className="mcLoginFooterLink"
             onClick={openRegister}
             disabled={loading}
           >

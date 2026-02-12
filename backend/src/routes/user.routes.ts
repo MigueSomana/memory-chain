@@ -1,29 +1,33 @@
 import { Router } from "express";
-import { authMiddleware } from "../middleware/auth";
 import {
   getAllUsers,
   getMe,
   updateMe,
-  getMyLikedTheses,
   getUserBasicById,
+  getMyLikedTheses,setUserEducationalStatus
 } from "../controllers/user.controller";
-import { uploadImage } from "../config/multer";
+import { authMiddleware } from "../middleware/auth";
+
+// Si tienes multer en middleware para imagen, úsalo aquí.
+// Si ya tienes tu uploader, reemplaza el import por el tuyo.
+import multer from "multer";
+const upload = multer();
 
 const router = Router();
 
-// Lista todos los usuarios (requiere autenticación)
+// Listado (si lo quieres público, quita authMiddleware)
 router.get("/", authMiddleware, getAllUsers);
 
-// Obtiene el perfil del usuario autenticado
+// Perfil
 router.get("/me", authMiddleware, getMe);
+router.put("/me", authMiddleware, upload.single("file"), updateMe);
 
-// Actualiza el perfil del usuario autenticado (img + campos, multipart/form-data)
-router.put("/me", authMiddleware, uploadImage.single("img"), updateMe);
+router.patch("/:id/educational-status", authMiddleware, setUserEducationalStatus);
 
-// Devuelve name + lastname de un usuario por ID
+// Likes del usuario
+router.get("/me/liked-theses", authMiddleware, getMyLikedTheses);
+
+// Básico (público)
 router.get("/:id/basic", getUserBasicById);
-
-// Obtiene las tesis a las que el usuario dio like
-router.get("/me/likes", authMiddleware, getMyLikedTheses);
 
 export default router;

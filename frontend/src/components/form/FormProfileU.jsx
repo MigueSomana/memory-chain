@@ -1,22 +1,30 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import { getAuthToken } from "../../utils/authSession";
+import { useToast } from "../../utils/toast";
 import {
-  EyeIcon,
-  EyeSlashIcon,
-  CheckCircle,
-  CrossCircle,
-  BasicIIcon,
-  SecurePIcon,
-  ContactIIcon,
-  DepartmentIIcon,
-} from "../../utils/icons";
+  Camera,
+  Copy,
+  Check,
+  Layers,
+  Plus,
+  X,
+  Users,
+  UserRoundCog,
+  Eye,
+  EyeOff,
+  LayersPlus,
+  University,
+  BookMarked,
+  BadgeCheck,
+  OctagonAlert,
+  Wallet,
+} from "lucide-react";
 
-// Configuración base (API + sesión)
+// ===================== CONFIG =====================
 const API_BASE_URL = "http://localhost:4000/api";
 const token = getAuthToken();
 
-// Opciones del tipo de institución (ajusta si tu backend usa otro enum)
 const TYPE_OPTIONS = [
   { value: "UNIVERSITY", label: "University" },
   { value: "COLLEGE", label: "College" },
@@ -25,43 +33,47 @@ const TYPE_OPTIONS = [
   { value: "OTHER", label: "Other" },
 ];
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const normalizeStatus = (s) => String(s || "PENDING").trim().toUpperCase();
+
 const FormProfileU = ({ initialData: initialDataProp }) => {
-  // Estado base (datos iniciales / carga / errores)
+  const { showToast } = useToast();
+
+  // ===================== BASE =====================
   const [initialData, setInitialData] = useState(initialDataProp || null);
   const [loading, setLoading] = useState(!initialDataProp);
   const [loadError, setLoadError] = useState("");
-  const [deptAlert, setDeptAlert] = useState("");
 
-  // Estado de membresía (para mostrar banner activo/inactivo)
+  // Membership
   const isMember = Boolean(initialData?.isMember);
 
-  // Logo institucional (preview + archivo)
+  // ===================== LOGO =====================
   const [logoPreview, setLogoPreview] = useState("");
   const [logoFile, setLogoFile] = useState(null);
   const fileInputRef = useRef(null);
 
   const pickLogo = () => fileInputRef.current?.click();
 
-  const [removeImgFlag, setRemoveImgFlag] = useState(false);
-
-  const removeLogo = () => {
-    setLogoPreview("");
-    setLogoFile(null);
-    setRemoveImgFlag(true);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
   const onLogoChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!/image\/(png|jpe?g|webp|svg\+xml)/.test(file.type)) {
-      alert("Unsupported logo format. Use PNG/JPG/WebP/SVG.");
+      showToast({
+        message: "Unsupported logo format. Use PNG/JPG/WebP/SVG.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2600,
+      });
       return;
     }
-
     if (file.size > 4 * 1024 * 1024) {
-      alert("Logo must be less than 4MB.");
+      showToast({
+        message: "Logo must be less than 4MB.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2600,
+      });
       return;
     }
 
@@ -71,16 +83,44 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     reader.readAsDataURL(file);
   };
 
-  // Campos básicos de institución
+  // ===================== FIELDS =====================
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const descRef = useRef(null);
+
   const [country, setCountry] = useState("");
   const [website, setWebsite] = useState("");
   const [type, setType] = useState("");
+  const [email, setEmail] = useState("");
 
-  // Departamentos
+  // ✅ Wallet (nuevo, igual que perfil de student)
+  const [wallet, setWallet] = useState("");
+
+  // Domains
+  const [emailDomains, setEmailDomains] = useState([]);
+  const [domainInput, setDomainInput] = useState("");
+
+  const addDomain = () => {
+    const val = domainInput.trim();
+    if (!val) return;
+
+    const exists = emailDomains.some(
+      (d) => String(d?.value || "").toLowerCase() === val.toLowerCase(),
+    );
+    if (exists) return;
+
+    setEmailDomains((prev) => [...prev, { value: val }]);
+    setDomainInput("");
+  };
+
+  const removeDomain = (valueToRemove) => {
+    setEmailDomains((prev) => prev.filter((d) => d.value !== valueToRemove));
+  };
+
+  // Departments
   const [departments, setDepartments] = useState([]);
   const [deptInput, setDeptInput] = useState("");
+  const [deptAlert, setDeptAlert] = useState("");
 
   const addDepartment = () => {
     const val = deptInput.trim();
@@ -103,39 +143,60 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     setDepartments((prev) => prev.filter((d) => d.name !== nameToRemove));
   };
 
-  // Email + dominios
-  const [email, setEmail] = useState("");
-  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  const [emailDomains, setEmailDomains] = useState([]);
-  const [domainInput, setDomainInput] = useState("");
-
-  const addDomain = () => {
-    const val = domainInput.trim();
-    if (!val) return;
-
-    const exists = emailDomains.some(
-      (d) => String(d?.value || "").toLowerCase() === val.toLowerCase(),
-    );
-    if (exists) return;
-
-    setEmailDomains((prev) => [...prev, { value: val }]);
-    setDomainInput("");
-  };
-
-  const removeDomain = (valueToRemove) => {
-    setEmailDomains((prev) => prev.filter((d) => d.value !== valueToRemove));
-  };
-
-  // Seguridad
+  // Security
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // Copy ID pill
+  const [idCopied, setIdCopied] = useState(false);
+  const instId = initialData?._id || "";
+
+  const copyInstId = async () => {
+    if (!instId) return;
+    try {
+      await navigator.clipboard.writeText(instId);
+      setIdCopied(true);
+      window.setTimeout(() => setIdCopied(false), 900);
+      showToast({
+        message: "Institution ID copied to clipboard",
+        type: "success",
+        icon: BadgeCheck,
+        duration: 1800,
+      });
+    } catch {
+      showToast({
+        message: "Could not copy the institution ID.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2400,
+      });
+    }
+  };
+
+  // Errors
   const [errors, setErrors] = useState({});
 
-  // Carga inicial (si no llega por props)
+  // ✅ Stats calculadas según tu regla:
+  // - Theses: todas las tesis con institution = esta institución AND status = APPROVED
+  // - Students: users que tengan a la institución y su status para esa institución = APPROVED
+  const [approvedThesisCount, setApprovedThesisCount] = useState(null);
+  const [approvedStudentsCount, setApprovedStudentsCount] = useState(null);
+
+  // ===================== TEXTAREA AUTO-GROW =====================
+  const autoGrowDescription = () => {
+    const el = descRef.current;
+    if (!el) return;
+
+    el.style.height = "auto";
+    const max = 220; // px
+    const next = Math.min(el.scrollHeight, max);
+    el.style.height = `${next}px`;
+    el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
+  };
+
+  // ===================== LOAD (if no props) =====================
   useEffect(() => {
     if (initialDataProp) {
       setInitialData(initialDataProp);
@@ -151,7 +212,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
           return;
         }
 
-        // Extrae institutionId del JWT
+        // Extract institutionId from JWT (best-effort)
         let institutionId = null;
         try {
           const [, payloadB64] = token.split(".");
@@ -188,7 +249,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     fetchInstitution();
   }, [initialDataProp]);
 
-  // Sync estados cuando initialData cambia
+  // ===================== SYNC =====================
   useEffect(() => {
     if (!initialData) return;
 
@@ -199,6 +260,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     setWebsite(initialData.website || "");
     setType(initialData.type || "");
     setEmail(initialData.email || "");
+    setWallet(initialData.wallet || "");
 
     const instDepts = (initialData.departments || []).map((d) =>
       typeof d === "string" ? { name: d } : d,
@@ -211,7 +273,106 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     setEmailDomains(instDomains);
   }, [initialData]);
 
-  // Validación
+  useEffect(() => {
+    autoGrowDescription();
+  }, [description]);
+
+  // ===================== FETCH APPROVED COUNTS =====================
+  const fetchApprovedCounts = async (institutionId) => {
+    try {
+      // 1) Theses aprobadas de la institución (usa tus routes: GET /theses/institution/:idInstitution)
+      const thesesRes = await axios.get(
+        `${API_BASE_URL}/theses/institution/${institutionId}`,
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+      );
+
+      const thesesList = Array.isArray(thesesRes.data)
+        ? thesesRes.data
+        : Array.isArray(thesesRes.data?.items)
+          ? thesesRes.data.items
+          : Array.isArray(thesesRes.data?.theses)
+            ? thesesRes.data.theses
+            : [];
+
+      const approvedTheses = thesesList.filter(
+        (t) => normalizeStatus(t?.status) === "APPROVED",
+      );
+
+      setApprovedThesisCount(approvedTheses.length);
+
+      // 2) Students aprobados para esa institución:
+      //    Intento endpoints comunes (no me diste tu route de users):
+      //    - GET /users (y filtramos en front)
+      //    - fallback: GET /users/institution/:id (si existe)
+      //
+      //    Regla: user.educationalEmails[{institution, status}] con status APPROVED
+      //           (y que tenga esa institución)
+      let usersList = [];
+      try {
+        const usersRes = await axios.get(`${API_BASE_URL}/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        usersList = Array.isArray(usersRes.data)
+          ? usersRes.data
+          : Array.isArray(usersRes.data?.items)
+            ? usersRes.data.items
+            : Array.isArray(usersRes.data?.users)
+              ? usersRes.data.users
+              : [];
+      } catch (e1) {
+        // fallback típico
+        try {
+          const usersRes2 = await axios.get(
+            `${API_BASE_URL}/users/institution/${institutionId}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          usersList = Array.isArray(usersRes2.data)
+            ? usersRes2.data
+            : Array.isArray(usersRes2.data?.items)
+              ? usersRes2.data.items
+              : Array.isArray(usersRes2.data?.users)
+                ? usersRes2.data.users
+                : [];
+        } catch (e2) {
+          usersList = [];
+        }
+      }
+
+      const approvedUsers = usersList.filter((u) => {
+        const edu = Array.isArray(u?.educationalEmails) ? u.educationalEmails : [];
+        return edu.some((entry) => {
+          const inst =
+            typeof entry?.institution === "string"
+              ? entry.institution
+              : entry?.institution?._id;
+
+          if (!inst || inst !== institutionId) return false;
+
+          const st = normalizeStatus(entry?.status || "PENDING");
+          return st === "APPROVED";
+        });
+      });
+
+      setApprovedStudentsCount(approvedUsers.length);
+    } catch (err) {
+      console.error(err);
+      showToast({
+        message: "Could not load institution stats.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2400,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!initialData?._id) return;
+    fetchApprovedCounts(initialData._id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData?._id]);
+
+  // ===================== VALIDATE =====================
   const validate = () => {
     const e = {};
 
@@ -232,38 +393,53 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     }
 
     if (password || confirm) {
-      if (password.length < 8) e.password = "At least 8 characters.";
+      if ((password || "").length < 8) e.password = "At least 8 characters.";
       if (password !== confirm) e.confirm = "Passwords do not match.";
     }
 
     setErrors(e);
+
+    if (Object.keys(e).length > 0) {
+      showToast({
+        message: Object.values(e)[0],
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2600,
+      });
+    }
+
     return Object.keys(e).length === 0;
   };
 
-  // Submit
+  // ===================== SUBMIT =====================
   const handleSubmit = async (ev) => {
     ev.preventDefault();
     if (!validate()) return;
 
     if (!initialData?._id) {
-      alert("Institution data not loaded yet.");
+      showToast({
+        message: "Institution data not loaded yet.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2400,
+      });
       return;
     }
 
     try {
       if (!token) {
-        alert("No auth token found. Please log in again.");
+        showToast({
+          message: "No auth token found. Please log in again.",
+          type: "error",
+          icon: OctagonAlert,
+          duration: 2400,
+        });
         return;
       }
 
       const form = new FormData();
 
-      if (logoFile) {
-        form.append("logo", logoFile);
-        form.append("removeImg", "0");
-      } else {
-        if (removeImgFlag) form.append("removeImg", "1");
-      }
+      if (logoFile) form.append("logo", logoFile);
 
       form.append("name", name.trim());
       form.append("description", description.trim());
@@ -272,14 +448,11 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
       form.append("type", type);
       form.append("email", email.trim().toLowerCase());
 
-      form.append(
-        "departments",
-        JSON.stringify(departments.map((d) => d.name)),
-      );
-      form.append(
-        "emailDomains",
-        JSON.stringify(emailDomains.map((d) => d.value)),
-      );
+      // ✅ wallet
+      form.append("wallet", (wallet || "").trim());
+
+      form.append("departments", JSON.stringify(departments.map((d) => d.name)));
+      form.append("emailDomains", JSON.stringify(emailDomains.map((d) => d.value)));
 
       form.append("isMember", String(Boolean(initialData.isMember)));
       form.append("canVerify", String(Boolean(initialData.canVerify)));
@@ -292,7 +465,13 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      alert("Institution profile updated successfully.");
+      showToast({
+        message: "Institution profile updated successfully.",
+        type: "success",
+        icon: BadgeCheck,
+        duration: 2200,
+      });
+
       const updated = res.data;
       setInitialData(updated);
 
@@ -304,94 +483,77 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
 
       setPassword("");
       setConfirm("");
+
+      // refresca counts con reglas nuevas
+      fetchApprovedCounts(updated._id);
     } catch (err) {
       console.error("Update institution error:", err?.response?.data || err);
-      alert(
-        err?.response?.data?.message || "Error updating institution profile.",
-      );
+      showToast({
+        message: err?.response?.data?.message || "Error updating institution profile.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2600,
+      });
     }
   };
 
-  if (loading)
-    return <div className="container mt-4">Loading institution profile...</div>;
-  if (loadError)
-    return <div className="container mt-4 text-danger">{loadError}</div>;
+  // ===================== UI STATES =====================
+  if (loading) return <div className="container py-2">Loading profile...</div>;
+  if (loadError) return <div className="container py-2 text-danger">{loadError}</div>;
+
+  const deptCount = departments.length;
+
+  // ✅ ahora el display de stats sale de nuestros counts
+  const displayCount = (v) => (v === null || v === undefined ? "—" : String(v));
+
+  const thesisCountDisplay = displayCount(approvedThesisCount);
+  const studentsCountDisplay = displayCount(approvedStudentsCount);
 
   return (
-    <form className="container mb-3" onSubmit={handleSubmit}>
-      {/* Banner de membresía */}
-      {isMember ? (
-        <div
-          className="alert border-0"
-          role="alert"
-          style={{ backgroundColor: "#20c997", color: "#fff", fontWeight: 600 }}
-        >
-          <span className="mx-2">{CheckCircle}</span> Your membership plan is{" "}
-          <strong>active</strong>.
-        </div>
-      ) : (
-        <div
-          className="alert border-0"
-          role="alert"
-          style={{ backgroundColor: "#dc3545", color: "#fff", fontWeight: 600 }}
-        >
-          <span className="mx-2">{CrossCircle}</span> Your membership plan is{" "}
-          <strong>inactive</strong>.
-        </div>
-      )}
-
-      {/* CARD 1: BASIC INFORMATION */}
-      <section className="card mc-card-shadow mb-4">
-        <div className="card-body">
-          <div className="mc-card-header mb-3">
-            <h5 className="m-0">Basic information</h5>
-            <span>{BasicIIcon}</span>
+    <form className="mcProfileWrap" onSubmit={handleSubmit}>
+      <div className="mcContainer">
+        {/* ===================== HERO ===================== */}
+        <section className="mcProfileHero">
+          <div className="mcProfileHeroActions">
+            <button
+              type="button"
+              className={`mcInstStatusPill mcIdPill ${
+                isMember ? "is-active" : "is-inactive"
+              } ${idCopied ? "is-copied" : ""}`}
+              onClick={copyInstId}
+              title="Copy institution id"
+            >
+              <span className="mcInstStatusDot" />
+              <span className="mcIdText">{instId || "Institution ID"}</span>
+              <span className="mcIdIcon">
+                {idCopied ? <Check size={18} /> : <Copy size={18} />}
+              </span>
+            </button>
           </div>
 
-          <div className="row g-4">
-            <div className="col-md-4 d-flex align-items-center gap-3 px-5">
-              <div
-                className="mc-media-frame"
-                style={{
-                  width: 100,
-                  height: 100,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                {logoPreview ? (
-                  <img
-                    src={logoPreview}
-                    alt="logo preview"
-                    className="mc-media-img"
-                  />
-                ) : (
-                  <span className="text-muted" style={{ fontSize: 12 }}>
-                    No logo
-                  </span>
-                )}
-              </div>
+          <div className="mcProfileHeroInner">
+            {/* left: logo/avatar */}
+            <div className="mcProfileHeroLeft">
+              <div className="mcAvatarWrap">
+                <div className="mcAvatar">
+                  {logoPreview ? (
+                    <img src={logoPreview} alt="institution logo" />
+                  ) : (
+                    <div className="mcAvatarFallback">
+                      {(name?.[0] || "I").toUpperCase()}
+                      {(name?.[1] || "").toUpperCase()}
+                    </div>
+                  )}
+                </div>
 
-              <div className="d-flex flex-column gap-2">
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline-memory"
+                  className="mcAvatarCamTL"
                   onClick={pickLogo}
+                  title="Change logo"
                 >
-                  Upload logo
+                  <Camera />
                 </button>
-
-                {logoPreview && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-danger"
-                    onClick={removeLogo}
-                  >
-                    Remove
-                  </button>
-                )}
 
                 <input
                   ref={fileInputRef}
@@ -403,322 +565,381 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
               </div>
             </div>
 
-            <div className="col-md-8">
-              <div className="mb-3">
+            {/* right: meta + stats */}
+            <div className="mcProfileMeta">
+              <h2 className="mcProfileName">{name || "—"}</h2>
+
+              <div className="mcProfileStatsInline">
+                <div className="mcStatCard2">
+                  <div className="mcStatIcon">
+                    <BookMarked />
+                  </div>
+                  <div className="mcStatText">
+                    <div className="mcStatNum2">{thesisCountDisplay}</div>
+                    <div className="mcStatLbl2">Theses</div>
+                  </div>
+                </div>
+
+                <div className="mcStatCard2">
+                  <div className="mcStatIcon">
+                    <Users />
+                  </div>
+                  <div className="mcStatText">
+                    <div className="mcStatNum2">{studentsCountDisplay}</div>
+                    <div className="mcStatLbl2">Students</div>
+                  </div>
+                </div>
+
+                <div className="mcStatCard2">
+                  <div className="mcStatIcon">
+                    <Layers />
+                  </div>
+                  <div className="mcStatText">
+                    <div className="mcStatNum2">{deptCount}</div>
+                    <div className="mcStatLbl2">Departments</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ===================== ACCOUNT SETTINGS ===================== */}
+        <section className="mcPanelCard mt-3">
+          <div className="mcPanelHead">
+            <div className="mcPanelHeadLeft">
+              <div className="mcPanelIcon">
+                <UserRoundCog />
+              </div>
+              <h5 className="m-0">Account settings</h5>
+            </div>
+          </div>
+
+          <div className="mcPanelBody">
+            <div className="row g-3">
+              {/* Email */}
+              <div className="col-12">
+                <label className="form-label">Email</label>
+                <input
+                  className={`form-control mcProfileInput ${
+                    errors.email ? "is-invalid" : ""
+                  }`}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="info@institution.edu"
+                />
+                {errors.email && (
+                  <div className="invalid-feedback d-block">{errors.email}</div>
+                )}
+              </div>
+
+              {/* ✅ Wallet (igual que student profile) */}
+              <div className="col-12">
+                <label className="form-label">Wallet</label>
+                <div className="input-group mcWizardInputGroup">
+                  <input
+                    className="form-control mcProfileInput"
+                    type="text"
+                    value={wallet}
+                    onChange={(e) => setWallet(e.target.value)}
+                    placeholder="0x..."
+                  />
+                </div>
+              </div>
+
+              {/* Passwords */}
+              <div className="col-md-6">
+                <label className="form-label">New password</label>
+
+                <div className="input-group mcWizardInputGroup">
+                  <input
+                    className={`form-control mcWizardInputGroupInput mcWizardKeyInput ${
+                      errors.password ? "is-invalid" : ""
+                    }`}
+                    type={showPass ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline-memory mcWizardKeyBtn"
+                    onClick={() => setShowPass((v) => !v)}
+                    tabIndex={-1}
+                    aria-label={showPass ? "Hide password" : "Show password"}
+                    title={showPass ? "Hide password" : "Show password"}
+                  >
+                    {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+
+                {errors.password && (
+                  <div className="invalid-feedback d-block">{errors.password}</div>
+                )}
+              </div>
+
+              <div className="col-md-6">
+                <label className="form-label">Confirm password</label>
+
+                <div className="input-group mcWizardInputGroup">
+                  <input
+                    className={`form-control mcWizardInputGroupInput mcWizardKeyInput ${
+                      errors.confirm ? "is-invalid" : ""
+                    }`}
+                    type={showConfirm ? "text" : "password"}
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    placeholder="Repeat the password"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline-memory mcWizardKeyBtn"
+                    onClick={() => setShowConfirm((v) => !v)}
+                    tabIndex={-1}
+                    aria-label={showConfirm ? "Hide password" : "Show password"}
+                    title={showConfirm ? "Hide password" : "Show password"}
+                  >
+                    {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+
+                {errors.confirm && (
+                  <div className="invalid-feedback d-block">{errors.confirm}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ===================== BASIC INFORMATION ===================== */}
+        <section className="mcPanelCard mt-3">
+          <div className="mcPanelHead">
+            <div className="mcPanelHeadLeft">
+              <div className="mcPanelIcon">
+                <University />
+              </div>
+              <h5 className="m-0">Basic information</h5>
+            </div>
+          </div>
+
+          <div className="mcPanelBody">
+            <div className="row g-3">
+              <div className="col-md-6">
                 <label className="form-label">Name</label>
                 <input
-                  className={`form-control ${errors.name ? "is-invalid" : ""}`}
+                  className={`form-control mcProfileInput ${
+                    errors.name ? "is-invalid" : ""
+                  }`}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Institution name"
                   disabled
                 />
                 {errors.name && (
-                  <div className="invalid-feedback">{errors.name}</div>
+                  <div className="invalid-feedback d-block">{errors.name}</div>
                 )}
               </div>
 
-              {/*  Country + Type mitad/mitad */}
-              <div className="row g-3">
-                <div className="col-12 col-md-6">
-                  <label className="form-label">Country</label>
-                  <input
-                    className={`form-control ${
-                      errors.country ? "is-invalid" : ""
-                    }`}
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    placeholder="Country"
-                  />
-                  {errors.country && (
-                    <div className="invalid-feedback">{errors.country}</div>
-                  )}
-                </div>
-
-                <div className="col-12 col-md-6">
-                  <label className="form-label">Institution type</label>
-
-                  <div className="dropdown mc-filter-select mc-select">
-                    <button
-                      className={`btn btn-outline-secondary dropdown-toggle droptoogle-fix mc-dd-toggle
-    ${errors.type ? "is-invalid" : ""}`}
-                      type="button"
-                      data-bs-toggle="dropdown"
-                      aria-expanded="false"
-                    >
-                      <span className="mc-filter-select-text">
-                        {TYPE_OPTIONS.find((o) => o.value === type)?.label ??
-                          "Select…"}
-                      </span>
-                    </button>
-
-                    <ul className="dropdown-menu mc-select">
-                      {TYPE_OPTIONS.map((opt) => (
-                        <li key={opt.value}>
-                          <button
-                            type="button"
-                            className={`dropdown-item ${type === opt.value ? "active" : ""}`}
-                            onClick={() => setType(opt.value)}
-                          >
-                            {opt.label}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {errors.type && (
-                    <div className="invalid-feedback d-block">
-                      {errors.type}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="col-12 mt-3">
-              <label className="form-label">Description</label>
-              <textarea
-                className="form-control"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Short description"
-                rows={3}
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CARD 2: CONTACT / EMAIL */}
-      <section className="card mc-card-shadow mb-4">
-        <div className="card-body">
-          <div className="mc-card-header mb-3">
-            <h5 className="m-0">Contact</h5>
-            <span>{ContactIIcon}</span>
-          </div>
-
-          <div className="row g-3">
-            <div className="col-md-6">
-              <label className="form-label">Email Institutional</label>
-              <input
-                className={`form-control ${errors.email ? "is-invalid" : ""}`}
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="info@institution.edu"
-              />
-              {errors.email && (
-                <div className="invalid-feedback">{errors.email}</div>
-              )}
-            </div>
-
-            <div className="col-md-6">
-              <label className="form-label">Website</label>
-              <input
-                className={`form-control ${errors.website ? "is-invalid" : ""}`}
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                placeholder="example.edu"
-              />
-              {errors.website && (
-                <div className="invalid-feedback">{errors.website}</div>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-3">
-            <div className="row g-3 align-items-end">
-              <div className="col-md-8">
-                <label className="form-label">Add email domain</label>
+              <div className="col-md-6">
+                <label className="form-label">Country</label>
                 <input
-                  className="form-control"
-                  value={domainInput}
-                  onChange={(e) => setDomainInput(e.target.value)}
-                  placeholder="e.g., university.edu"
+                  className={`form-control mcProfileInput ${
+                    errors.country ? "is-invalid" : ""
+                  }`}
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="Country"
+                />
+                {errors.country && (
+                  <div className="invalid-feedback d-block">{errors.country}</div>
+                )}
+              </div>
+
+              <div className="col-md-6">
+                <label className="form-label">Institution type</label>
+
+                <div className="dropdown mcSelectDd">
+                  <button
+                    className={`mcSelectBtn ${errors.type ? "is-invalid" : ""}`}
+                    type="button"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                  >
+                    <span className="mcSelectText">
+                      {TYPE_OPTIONS.find((o) => o.value === type)?.label ??
+                        "Select…"}
+                    </span>
+                    <span style={{ opacity: 0.75 }}>▾</span>
+                  </button>
+
+                  <ul className="dropdown-menu mcDropdownMenu">
+                    {TYPE_OPTIONS.map((opt) => (
+                      <li key={opt.value}>
+                        <button
+                          type="button"
+                          className={`dropdown-item ${
+                            type === opt.value ? "active" : ""
+                          }`}
+                          onClick={() => setType(opt.value)}
+                        >
+                          {opt.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {errors.type && (
+                  <div className="invalid-feedback d-block">{errors.type}</div>
+                )}
+              </div>
+
+              <div className="col-md-6">
+                <label className="form-label">Website</label>
+                <input
+                  className={`form-control mcProfileInput ${
+                    errors.website ? "is-invalid" : ""
+                  }`}
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="example.edu"
+                />
+                {errors.website && (
+                  <div className="invalid-feedback d-block">{errors.website}</div>
+                )}
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">Description</label>
+                <textarea
+                  ref={descRef}
+                  className="form-control mcProfileTextarea mcTextareaDarkScroll"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Short description"
+                  rows={4}
                 />
               </div>
-              <div className="col-md-4 d-grid">
-                <button
-                  type="button"
-                  className="btn btn-outline-memory"
-                  onClick={addDomain}
-                  disabled={!domainInput.trim()}
-                >
-                  Add domain
-                </button>
+
+              <div className="col-12 mt-2">
+                <label className="form-label">Email domains</label>
+
+                <div className="input-group mcWizardInputGroup mcInstGroupMatchKey">
+                  <input
+                    className="form-control mcWizardInputGroupInput"
+                    value={domainInput}
+                    onChange={(e) => setDomainInput(e.target.value)}
+                    placeholder="e.g., university.edu"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline-memory mcInstInputGroupBtn mcInstBtnMatchKey"
+                    onClick={addDomain}
+                    disabled={!domainInput.trim()}
+                    title="Add domain"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+
+                <div className="mt-3 d-flex flex-wrap gap-2">
+                  {emailDomains.length === 0 ? (
+                    <div className="mcEmptyState">No email domains added.</div>
+                  ) : (
+                    emailDomains.map((d, idx) => (
+                      <span key={`${d.value}-${idx}`} className="mcInstChip">
+                        <span className="mcInstChipText">{d.value}</span>
+                        <button
+                          type="button"
+                          className="mcInstChipX"
+                          onClick={() => removeDomain(d.value)}
+                          title="Remove"
+                        >
+                          <X size={16} />
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* ===================== DEPARTMENTS ===================== */}
+        <section className="mcPanelCard mt-3">
+          <div className="mcPanelHead">
+            <div className="mcPanelHeadLeft">
+              <div className="mcPanelIcon">
+                <LayersPlus />
+              </div>
+              <h5 className="m-0">Departments</h5>
+            </div>
+          </div>
+
+          <div className="mcPanelBody">
+            <label className="form-label">Add a department</label>
+
+            <div className="input-group mcWizardInputGroup mcInstGroupMatchKey">
+              <input
+                className="form-control mcWizardInputGroupInput mcInstInputGroupInput"
+                value={deptInput}
+                onChange={(e) => setDeptInput(e.target.value)}
+                placeholder="e.g., Computer Science"
+              />
+              <button
+                type="button"
+                className="btn btn-outline-memory mcInstInputGroupBtn mcInstBtnMatchKey"
+                onClick={addDepartment}
+                disabled={!deptInput.trim()}
+                title="Add department"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+
+            {deptAlert && (
+              <div className="mt-3 alert alert-warning py-2">{deptAlert}</div>
+            )}
 
             <div className="mt-3 d-flex flex-wrap gap-2">
-              {emailDomains.length === 0 ? (
-                <span className="text-muted">No email domains added.</span>
+              {departments.length === 0 ? (
+                <div className="mcEmptyState">No departments added.</div>
               ) : (
-                emailDomains.map((d, idx) => (
-                  <span
-                    key={`${d.value}-${idx}`}
-                    className="badge text-bg-light d-flex align-items-center gap-2"
-                    style={{ border: "1px solid rgba(0,0,0,.08)" }}
-                  >
-                    {d.value}
+                departments.map((d, idx) => (
+                  <span key={`${d.name}-${idx}`} className="mcInstChip">
+                    <span className="mcInstChipText">{d.name}</span>
                     <button
                       type="button"
-                      className="btn btn-sm btn-link text-danger p-0"
-                      onClick={() => removeDomain(d.value)}
+                      className="mcInstChipX"
+                      onClick={() => removeDepartment(d.name)}
+                      title="Remove"
                     >
-                      ×
+                      <X size={16} />
                     </button>
                   </span>
                 ))
               )}
             </div>
           </div>
+        </section>
+
+        {/* ===================== FOOTER ===================== */}
+        <div className="mcProfileFooterActions">
+          <button
+            type="button"
+            className="btn btn-outline-memory"
+            onClick={() => window.history.back()}
+          >
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-memory">
+            Save changes
+          </button>
         </div>
-      </section>
-
-      {/* CARD 3: SECURITY */}
-      <section className="card mc-card-shadow mb-4">
-        <div className="card-body">
-          <div className="mc-card-header mb-3">
-            <h5 className="m-0">Security</h5>
-            <span>{SecurePIcon}</span>
-          </div>
-
-          <div className="row g-3">
-            <div className="col-md-6">
-              <label className="form-label">New password</label>
-              <div className="input-group">
-                <input
-                  className={`form-control ${
-                    errors.password ? "is-invalid" : ""
-                  }`}
-                  type={showPass ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 8 characters"
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  className="btn password-toggle-btn d-flex align-items-center"
-                  onClick={() => setShowPass((v) => !v)}
-                  tabIndex={-1}
-                  aria-label={showPass ? "Hide password" : "Show password"}
-                  title={showPass ? "Hide password" : "Show password"}
-                >
-                  {showPass ? EyeSlashIcon : EyeIcon}
-                </button>
-              </div>
-              {errors.password && (
-                <div className="invalid-feedback d-block">
-                  {errors.password}
-                </div>
-              )}
-            </div>
-
-            <div className="col-md-6">
-              <label className="form-label">Confirm password</label>
-              <div className="input-group">
-                <input
-                  className={`form-control ${
-                    errors.confirm ? "is-invalid" : ""
-                  }`}
-                  type={showConfirm ? "text" : "password"}
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  placeholder="Repeat the password"
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  className="btn password-toggle-btn d-flex align-items-center"
-                  onClick={() => setShowConfirm((v) => !v)}
-                  tabIndex={-1}
-                  aria-label={showConfirm ? "Hide password" : "Show password"}
-                  title={showConfirm ? "Hide password" : "Show password"}
-                >
-                  {showConfirm ? EyeSlashIcon : EyeIcon}
-                </button>
-              </div>
-              {errors.confirm && (
-                <div className="invalid-feedback d-block">{errors.confirm}</div>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CARD 4: DEPARTMENTS */}
-      <section className="card mc-card-shadow mb-4">
-        <div className="card-body">
-          <div className="mc-card-header mb-3">
-            <h5 className="m-0">Departments</h5>
-            <span>{DepartmentIIcon}</span>
-          </div>
-
-          <div className="row g-3 align-items-end">
-            <div className="col-md-8">
-              <label className="form-label">Add a department</label>
-              <input
-                className="form-control"
-                value={deptInput}
-                onChange={(e) => setDeptInput(e.target.value)}
-                placeholder="e.g., Computer Science"
-              />
-            </div>
-            <div className="col-md-4 d-grid">
-              <button
-                type="button"
-                className="btn btn-outline-memory"
-                onClick={addDepartment}
-                disabled={!deptInput.trim()}
-              >
-                Add Deparment
-              </button>
-            </div>
-          </div>
-
-          {deptAlert && (
-            <div className="mt-3 alert alert-warning py-2">{deptAlert}</div>
-          )}
-
-          <div className="mt-3 d-flex flex-wrap gap-2">
-            {departments.length === 0 ? (
-              <span className="text-muted">No departments added.</span>
-            ) : (
-              departments.map((d, idx) => (
-                <span
-                  key={`${d.name}-${idx}`}
-                  className="badge text-bg-light d-flex align-items-center gap-2"
-                  style={{ border: "1px solid rgba(0,0,0,.08)" }}
-                >
-                  {d.name}
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-link text-danger p-0"
-                    onClick={() => removeDepartment(d.name)}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Acciones finales */}
-      <div className="mt-4 d-flex justify-content-center gap-2">
-        <button
-          type="button"
-          className="btn btn-outline-memory"
-          onClick={() => window.history.back()}
-        >
-          Cancel
-        </button>
-        <button type="submit" className="btn btn-memory">
-          Save changes
-        </button>
       </div>
     </form>
   );

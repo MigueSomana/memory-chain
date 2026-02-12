@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import axios from "axios";
 import ThesisSearch from "../search/ThesisSearch"; // ✅ ajusta el path real
+import ModalViewInstitution from "../../components/modal/ModalViewInstitution"; // ✅ ajusta el path real
 
 import {
   Funnel,
@@ -10,7 +11,7 @@ import {
   ArrowUpNarrowWide,
   ChevronDown,
   MapPinned,
-  School,
+  University,
   Globe,
   BookMarked,
   Eye,
@@ -46,7 +47,8 @@ const InstitutionsSearch = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  // Conteos SOLO de APPROVED + PENDING (rechazadas NO cuentan)
+  // Conteos: todas las tesis de la institución (pendientes/aprobadas/etc)
+  // REJECTED no cuenta
   const [thesisCounts, setThesisCounts] = useState({});
 
   // Filters
@@ -66,6 +68,9 @@ const InstitutionsSearch = () => {
   // Focus mode
   const [focusedInstitutionId, setFocusedInstitutionId] = useState(null);
 
+  // ✅ NEW: View modal selection
+  const [selectedInstitution, setSelectedInstitution] = useState(null);
+
   // ===================== LOAD INSTITUTIONS =====================
   useEffect(() => {
     const fetchInstitutions = async () => {
@@ -80,7 +85,7 @@ const InstitutionsSearch = () => {
 
         const res = await axios.get(
           `${API_BASE_URL}/api/institutions`,
-          headers ? { headers } : undefined
+          headers ? { headers } : undefined,
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
@@ -108,7 +113,7 @@ const InstitutionsSearch = () => {
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses`,
-          headers ? { headers } : undefined
+          headers ? { headers } : undefined,
         );
 
         const theses = Array.isArray(res.data) ? res.data : [];
@@ -117,17 +122,18 @@ const InstitutionsSearch = () => {
         const normalizeStatus = (s) => String(s || "").toUpperCase();
 
         for (const thesis of theses) {
+          // ✅ Nuevo backend: contar todas las tesis de la institución
+          // Solo excluimos REJECTED
           const status = normalizeStatus(thesis?.status);
           if (status === "REJECTED") continue;
-          if (status !== "APPROVED" && status !== "PENDING") continue;
 
           const instField = thesis.institution;
           const instId =
             typeof instField === "string"
               ? instField
               : instField?._id
-              ? String(instField._id)
-              : null;
+                ? String(instField._id)
+                : null;
 
           if (!instId) continue;
           counts[instId] = (counts[instId] || 0) + 1;
@@ -234,24 +240,65 @@ const InstitutionsSearch = () => {
 
   const pagesArray = useMemo(
     () => Array.from({ length: totalPages }, (_, i) => i + 1),
-    [totalPages]
+    [totalPages],
   );
 
   const go = (p) => setPage(p);
 
   const handleToggleFocus = (id) => {
     setFocusedInstitutionId((current) =>
-      current && String(current) === String(id) ? null : String(id)
+      current && String(current) === String(id) ? null : String(id),
     );
   };
 
   const focusedInstitution = useMemo(() => {
     if (!focusedInstitutionId) return null;
     return (
-      institutions.find((x) => String(x._id) === String(focusedInstitutionId)) ||
-      null
+      institutions.find(
+        (x) => String(x._id) === String(focusedInstitutionId),
+      ) || null
     );
   }, [focusedInstitutionId, institutions]);
+
+  // ===================== ✅ NEW: HANDLE VIEW (OPEN MODAL) =====================
+  const handleViewInstitution = async (instRow) => {
+    try {
+      const tokenLocal = localStorage.getItem("memorychain_token");
+      const headers = tokenLocal
+        ? { Authorization: `Bearer ${tokenLocal}` }
+        : undefined;
+
+      const id =
+        typeof instRow === "string"
+          ? instRow
+          : String(instRow?._id ?? instRow?.id ?? "");
+
+      if (!id) return;
+
+      const res = await axios.get(
+        `${API_BASE_URL}/api/institutions/${id}`,
+        headers ? { headers } : undefined,
+      );
+
+      setSelectedInstitution(res.data || instRow || null);
+
+      // abrir modal bootstrap
+      const el = document.getElementById("modalViewInstitution");
+      if (el && window.bootstrap?.Modal) {
+        const m = window.bootstrap.Modal.getOrCreateInstance(el);
+        m.show();
+      }
+    } catch (err) {
+      console.error("Error loading institution for view:", err);
+      // fallback: abre con lo que tengas en el row
+      setSelectedInstitution(instRow || null);
+      const el = document.getElementById("modalViewInstitution");
+      if (el && window.bootstrap?.Modal) {
+        const m = window.bootstrap.Modal.getOrCreateInstance(el);
+        m.show();
+      }
+    }
+  };
 
   // ===================== UI STATES =====================
   if (loading) {
@@ -283,6 +330,9 @@ const InstitutionsSearch = () => {
   return (
     <div className="mcExploreWrap">
       <div className="mcExploreContainer">
+        {/* ✅ MODAL INSTANCE (montado una vez) */}
+        <ModalViewInstitution institution={selectedInstitution} />
+
         {/* ===================== FOCUS BAR + THESISSEARCH (LITERAL) ===================== */}
         {focusedInstitutionId && focusedInstitution && (
           <>
@@ -308,6 +358,16 @@ const InstitutionsSearch = () => {
               </div>
 
               <div className="mcInstFocusActions">
+                {/* ✅ View (abre modal) */}
+                <button
+                  className="mcIconBtn"
+                  type="button"
+                  title="View"
+                  onClick={() => handleViewInstitution(focusedInstitution)}
+                >
+                  <Eye size={18} />
+                </button>
+
                 {focusedInstitution?.website ? (
                   <a
                     className="mcIconBtn mcIconBtnLink"
@@ -587,11 +647,11 @@ const InstitutionsSearch = () => {
                               <img
                                 src={i.logoUrl}
                                 alt="Institution logo"
-                                width="60"
-                                height="60"
+                                width="80"
+                                height="80"
                                 style={{
-                                  width: 60,
-                                  height: 60,
+                                  width: 80,
+                                  height: 80,
                                   objectFit: "cover",
                                   borderRadius: 14,
                                 }}
@@ -599,8 +659,8 @@ const InstitutionsSearch = () => {
                             ) : (
                               <div
                                 style={{
-                                  width: 60,
-                                  height: 60,
+                                  width: 80,
+                                  height: 80,
                                   borderRadius: 14,
                                   background: "#1b1b1b",
                                   display: "grid",
@@ -613,35 +673,34 @@ const InstitutionsSearch = () => {
                               </div>
                             )}
                           </span>
-
-                          <h3
-                            className="mcCardTitle mcInstTitle"
-                            title={i.name}
-                          >
-                            {i.name}
-                          </h3>
-                        </div>
-
-                        <div className="mcCardMeta mcInstMeta mt-2">
-                          <div
-                            className="mcMetaRow"
-                            title={formatType(i.type)}
-                          >
-                            <span className="mcMetaIcon" aria-hidden="true">
-                              <School size={18} />
-                            </span>
-                            <span className="mcMetaText">
-                              {formatType(i.type) || "—"}
-                            </span>
-                          </div>
-
-                          <div className="mcMetaRow" title={i.country || ""}>
-                            <span className="mcMetaIcon" aria-hidden="true">
-                              <MapPinned size={18} />
-                            </span>
-                            <span className="mcMetaText">
-                              {i.country || "—"}
-                            </span>
+                          <div className="mcCardBody mcCardBodyMember">
+                            <h3 className="mcCardTitle" title={i.name}>
+                              {i.name}
+                            </h3>
+                            <div
+                              className="mcCardAuthors mcMetaRow"
+                              title={i.country || ""}
+                            >
+                              <span className="mcMetaIcon" aria-hidden="true">
+                                <MapPinned size={18} />
+                              </span>
+                              <span className="mcMetaText">
+                                {i.country || "—"}
+                              </span>
+                            </div>
+                            <div className="mcMemberEmailInline">
+                              <div
+                                className="mcCardAuthors mcMetaRow"
+                                title={formatType(i.type)}
+                              >
+                                <span className="mcMetaIcon" aria-hidden="true">
+                                  <University size={18} />
+                                </span>
+                                <span className="mcMetaText">
+                                  {formatType(i.type) || "—"}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
@@ -659,11 +718,12 @@ const InstitutionsSearch = () => {
                           </div>
 
                           <div className="mcActions">
+                            {/* ✅ MODIFICADO: ahora abre el ModalViewInstitution */}
                             <button
                               type="button"
                               className="mcIconBtn"
                               title="View"
-                              onClick={() => alert("Demo: View institution")}
+                              onClick={() => handleViewInstitution(i)}
                             >
                               <Eye size={18} />
                             </button>
