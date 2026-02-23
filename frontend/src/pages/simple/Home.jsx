@@ -1,4 +1,6 @@
-import React, { useMemo } from "react";
+// Home.jsx
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
   ArrowRight,
@@ -15,9 +17,53 @@ import {
   BarChart3,
   Globe,
   BookOpen,
+  CircleX,
+  UserRound,
+  LogIn,
 } from "lucide-react";
+import Logo from "../../assets/logo.png";
+import {
+  getAuthActor,
+  getAuthToken,
+  clearAuthSession,
+} from "../../utils/authSession";
+
+// ✅ MODALS
+import ModalLogin from "../../components/modal/ModalLogIn";
+import ModalRegister from "../../components/modal/ModalRegister";
+import ModalRegisterInstitution from "../../components/modal/ModalRegisterInstitution";
+
+// ✅ VERIFY (ajusta ruta si hace falta)
+import Verify from "../simple/Verify";
 
 const Home = () => {
+  const navigate = useNavigate();
+
+  const [isLogged, setIsLogged] = useState(false);
+  const [actor, setActor] = useState(null);
+
+  // ✅ opcional: prefill del email cuando vuelves a login tras register
+  const [prefillEmail, setPrefillEmail] = useState("");
+
+  useEffect(() => {
+    const t = getAuthToken();
+    const a = getAuthActor();
+
+    // mismo criterio que NavbarInit
+    if (t && !a) {
+      clearAuthSession();
+      setIsLogged(false);
+      setActor(null);
+      return;
+    }
+
+    setIsLogged(!!t && !!a);
+    setActor(a);
+  }, []);
+
+  const profileHref =
+    actor === "institution" ? "/profile-institution" : "/profile-personal";
+
   const nav = useMemo(
     () => [
       { id: "home", label: "Home" },
@@ -35,6 +81,44 @@ const Home = () => {
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  // ✅ helper para abrir modales Bootstrap (patrón consistente)
+  const openBsModal = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    // ✅ si hay algún modal abierto, ciérralo antes
+    const anyOpen = document.querySelector(".modal.show");
+    if (anyOpen && anyOpen.id !== id) {
+      const openInst = window.bootstrap?.Modal?.getInstance(anyOpen);
+      openInst?.hide();
+    }
+
+    const inst = window.bootstrap?.Modal?.getOrCreateInstance(el, {
+      backdrop: "static",
+      keyboard: false,
+    });
+    inst?.show();
+  };
+
+  const goGetStarted = () => {
+    if (isLogged) {
+      navigate(profileHref);
+      return;
+    }
+    openBsModal("modalLogin");
+  };
+
+  const onClickLogin = () => {
+    openBsModal("modalLogin");
+  };
+
+  const onClickVerify = () => {
+    openBsModal("modalVerify");
+  };
+
+  // ✅ icono dinámico según estado
+  const LoginIcon = isLogged ? UserRound : LogIn;
+
   return (
     <div className="mcHome">
       {/* NAVBAR */}
@@ -46,10 +130,9 @@ const Home = () => {
             onClick={() => scrollTo("home")}
             aria-label="Memory-Chain"
           >
-            <span className="mcHomeBrandIcon">
-              <LayoutGrid size={18} />
-            </span>
-            <span className="mcHomeBrandText">Memory-Chain</span>
+            <div>
+              <img src={Logo} alt="Memory-Chain" width={150} />
+            </div>
           </button>
 
           <nav className="mcHomeNavLinks" aria-label="Primary">
@@ -65,10 +148,24 @@ const Home = () => {
             ))}
           </nav>
 
-          <div className="mcHomeNavRight">
-            <button type="button" className="btn btn-memory mcHomeLoginBtn">
-              Login
-            </button>
+          <div className="mcHomeNavRight d-flex align-items-center gap-2">
+          
+            {isLogged ? (
+              <Link to={profileHref} className="btn btn-memory mcHomeLoginBtn ">
+                <LoginIcon size={16} className="mx-1" />
+                Profile
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-memory mcHomeLoginBtn"
+                onClick={onClickLogin}
+              >
+                
+                Login
+                <LoginIcon size={16} className="mx-1"/>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -96,10 +193,19 @@ const Home = () => {
           </p>
 
           <div className="mcHomeHeroActions">
-            <button type="button" className="btn btn-memory mcHomeCtaBtn">
+            <button
+              type="button"
+              className="btn btn-memory mcHomeCtaBtn"
+              onClick={goGetStarted}
+            >
               Get Started <ArrowRight size={16} />
             </button>
-            <button type="button" className="btn btn-outline-memory mcHomeGhostBtn">
+
+            <button
+              type="button"
+              className="btn btn-outline-memory mcHomeGhostBtn"
+              onClick={() => scrollTo("demo")}
+            >
               How It Works <ArrowRight size={16} />
             </button>
           </div>
@@ -122,7 +228,7 @@ const Home = () => {
       </section>
 
       {/* SEE IT IN ACTION */}
-      <section className="mcHomeSection">
+      <section id="demo" className="mcHomeSection">
         <div className="mcHomeSectionInner">
           <div className="mcHomeKicker">SEE IT IN ACTION</div>
           <h2 className="mcHomeH2">
@@ -195,14 +301,34 @@ const Home = () => {
           </h2>
 
           <div className="mcHomeSteps">
-            <StepCard n="01" title="Upload Document" desc="Submit your thesis file to generate a unique cryptographic hash." />
-            <StepCard n="02" title="Institutional Review" desc="Your institution reviews and approves the submission." />
-            <StepCard n="03" title="On-Chain Certification" desc="The hash is recorded on the blockchain with a timestamp." />
-            <StepCard n="04" title="Public Verification" desc="Anyone can verify the document's authenticity instantly." />
+            <StepCard
+              n="01"
+              title="Upload Document"
+              desc="Submit your thesis file to generate a unique cryptographic hash."
+            />
+            <StepCard
+              n="02"
+              title="Institutional Review"
+              desc="Your institution reviews and approves the submission."
+            />
+            <StepCard
+              n="03"
+              title="On-Chain Certification"
+              desc="The hash is recorded on the blockchain with a timestamp."
+            />
+            <StepCard
+              n="04"
+              title="Public Verification"
+              desc="Anyone can verify the document's authenticity instantly."
+            />
           </div>
 
           <div className="mcHomeCenter">
-            <button type="button" className="btn btn-outline-memory mcHomeTryBtn">
+            <button
+              type="button"
+              className="btn btn-outline-memory mcHomeTryBtn"
+              onClick={onClickVerify}
+            >
               <ShieldCheck size={16} />
               Try Verification Now
             </button>
@@ -236,6 +362,7 @@ const Home = () => {
               ]}
               cta="Get Started Free"
               variant="ghost"
+              onCta={goGetStarted}
             />
 
             <PriceCard
@@ -254,6 +381,7 @@ const Home = () => {
               ]}
               cta="Start Free Trial"
               variant="primary"
+              onCta={goGetStarted}
             />
 
             <PriceCard
@@ -275,13 +403,35 @@ const Home = () => {
             />
           </div>
 
-          <h3 className="mcHomeH3">Power-Up With <span className="mcHomeAccent">Add-ons</span></h3>
+          <h3 className="mcHomeH3">
+            Power-Up With <span className="mcHomeAccent">Add-ons</span>
+          </h3>
 
           <div className="mcHomeAddons">
-            <AddonCard icon={BarChart3} price="$29/mo" title="Advanced Analytics" desc="Deep insights into verification trends & institutional metrics." />
-            <AddonCard icon={Globe} price="$49/mo" title="API Access" desc="RESTful API to integrate Memory-Chain into your existing systems." />
-            <AddonCard icon={BookOpen} price="$19/mo" title="Bulk Certification" desc="Certify up to 500 theses per batch with automated workflows." />
-            <AddonCard icon={Lock} price="$39/mo" title="Private Repository" desc="Keep theses private with restricted access and embargo periods." />
+            <AddonCard
+              icon={BarChart3}
+              price="$29/mo"
+              title="Advanced Analytics"
+              desc="Deep insights into verification trends & institutional metrics."
+            />
+            <AddonCard
+              icon={Globe}
+              price="$49/mo"
+              title="API Access"
+              desc="RESTful API to integrate Memory-Chain into your existing systems."
+            />
+            <AddonCard
+              icon={BookOpen}
+              price="$19/mo"
+              title="Bulk Certification"
+              desc="Certify up to 500 theses per batch with automated workflows."
+            />
+            <AddonCard
+              icon={Lock}
+              price="$39/mo"
+              title="Private Repository"
+              desc="Keep theses private with restricted access and embargo periods."
+            />
           </div>
         </div>
       </section>
@@ -313,6 +463,7 @@ const Home = () => {
               ]}
               cta="Request Institutional Demo"
               variant="primary"
+              onCta={goGetStarted}
             />
 
             <MissionCard
@@ -329,8 +480,23 @@ const Home = () => {
               ]}
               cta="Create Free Account"
               variant="ghost"
+              onCta={goGetStarted}
             />
           </div>
+        </div>
+      </section>
+
+      {/* ABOUT */}
+      <section id="about" className="mcHomeSection">
+        <div className="mcHomeSectionInner">
+          <div className="mcHomeKicker">ABOUT</div>
+          <h2 className="mcHomeH2">
+            About <span className="mcHomeAccent">Memory-Chain</span>
+          </h2>
+          <p className="mcHomeLead">
+            A platform built to protect academic integrity through verifiable,
+            tamper-proof certification and global discovery.
+          </p>
         </div>
       </section>
 
@@ -345,36 +511,97 @@ const Home = () => {
             Join hundreds of institutions and thousands of researchers who trust
             Memory-Chain for academic verification.
           </p>
-          <button type="button" className="btn btn-memory mcHomeFinalBtn">
+          <button
+            type="button"
+            className="btn btn-memory mcHomeFinalBtn"
+            onClick={goGetStarted}
+          >
             Start Now — It's Free <ArrowRight size={16} />
           </button>
         </div>
 
+        {/* ✅ FOOTER sin tabs/links, con logo */}
         <footer className="mcHomeFooter">
           <div className="mcHomeFooterInner">
             <div className="mcHomeFooterBrand">
-              <span className="mcHomeFooterIcon">
-                <LayoutGrid size={16} />
-              </span>
-              <span className="mcHomeFooterText">Memory-Chain</span>
+              <img
+                src={Logo}
+                alt="Memory-Chain"
+                className="mcHomeFooterLogo"
+              />
             </div>
 
-            <div className="mcHomeFooterLinks">
-              <button type="button" className="mcHomeFooterLink" onClick={() => scrollTo("features")}>
-                Features
-              </button>
-              <button type="button" className="mcHomeFooterLink" onClick={() => scrollTo("verification")}>
-                Verification
-              </button>
-              <button type="button" className="mcHomeFooterLink" onClick={() => scrollTo("about")}>
-                About
-              </button>
+            <div className="mcHomeFooterCopy">
+              © 2024 Memory-Chain. All rights reserved.
             </div>
-
-            <div className="mcHomeFooterCopy">© 2024 Memory-Chain. All rights reserved.</div>
           </div>
         </footer>
       </section>
+
+      {/* ✅ AUTH MODALS */}
+      <ModalLogin
+        modalId="modalLogin"
+        registerModalId="registerModal"
+        prefillEmail={prefillEmail}
+      />
+
+      <ModalRegister
+        modalId="registerModal"
+        loginModalId="modalLogin"
+        institutionRegisterModalId="registerInstitutionModal"
+        onRegistered={({ email }) => setPrefillEmail(email || "")}
+      />
+
+      <ModalRegisterInstitution
+        modalId="registerInstitutionModal"
+        userRegisterModalId="registerModal"
+      />
+
+      {/* ✅ VERIFY MODAL (minimal like login) */}
+      <ModalVerify modalId="modalVerify" />
+    </div>
+  );
+};
+
+const ModalVerify = ({ modalId = "modalVerify" }) => {
+  const hideModal = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const inst = window.bootstrap?.Modal?.getInstance(el);
+    if (inst) inst.hide();
+    else el.classList.remove("show");
+  };
+
+  return (
+    <div
+      className="modal fade"
+      id={modalId}
+      tabIndex={-1}
+      aria-hidden="true"
+      data-bs-backdrop="static"
+      data-bs-keyboard="false"
+      style={{ zIndex: 1100 }}
+    >
+      <div className="modal-dialog modal-dialog-centered modal-lg">
+        <div className="modal-content mcSheetModal">
+          <div className="mcPanelCard mcSheetPanel mcVerifyPanel">
+            <button
+              type="button"
+              className="mcLoginCloseBtn"
+              onClick={() => hideModal(modalId)}
+              aria-label="Close"
+              title="Close"
+            >
+              <CircleX size={22} />
+            </button>
+
+            <div className="mcPanelBody mcSheetBody mcVerifyBody mt-2">
+              <Verify />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -407,9 +634,15 @@ const PriceCard = ({
   variant = "ghost",
   badge,
   disabled = false,
+  onCta,
 }) => (
-  <div className={`mcHomePrice ${disabled ? "isDisabled" : ""} ${variant === "primary" ? "isPrimary" : ""}`}>
+  <div
+    className={`mcHomePrice ${disabled ? "isDisabled" : ""} ${
+      variant === "primary" ? "isPrimary" : ""
+    }`}
+  >
     {badge ? <div className="mcHomePriceBadge">{badge}</div> : null}
+
     <div className="mcHomePriceTop">
       <div className="mcHomePriceTitle">{title}</div>
       <div className="mcHomePriceSub">{subtitle}</div>
@@ -431,8 +664,11 @@ const PriceCard = ({
 
     <button
       type="button"
-      className={`btn ${variant === "primary" ? "btn-memory" : "btn-outline-memory"} mcHomePriceBtn`}
+      className={`btn ${
+        variant === "primary" ? "btn-memory" : "btn-outline-memory"
+      } mcHomePriceBtn`}
       disabled={disabled}
+      onClick={disabled ? undefined : onCta}
     >
       {cta}
     </button>
@@ -452,7 +688,15 @@ const AddonCard = ({ icon: Icon, price, title, desc }) => (
   </div>
 );
 
-const MissionCard = ({ icon: Icon, title, subtitle, bullets, cta, variant = "ghost" }) => (
+const MissionCard = ({
+  icon: Icon,
+  title,
+  subtitle,
+  bullets,
+  cta,
+  variant = "ghost",
+  onCta,
+}) => (
   <div className={`mcHomeMission ${variant === "primary" ? "isPrimary" : ""}`}>
     <div className="mcHomeMissionHead">
       <div className="mcHomeMissionIcon">
@@ -473,7 +717,13 @@ const MissionCard = ({ icon: Icon, title, subtitle, bullets, cta, variant = "gho
       ))}
     </ul>
 
-    <button type="button" className={`btn ${variant === "primary" ? "btn-memory" : "btn-outline-memory"} mcHomeMissionBtn`}>
+    <button
+      type="button"
+      className={`btn ${
+        variant === "primary" ? "btn-memory" : "btn-outline-memory"
+      } mcHomeMissionBtn`}
+      onClick={onCta}
+    >
       {cta}
     </button>
   </div>

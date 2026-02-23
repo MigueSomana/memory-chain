@@ -1,7 +1,7 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { BackIcon, SupportIcon } from "../../utils/icons";
-import { getAuthActor } from "../../utils/authSession";
-import { BookMarked, University,Upload } from "lucide-react";
+import { BookMarked, University,Upload, CircleArrowLeft } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const Segmented = ({ options, value, onChange }) => (
@@ -56,16 +56,11 @@ const LayoutPrivado = ({
 }) => {
   const [uncontrolledKey, setUncontrolledKey] = useState(defaultKey);
   const activeKey = controlledKey ?? uncontrolledKey;
-
+const navigate = useNavigate();
   const handleChange = (key) => {
     if (onChange) onChange(key);
     else setUncontrolledKey(key);
   };
-
-  const backHref =
-    getAuthActor() === "institution"
-      ? "/library-institution"
-      : "/library-personal";
 
   return (
     <div className="mcLayout">
@@ -88,12 +83,14 @@ const LayoutPrivado = ({
             )}
 
             {showBack && (
-              <a href={backHref} className="mcBtn mcBtnGhost">
-                <span className="mcBtnIcon" aria-hidden="true">
-                  {BackIcon}
-                </span>
-                <span>Back</span>
-              </a>
+              <button
+  type="button"
+  className="btn btn-outline-memory d-flex align-items-center gap-2"
+  onClick={() => navigate(-1)}
+>
+  <CircleArrowLeft size={18} />
+  Back
+</button>
             )}
             {showUp && (
               <NavLink

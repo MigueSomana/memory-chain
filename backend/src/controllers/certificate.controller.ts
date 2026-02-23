@@ -2,7 +2,20 @@ import { Request, Response } from "express";
 import { Thesis } from "../models/thesis.model";
 import { getCertificateOnChain } from "../services/blockchain.service";
 
-// Devuelve el certificado de una tesis combinando datos de Mongo + blockchain
+function jsonSafe<T>(value: T): any {
+  if (typeof value === "bigint") return value.toString();
+
+  if (Array.isArray(value)) return value.map(jsonSafe);
+
+  if (value && typeof value === "object") {
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(value as any)) out[k] = jsonSafe(v);
+    return out;
+  }
+
+  return value;
+}
+
 export async function getThesisCertificate(req: Request, res: Response) {
   try {
     const { id } = req.params;
@@ -14,7 +27,8 @@ export async function getThesisCertificate(req: Request, res: Response) {
       return res.status(404).json({ message: "Tesis no certificada todavía" });
     }
 
-    const cert = await getCertificateOnChain(thesis._id.toString());
+    // ✅ AHORA: el certificado se busca por fileHash
+    const cert = await getCertificateOnChain(thesis.fileHash);
 
     const explorerTx = `https://amoy.polygonscan.com/tx/${thesis.txHash}`;
 
@@ -28,7 +42,7 @@ export async function getThesisCertificate(req: Request, res: Response) {
         fileHash: thesis.fileHash,
         status: thesis.status,
       },
-      onChain: cert,
+      onChain: jsonSafe(cert),
       explorerTx,
     });
   } catch (err) {

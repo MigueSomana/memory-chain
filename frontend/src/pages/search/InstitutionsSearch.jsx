@@ -635,7 +635,7 @@ const InstitutionsSearch = () => {
                           <span className={`mcStatusDot ${tone}`} />
                           <span className="mcStatusLabel">{statusLabel}</span>
                         </div>
-                        <div className="mcYear mcInstRightTop">
+                        <div className="mcYear">
                           {i.country || "—"}
                         </div>
                       </div>

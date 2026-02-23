@@ -57,6 +57,37 @@ const getInstitutionName = (thesis) => {
   if (typeof inst === "string") return inst; // ojo: a veces es id
   return inst?.name || "";
 };
+const words = (s) =>
+  String(s || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+const compactWithInitials = (raw) => {
+  const parts = words(raw);
+  if (parts.length <= 1) return parts[0] || "";
+
+  const first = parts[0];
+  const rest = parts
+    .slice(1)
+    .map((w) => (w ? `${w[0].toUpperCase()}.` : ""))
+    .filter(Boolean)
+    .join(" ");
+
+  return `${first} ${rest}`.trim();
+};
+
+const formatAuthorCard = (a) => {
+  if (!a) return "";
+  if (typeof a === "string") {
+    // si te llega "Apellido Nombre", lo dejamos tal cual (o podrías parsear si quieres)
+    return a.trim();
+  }
+  const last = compactWithInitials(a.lastname);
+  const name = compactWithInitials(a.name);
+  const out = `${last} ${name}`.trim();
+  return out;
+};
 
 // ✅ id real de la institución para filtrar bien (string | {_id, name})
 const getInstitutionId = (inst) => {
@@ -1047,15 +1078,8 @@ const ThesisSearch = ({
                 const sUI = statusUi(t.status, isIndependent);
 
                 const authorsText = Array.isArray(t.authors)
-                  ? t.authors
-                      .map((a) =>
-                        typeof a === "string"
-                          ? a
-                          : `${a.lastname ?? ""} ${a.name ?? ""}`.trim()
-                      )
-                      .filter(Boolean)
-                      .join(", ")
-                  : "";
+  ? t.authors.map(formatAuthorCard).filter(Boolean).join(", ")
+  : "";
 
                 const degreeText = safeDegreeLabel(t.degree);
                 const citedCount = Number(t.quotes ?? 0);

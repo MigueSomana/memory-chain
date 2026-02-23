@@ -1,91 +1,230 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import axios from "axios";
+// ModalCertificate.jsx
+import React, { useRef, useState, useMemo } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import CertificateTemplate from "../../utils/certificateTemplate";
+import { useToast } from "../../utils/toast";
 import {
-  FacebookIcon,
-  TwitterIcon,
-  InstagramIcon,
-  DownloadIcon,
-  CopyIcon,
-} from "../../utils/icons";
+  Fingerprint,
+  BadgeCheck,
+  Clock3,
+  OctagonAlert,
+  CircleX,
+  Download,
+  Copy,
+  Blocks,
+  Hash,
+  CalendarDays,
+  Link2,
+  Link,
+  FileKey,
+  Database,
+  Check,
+} from "lucide-react";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const safeStr = (v) => String(v ?? "").trim();
+const normalizeStatus = (s) => safeStr(s).toUpperCase();
+
+/* ✅ MISMA FORMA que ModalViewThesis (month long, day 2-digit, year numeric) */
+const formatDateShort = (d) => {
+  if (!d) return "—";
+  try {
+    const dt = new Date(d);
+    if (Number.isNaN(dt.getTime())) return "—";
+    return dt.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "2-digit",
+    });
+  } catch {
+    return "—";
+  }
+};
+
+const StatusPill = ({ status }) => {
+  const up = normalizeStatus(status);
+
+  let label = "Pending";
+  let cls = "mcSheetStatus mcSheetStatus--pending";
+  let Icon = Clock3;
+
+  if (up === "APPROVED" || up === "CERTIFIED") {
+    label = "Certified";
+    cls = "mcSheetStatus mcSheetStatus--approved";
+    Icon = BadgeCheck;
+  } else if (up === "REJECTED") {
+    label = "Rejected";
+    cls = "mcSheetStatus mcSheetStatus--rejected";
+    Icon = OctagonAlert;
+  }
+
+  return (
+    <div className={cls}>
+      <span className="mcSheetStatusIcon">
+        <Icon size={16} />
+      </span>
+      <span className="mcSheetStatusText">{label}</span>
+    </div>
+  );
+};
+
+const trimHash = (hash, start = 8, end = 6) => {
+  if (!hash) return "—";
+  if (hash.length <= start + end) return hash;
+  return `${hash.slice(0, start)}…${hash.slice(-end)}`;
+};
 
 function ModalCertificate({ thesis, certificate }) {
-  const txHash = certificate?.explorerTx?.split("/tx/")[1] || "";
+  const { showToast } = useToast();
 
-  const [qrDataUrl, setQrDataUrl] = useState("");
+  /* ================= DERIVED ================= */
+
+  const txHash = useMemo(() => {
+    const raw =
+      certificate?.mongo?.txHash ||
+      certificate?.txHash ||
+      certificate?.explorerTx ||
+      "";
+    const s = safeStr(raw);
+    if (!s) return "";
+    const match = s.includes("/tx/") ? s.split("/tx/")[1] : s;
+    return safeStr(match);
+  }, [certificate]);
+
+  const blockNumber = useMemo(() => {
+    const v =
+      certificate?.mongo?.blockNumber ??
+      certificate?.blockNumber ??
+      certificate?.mongo?.block ??
+      certificate?.block ??
+      "—";
+    return v === null || v === undefined || v === "" ? "—" : v;
+  }, [certificate]);
+
+  const chainId = useMemo(() => {
+    const v =
+      certificate?.mongo?.chainId ??
+      certificate?.chainId ??
+      certificate?.mongo?.networkId ??
+      certificate?.networkId ??
+      "—";
+    return v === null || v === undefined || v === "" ? "—" : v;
+  }, [certificate]);
+
+  const fileHash = useMemo(() => {
+    return (
+      certificate?.mongo?.fileHash ||
+      certificate?.fileHash ||
+      thesis?.fileHash ||
+      thesis?.mongo?.fileHash ||
+      ""
+    );
+  }, [certificate, thesis]);
+
+  const ipfsCid = useMemo(() => {
+    return (
+      certificate?.mongo?.ipfsCid ||
+      certificate?.ipfsCid ||
+      thesis?.ipfsCid ||
+      thesis?.mongo?.ipfsCid ||
+      ""
+    );
+  }, [certificate, thesis]);
+
+  /* ✅ FECHA: usar updatedAt + fallbacks */
+  const certifiedAtRaw = useMemo(() => {
+    return (
+      certificate?.mongo?.updatedAt ||
+      certificate?.updatedAt ||
+      certificate?.mongo?.certifiedAt ||
+      certificate?.certifiedAt ||
+      certificate?.mongo?.issuedAt ||
+      certificate?.issuedAt ||
+      certificate?.mongo?.createdAt ||
+      certificate?.createdAt ||
+      thesis?.updatedAt ||
+      thesis?.createdAt ||
+      null
+    );
+  }, [certificate, thesis]);
+
+  const certifiedAt = useMemo(() => formatDateShort(certifiedAtRaw), [certifiedAtRaw]);
+
+  const certStatus = useMemo(() => {
+    return certificate?.status || thesis?.status || "PENDING";
+  }, [certificate, thesis]);
+
+  /* ================= STATE ================= */
+  const [copiedField, setCopiedField] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-
-  // ✅ Institution fetched
-  const [institution, setInstitution] = useState(null);
-  const [instLoading, setInstLoading] = useState(false);
-  const [instError, setInstError] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
 
   const hiddenWrapRef = useRef(null);
 
-  const institutionId = useMemo(() => {
-    const inst = thesis?.institution;
-    // puede venir como objeto con _id o como string
-    return typeof inst === "string" ? inst : inst?._id || "";
-  }, [thesis]);
+  /* ================= COPY ================= */
+  const handleCopy = async (value, key, label = "Copied") => {
+    if (!value) {
+      showToast({
+        message: "Nothing to copy.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 1600,
+      });
+      return;
+    }
 
-  // ✅ Fetch institution by ID
-  useEffect(() => {
-    const fetchInstitution = async () => {
-      if (!institutionId) {
-        setInstitution(null);
-        return;
-      }
-
-      try {
-        setInstLoading(true);
-        setInstError("");
-
-        // Ajusta el endpoint a tu backend:
-        // Ejemplo: /api/institutions/:id
-        const res = await axios.get(`${API_BASE_URL}/api/institutions/${institutionId}`);
-
-        setInstitution(res.data || null);
-      } catch (err) {
-        console.error("Error fetching institution:", err);
-        setInstitution(null);
-        setInstError("No se pudo cargar la institución.");
-      } finally {
-        setInstLoading(false);
-      }
-    };
-
-    fetchInstitution();
-  }, [institutionId]);
-
-  const renderTrimmedHash = (hash, start = 10, end = 10) => {
-    if (!hash) return "";
-    if (hash.length <= start + end) return hash;
-    return `${hash.slice(0, start)}…${hash.slice(-end)}`;
-  };
-
-  const handleCopyTx = async () => {
-    if (!txHash) return;
     try {
-      await navigator.clipboard.writeText(txHash);
-    } catch (err) {
-      console.error("Failed to copy:", err);
+      await navigator.clipboard.writeText(String(value));
+      setCopiedField(key);
+      window.setTimeout(() => setCopiedField(null), 900);
+
+      showToast({
+        message: `${label} ✅`,
+        type: "success",
+        icon: Check,
+        duration: 1400,
+      });
+    } catch (e) {
+      console.warn("Copy failed", e);
+      showToast({
+        message: "Copy failed ❌",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 1800,
+      });
     }
   };
 
-  const handleFacebook = () => console.log("Facebook share", certificate);
-  const handleTwitter = () => console.log("Twitter share", certificate);
-  const handleInstagram = () => console.log("Instagram share", certificate);
-
+  /* ================= DOWNLOAD ================= */
   const handleDownloadCertificate = async () => {
-    if (!thesis || !certificate) return;
+    // ✅ toast inmediato al click
+    showToast({
+      message: "La descarga del certificado está iniciando…",
+      type: "success",
+      icon: Download,
+      duration: 1600,
+    });
+
+    if (!thesis || !certificate) {
+      showToast({
+        message: "Certificate data not available.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2000,
+      });
+      return;
+    }
 
     try {
       setIsGenerating(true);
+
+      showToast({
+        message: "Generating certificate…",
+        type: "success",
+        icon: Clock3,
+        duration: 1400,
+      });
 
       const APP_URL = import.meta.env.VITE_APP_URL || window.location.origin;
       const verificationUrl = `${APP_URL}/verify/${thesis._id}`;
@@ -97,7 +236,7 @@ function ModalCertificate({ thesis, certificate }) {
       });
       setQrDataUrl(qr);
 
-      // espera a que React pinte el QR dentro del template oculto
+      // deja que el template se renderice con el QR
       await new Promise((r) => setTimeout(r, 80));
 
       const node = hiddenWrapRef.current?.querySelector("#mc-certificate");
@@ -118,24 +257,26 @@ function ModalCertificate({ thesis, certificate }) {
       });
 
       const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-
       const imgW = pageW;
       const imgH = (canvas.height * imgW) / canvas.width;
-      const y = (pageH - imgH) / 2;
 
-      pdf.addImage(imgData, "PNG", 0, Math.max(0, y), imgW, imgH);
+      pdf.addImage(imgData, "PNG", 0, 0, imgW, imgH);
+      pdf.save("MemoryChain_Certificate.pdf");
 
-      const safeTitle = (thesis?.title || "certificate")
-        .replace(/[^\w\s-]/g, "")
-        .trim()
-        .slice(0, 60)
-        .replace(/\s+/g, "_");
-
-      pdf.save(`MemoryChain_Certificate_${safeTitle}.pdf`);
+      showToast({
+        message: "Certificate downloaded ✅",
+        type: "success",
+        icon: BadgeCheck,
+        duration: 2200,
+      });
     } catch (err) {
       console.error(err);
-      alert("No se pudo generar el certificado.");
+      showToast({
+        message: "Could not generate certificate ❌",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2400,
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -143,120 +284,154 @@ function ModalCertificate({ thesis, certificate }) {
 
   return (
     <>
-      <div
-        className="modal fade modal"
-        id="modalCertificate"
-        tabIndex="-1"
-        aria-labelledby="modalCertificateLabel"
-        aria-hidden="true"
-      >
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content bg-mc-dark text-white">
-            <div className="modal-body container mb-4">
-              <div className="row">
-                <div className="button-close-modal-fix">
+      <div className="modal fade" id="modalCertificate" tabIndex="-1">
+        <div className="modal-dialog modal-xs modal-dialog-centered">
+          <div className="modal-content mcSheetModal">
+            <div className="mcPanelCard mcSheetPanel">
+              {/* HEADER */}
+              <div className="mcPanelHead">
+                <div className="mcPanelHeadLeft">
+                  <div className="mcPanelIcon">
+                    <Fingerprint />
+                  </div>
+                  <h5 className="m-0">Certificate details</h5>
+                </div>
+
+                <div className="mcPanelHeadRight">
+                  <StatusPill status={certStatus} />
+                </div>
+              </div>
+
+              {/* BODY */}
+              <div className="mcPanelBody mcSheetBody">
+                <div className="mcSheetSideHead">
+                  <Hash size={16} />
+                  <span>BLOCKCHAIN DATA</span>
+                </div>
+
+                <div className="mcSheetKvGrid">
+                  {/* ROW 1 */}
+                  <div className="mcSheetKv">
+                    <div className="mcSheetKvLabel">
+                      <Hash size={14} /> Chain ID
+                    </div>
+                    <div className="mcSheetKvValue">{chainId}</div>
+                  </div>
+
+                  <div className="mcSheetKv mcSheetKv--right">
+                    <div className="mcSheetKvLabel">
+                      <Blocks size={14} /> Block
+                    </div>
+                    <div className="mcSheetKvValue">{blockNumber}</div>
+                  </div>
+
+                  {/* ROW 2 */}
+                  <div className="mcSheetKv">
+                    <div className="mcSheetKvLabel">
+                      <Link2 size={14} /> Transaction
+                    </div>
+
+                    <div className="mcSheetKvValueId mcUserIdRow">
+                      <span title={txHash}>{trimHash(txHash)}</span>
+
+                      <button
+                        type="button"
+                        className={`mcHashCopyBtn ${copiedField === "tx" ? "is-copied" : ""}`}
+                        onClick={() => handleCopy(txHash, "tx", "Transaction hash copied")}
+                        title="Copy transaction hash"
+                        aria-label="Copy transaction hash"
+                        disabled={!txHash}
+                      >
+                        {copiedField === "tx" ? <Check size={12} /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mcSheetKv mcSheetKv--right">
+                    <div className="mcSheetKvLabel">
+                      <CalendarDays size={14} /> Certified
+                    </div>
+                    <div className="mcSheetKvValue">{certifiedAt}</div>
+                  </div>
+
+                  {/* ROW 3 */}
+                  <div className="mcSheetKv">
+                    <div className="mcSheetKvLabel">
+                      <FileKey size={14} /> File Hash
+                    </div>
+
+                    <div className="mcSheetKvValueId mcUserIdRow">
+                      <span title={fileHash}>{trimHash(fileHash)}</span>
+
+                      <button
+                        type="button"
+                        className={`mcHashCopyBtn ${copiedField === "file" ? "is-copied" : ""}`}
+                        onClick={() => handleCopy(fileHash, "file", "File hash copied")}
+                        title="Copy file hash"
+                        aria-label="Copy file hash"
+                        disabled={!fileHash}
+                      >
+                        {copiedField === "file" ? <Check size={12} /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mcSheetKv mcSheetKv--right">
+                    <div className="mcSheetKvLabel">
+                      <Database size={14} /> IPFS CID
+                    </div>
+
+                    <div className="mcSheetKvValueId mcUserIdRow">
+                      <button
+                        type="button"
+                        className={`mcHashCopyBtn ${copiedField === "ipfs" ? "is-copied" : ""}`}
+                        onClick={() => handleCopy(ipfsCid, "ipfs", "IPFS CID copied")}
+                        title="Copy IPFS CID"
+                        aria-label="Copy IPFS CID"
+                        disabled={!ipfsCid}
+                      >
+                        {copiedField === "ipfs" ? <Check size={12} /> : <Copy size={12} />}
+                      </button>
+                      <span title={ipfsCid}>{trimHash(ipfsCid)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* FOOTER */}
+              <div className="mcPanelHead mcSheetFooterHead">
+                <div className="mcPanelHeadRight d-flex gap-2 ms-auto">
                   <button
                     type="button"
-                    className="btn-close"
+                    className="btn btn-outline-memory d-flex align-items-center gap-2"
                     data-bs-dismiss="modal"
-                    aria-label="Close"
                     disabled={isGenerating}
-                  ></button>
-                </div>
-                <div className="col-12 d-flex flex-column align-items-center justify-content-center py-1">
-                  <h3 id="modalCertificateLabel" className="fw-bold mb-2">
-                    Share
-                  </h3>
+                  >
+                    <CircleX size={18} />
+                    Close
+                  </button>
 
-                  {/* opcional: warning si la institución no cargó */}
-                  {instError ? (
-                    <div className="alert alert-warning py-2 w-100" role="alert">
-                      {instError}
-                    </div>
-                  ) : null}
+                  <a
+                    type="button"
+                    className="btn btn-polygon d-flex align-items-center gap-2"
+                    href={`https://amoy.polygonscan.com/tx/${txHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Link size={18} />
+                    Transaction
+                  </a>
 
-                  <p className="d-flex align-items-center gap-2 flex-wrap mb-4">
-                    <strong>SmartContract ID:</strong>
-
-                    <a
-                      className="t-white"
-                      href={certificate?.explorerTx}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={txHash}
-                    >
-                      {renderTrimmedHash(txHash)}
-                    </a>
-
-                    <button
-                      type="button"
-                      className="btn btn-link p-0 d-flex align-items-center"
-                      onClick={handleCopyTx}
-                      title="Copy transaction hash"
-                      disabled={isGenerating}
-                    >
-                      {CopyIcon}
-                    </button>
-                  </p>
-
-                  <div className="d-flex align-items-center justify-content-center gap-3 mb-4">
-                    <button
-                      type="button"
-                      className="btn btn-memory d-flex align-items-center justify-content-center"
-                      style={{ width: 78, height: 64, borderRadius: 16 }}
-                      onClick={handleFacebook}
-                      disabled={isGenerating}
-                    >
-                      {FacebookIcon}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-memory d-flex align-items-center justify-content-center"
-                      style={{ width: 78, height: 64, borderRadius: 16 }}
-                      onClick={handleTwitter}
-                      disabled={isGenerating}
-                    >
-                      {TwitterIcon}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-memory d-flex align-items-center justify-content-center"
-                      style={{ width: 78, height: 64, borderRadius: 16 }}
-                      onClick={handleInstagram}
-                      disabled={isGenerating}
-                    >
-                      {InstagramIcon}
-                    </button>
-                  </div>
-
-                  <div className="d-flex align-items-center justify-content-center gap-3">
-                    <button
-                      type="button"
-                      className="btn btn-memory d-flex align-items-center justify-content-center"
-                      style={{ width: 72, height: 44, borderRadius: 10 }}
-                      onClick={handleDownloadCertificate}
-                      disabled={!certificate || isGenerating || instLoading}
-                      title={
-                        isGenerating
-                          ? "Generating..."
-                          : instLoading
-                          ? "Loading institution..."
-                          : "Download certificate"
-                      }
-                    >
-                      {DownloadIcon}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      data-bs-dismiss="modal"
-                      style={{ height: 44, borderRadius: 10, paddingInline: 18 }}
-                      disabled={isGenerating}
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-memory d-flex align-items-center gap-2"
+                    onClick={handleDownloadCertificate}
+                    disabled={isGenerating}
+                    title={isGenerating ? "Generating..." : "Download certificate"}
+                  >
+                    <Download size={18} />
+                    Download
+                  </button>
                 </div>
               </div>
             </div>
@@ -264,7 +439,7 @@ function ModalCertificate({ thesis, certificate }) {
         </div>
       </div>
 
-      {/* Template oculto para generar PDF */}
+      {/* TEMPLATE OCULTO */}
       <div
         ref={hiddenWrapRef}
         style={{
@@ -276,12 +451,7 @@ function ModalCertificate({ thesis, certificate }) {
           pointerEvents: "none",
         }}
       >
-        <CertificateTemplate
-          thesis={thesis}
-          certificate={certificate}
-          qrDataUrl={qrDataUrl}
-          institution={institution} // ✅ aquí
-        />
+        <CertificateTemplate thesis={thesis} certificate={certificate} qrDataUrl={qrDataUrl} />
       </div>
     </>
   );

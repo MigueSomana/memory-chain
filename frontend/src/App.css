@@ -353,7 +353,6 @@ body {
   opacity: 1;
   background: var(--mc-red);
   transform: scale(1);
-  
 }
 
 /* ===================== RESPONSIVE SIDEBAR (MOBILE = COLLAPSED) ===================== */
@@ -1535,7 +1534,7 @@ body {
   opacity: 1;
   transform: none !important;
 }
-.mcStatusChipCaret{
+.mcStatusChipCaret {
   gap: 0;
 }
 .mcStatusChip--approved {
@@ -1937,6 +1936,10 @@ body {
   resize: vertical;
   min-height: 160px;
 }
+.mcWizardTextareaReg {
+  resize: vertical;
+  min-height: 100px;
+}
 
 .mcWizardInput::placeholder,
 .mcWizardTextarea::placeholder {
@@ -2185,7 +2188,7 @@ body {
 /* ===================== BUTTONS (Memory theme) ===================== */
 .btn.btn-outline-memory {
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.02);
+  background: #1c1c1c;
   color: rgba(255, 255, 255, 0.75);
   border-radius: 12px;
   padding: 10px 12px;
@@ -2193,9 +2196,9 @@ body {
 }
 
 .btn.btn-outline-memory:hover {
-  background: rgba(32, 201, 151, 0.16);
-  border-color: rgba(32, 201, 151, 0.3);
-  color: var(--mc-green);
+  background: #1c1c1c;
+  border-color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .btn.btn-memory {
@@ -2483,7 +2486,9 @@ body {
   font-weight: 650;
   cursor: pointer;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
-  transition: transform 160ms var(--mc-ease), border-color 160ms var(--mc-ease);
+  transition:
+    transform 160ms var(--mc-ease),
+    border-color 160ms var(--mc-ease);
   max-width: 560px;
 }
 .mcIdPill:hover {
@@ -2541,7 +2546,9 @@ body {
   border-radius: 22px;
   overflow: hidden;
   border: 2px solid rgba(32, 201, 151, 0.65);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35) inset, 0 16px 40px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35) inset,
+    0 16px 40px rgba(0, 0, 0, 0.45);
   background: rgba(0, 0, 0, 0.25);
 }
 
@@ -2587,7 +2594,9 @@ body {
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  transition: transform 160ms var(--mc-ease), border-color 160ms var(--mc-ease);
+  transition:
+    transform 160ms var(--mc-ease),
+    border-color 160ms var(--mc-ease);
 }
 .mcAvatarCamTL:hover {
   transform: scale(1.06);
@@ -2696,7 +2705,9 @@ body {
   background: rgba(32, 201, 151, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--mc-green);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25) inset, 0 12px 26px rgba(0, 0, 0, 0.35),
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.25) inset,
+    0 12px 26px rgba(0, 0, 0, 0.35),
     0 0 18px rgba(32, 201, 151, 0.12);
   flex: 0 0 auto;
 }
@@ -2919,10 +2930,10 @@ body {
     flex-wrap: wrap;
     display: flex;
   }
-  
-.mcProfileName {
-  width: 100%;
-}
+
+  .mcProfileName {
+    width: 100%;
+  }
 
   .mcProfileHeroInner {
     grid-template-columns: 1fr;
@@ -3335,7 +3346,7 @@ textarea.form-control.mcProfileTextarea {
     padding-left: 12px;
     padding-right: 12px;
   }
-}/* Add button: icon + text perfectly aligned */
+} /* Add button: icon + text perfectly aligned */
 .btn.btn-outline-memory.mcAddBtn {
   display: inline-flex !important;
   flex-direction: row !important;
@@ -3371,7 +3382,7 @@ textarea.form-control.mcProfileTextarea {
   }
 }
 
-.mcDashWrap{
+.mcDashWrap {
   max-width: 1280px;
   margin: 0 auto;
   padding: 16px 18px 24px;
@@ -3379,121 +3390,149 @@ textarea.form-control.mcProfileTextarea {
 }
 
 /* Banner */
-.mcDashBanner{
-  border-radius: 14px;
-  font-weight: 750;
+.mcDashBanner {
+  border-radius: 14px !important;
+  font-weight: 500;
 }
-.mcDashBanner--ok{ background: rgba(32,201,151,.14) !important; color: var(--mc-green) !important; }
-.mcDashBanner--bad{ background: rgba(255,77,77,.14) !important; color: var(--mc-red) !important; }
+.mcDashBanner--ok {
+  background: rgba(32, 201, 151, 0.14) !important;
+  color: var(--mc-green) !important;
+}
+.mcDashBanner--bad {
+  background: rgba(255, 77, 77, 0.14) !important;
+  color: var(--mc-red) !important;
+}
 
 /* ===== Tiles (cards top) ===== */
-.mcTilesGrid{
-  display:grid;
+.mcTilesGrid {
+  display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
-.mcTilesGrid--second{ margin-top: 14px; }
+.mcTilesGrid--second {
+  margin-top: 14px;
+}
 
-@media (max-width: 1199.98px){
-  .mcTilesGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 1199.98px) {
+  .mcTilesGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ✅ Mobile: 2 por línea (en vez de 1) */
-@media (max-width: 575.98px){
-  .mcTilesGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 575.98px) {
+  .mcTilesGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
-@media (max-width: 360px){
-  .mcTilesGrid{ grid-template-columns: 1fr; }
+@media (max-width: 360px) {
+  .mcTilesGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Tiles */
-.mcTile{
-  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+.mcTile {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.02)
+  );
   border: 1px solid var(--mc-border);
   border-radius: 18px;
   padding: 20px 20px 16px;
   min-height: 122px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.45);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.45);
   position: relative;
   overflow: hidden;
 }
 
-.mcTileTop{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
+.mcTileTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 10px;
 }
 
-.mcTileTitle{
+.mcTileTitle {
   font-weight: 800;
-  color: rgba(255,255,255,.84);
-  font-size: .95rem;
-  letter-spacing: .2px;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 0.95rem;
+  letter-spacing: 0.2px;
 }
 
-.mcTileIcon{
+.mcTileIcon {
   width: 34px;
   height: 34px;
   border-radius: 12px;
-  display:grid;
-  place-items:center;
-  background: rgba(32,201,151,.10);
-  border: 1px solid rgba(255,255,255,.10);
+  display: grid;
+  place-items: center;
+  background: rgba(32, 201, 151, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--mc-green);
-  box-shadow: 0 12px 28px rgba(0,0,0,.40), 0 0 18px rgba(32,201,151,.10);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.4),
+    0 0 18px rgba(32, 201, 151, 0.1);
 }
 
-.mcTileValue{
+.mcTileValue {
   margin-top: 5px;
   font-size: 2.2rem;
   font-weight: 800;
-  letter-spacing: -.5px;
+  letter-spacing: -0.5px;
   color: #fff;
   line-height: 1;
 }
 
 /* ===== Dashboard grid (30/70 desktop) ===== */
-.mcDashGrid2{
-  display:grid;
-  grid-template-columns: minmax(0,.30fr) minmax(0,.70fr); /* ✅ 30/70 */
+.mcDashGrid2 {
+  display: grid;
+  grid-template-columns: minmax(0, 0.3fr) minmax(0, 0.7fr); /* ✅ 30/70 */
   gap: 14px;
   margin-top: 14px;
 }
 
 /* Mobile: se ocultan las tablas, y solo quedan los charts */
-@media (max-width: 991.98px){
-  .mcDashGrid2{ grid-template-columns: 1fr; }
-  .mcDashCard--table{ display:none !important; } /* ✅ no tables */
+@media (max-width: 991.98px) {
+  .mcDashGrid2 {
+    grid-template-columns: 1fr;
+  }
+  .mcDashCard--table {
+    display: none !important;
+  } /* ✅ no tables */
 }
 
 /* Cards */
-.mcDashCard{
+.mcDashCard {
   border-radius: 18px;
   border: 1px solid var(--mc-border);
-  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
-  box-shadow: 0 22px 80px rgba(0,0,0,.55);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.015)
+  );
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
   overflow: hidden;
 }
 
-.mcDashHead{
+.mcDashHead {
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
-  background: rgba(255,255,255,.02);
-  display:flex;
-  align-items:center;              /* ✅ alineación vertical */
-  justify-content:space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center; /* ✅ alineación vertical */
+  justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.mcDashHeadLeft{
+.mcDashHeadLeft {
   min-width: 0;
 }
 
-.mcDashHeadTitle{
-  display:flex;
-  align-items:center;
+.mcDashHeadTitle {
+  display: flex;
+  align-items: center;
   gap: 10px;
   font-weight: 900;
   color: #fff;
@@ -3501,154 +3540,154 @@ textarea.form-control.mcProfileTextarea {
   line-height: 1.1;
 }
 
-.mcDashHeadText{
+.mcDashHeadText {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 520px;
 }
 
-.mcDashHeadIcon{
+.mcDashHeadIcon {
   width: 34px;
   height: 34px;
   border-radius: 12px;
-  display:grid;
-  place-items:center;
-  background: rgba(32,201,151,.10);
-  border: 1px solid rgba(255,255,255,.10);
+  display: grid;
+  place-items: center;
+  background: rgba(32, 201, 151, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--mc-green);
 }
 
-.mcDashHeadRight{
-  display:flex;
-  align-items:center;              /* ✅ alineado con título */
+.mcDashHeadRight {
+  display: flex;
+  align-items: center; /* ✅ alineado con título */
   gap: 10px;
 }
 
-.mcDashBody{
+.mcDashBody {
   padding: 16px;
 }
 
 /* ===== Dropdown (orderby/filter) — minimal + compatible mcDropdownMenu ===== */
-.mcDashDd{
+.mcDashDd {
   position: relative;
 }
 
-.mcDashDdBtn{
+.mcDashDdBtn {
   width: 100%;
   min-height: 34px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(0,0,0,.18);
-  color: rgba(255,255,255,.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.18);
+  color: rgba(255, 255, 255, 0.86);
   padding: 7px 10px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
   box-shadow: none !important;
 }
 
-.mcDashDdBtn:hover{
-  background: rgba(255,255,255,.04);
-  border-color: rgba(255,255,255,.16);
+.mcDashDdBtn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
-.mcDashDdBtn:focus{
-  box-shadow: 0 0 0 .18rem rgba(32,201,151,.15) !important;
-  border-color: rgba(32,201,151,.35) !important;
+.mcDashDdBtn:focus {
+  box-shadow: 0 0 0 0.18rem rgba(32, 201, 151, 0.15) !important;
+  border-color: rgba(32, 201, 151, 0.35) !important;
 }
 
-.mcDashDdText{
+.mcDashDdText {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 800;
-  letter-spacing: .1px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
 }
 
 /* ===== Pager minimalista ===== */
-.mcPagerMini{
-  display:flex;
-  align-items:center;
+.mcPagerMini {
+  display: flex;
+  align-items: center;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(0,0,0,.18);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.18);
 }
 
-.mcPagerMiniBtn{
+.mcPagerMiniBtn {
   width: 38px;
   height: 34px;
-  display:grid;
-  place-items:center;
+  display: grid;
+  place-items: center;
   border: 0;
   background: transparent;
-  color: rgba(255,255,255,.88);
+  color: rgba(255, 255, 255, 0.88);
   font-weight: 900;
   line-height: 1;
 }
 
-.mcPagerMiniBtn + .mcPagerMiniBtn{
-  border-left: 1px solid rgba(255,255,255,.12);
+.mcPagerMiniBtn + .mcPagerMiniBtn {
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.mcPagerMiniBtn:hover{
-  background: rgba(255,255,255,.05);
+.mcPagerMiniBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.mcPagerMiniBtn:disabled{
-  opacity: .45;
+.mcPagerMiniBtn:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 /* ===== Donut (stack + legend below) ===== */
-.mcDonutStack{
-  display:flex;
+.mcDonutStack {
+  display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.mcDonutChartSolo{
+.mcDonutChartSolo {
   width: 100%;
 }
 
-.mcEmpty{
+.mcEmpty {
   height: 280px;
-  display:grid;
-  place-items:center;
+  display: grid;
+  place-items: center;
   color: var(--mc-muted);
   font-weight: 650;
 }
 
 /* Legend below */
-.mcLegendBox{
-  border-top: 1px solid rgba(255,255,255,.08);
+.mcLegendBox {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding-top: 12px;
 }
 
-.mcLegendList{
-  display:grid;
+.mcLegendList {
+  display: grid;
   gap: 10px;
 }
 
-.mcLegendRow2{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+.mcLegendRow2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
 }
 
-.mcLegendLeft2{
-  display:flex;
-  align-items:center;
+.mcLegendLeft2 {
+  display: flex;
+  align-items: center;
   gap: 10px;
   min-width: 0;
 }
 
-.mcLegendName{
-  color: rgba(255,255,255,.82);
+.mcLegendName {
+  color: rgba(255, 255, 255, 0.82);
   font-weight: 750;
   white-space: nowrap;
   overflow: hidden;
@@ -3656,59 +3695,59 @@ textarea.form-control.mcProfileTextarea {
   max-width: 320px;
 }
 
-.mcLegendRight2{
-  color: rgba(255,255,255,.92);
+.mcLegendRight2 {
+  color: rgba(255, 255, 255, 0.92);
   font-weight: 900;
 }
 
-.mcLegendPct{
-  color: rgba(255,255,255,.55);
+.mcLegendPct {
+  color: rgba(255, 255, 255, 0.55);
   font-weight: 800;
   margin-left: 6px;
 }
 
-.mcDot{
+.mcDot {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  display:inline-block;
-  box-shadow: 0 0 0 6px rgba(255,255,255,.06);
+  display: inline-block;
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.06);
 }
 
 /* ===== Table frame ===== */
-.mcTableFrame{
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(0,0,0,.18);
+.mcTableFrame {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.18);
   border-radius: 14px;
   overflow: auto;
   max-height: 410px;
 }
 
 /* Bootstrap table overrides */
-.mcDashTable{
+.mcDashTable {
   margin: 0 !important;
-  color: rgba(255,255,255,.82) !important;
+  color: rgba(255, 255, 255, 0.82) !important;
   --bs-table-bg: transparent !important;
-  --bs-table-color: rgba(255,255,255,.82) !important;
-  --bs-table-striped-bg: rgba(255,255,255,.03) !important;
-  --bs-table-hover-bg: rgba(255,255,255,.04) !important;
+  --bs-table-color: rgba(255, 255, 255, 0.82) !important;
+  --bs-table-striped-bg: rgba(255, 255, 255, 0.03) !important;
+  --bs-table-hover-bg: rgba(255, 255, 255, 0.04) !important;
 }
 
-.mcDashTable thead th{
+.mcDashTable thead th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: rgba(0,0,0,.35) !important;
-  color: rgba(255,255,255,.55) !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
   font-weight: 800;
-  border-bottom: 1px solid rgba(255,255,255,.10) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
-.mcDashTable tbody td{
-  border-top: 1px solid rgba(255,255,255,.07) !important;
+.mcDashTable tbody td {
+  border-top: 1px solid rgba(255, 255, 255, 0.07) !important;
 }
 
-.mcTitleCell{
+.mcTitleCell {
   max-width: 520px;
   white-space: nowrap;
   overflow: hidden;
@@ -3717,113 +3756,113 @@ textarea.form-control.mcProfileTextarea {
   color: #fff;
 }
 
-.mcSubCell{
+.mcSubCell {
   margin-top: 4px;
   font-size: 12px;
-  color: rgba(255,255,255,.55);
+  color: rgba(255, 255, 255, 0.55);
   font-weight: 650;
 }
 
-.mcNumCell{
+.mcNumCell {
   font-weight: 900;
   color: #fff;
 }
 
-.mcMuted{
-  color: rgba(255,255,255,.55) !important;
+.mcMuted {
+  color: rgba(255, 255, 255, 0.55) !important;
 }
 
-.mcFoot{
+.mcFoot {
   margin-top: 10px;
-  color: rgba(255,255,255,.55);
+  color: rgba(255, 255, 255, 0.55);
   font-weight: 650;
   font-size: 12px;
 }
-.mcFoot--split{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+.mcFoot--split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 /* Status pills */
-.mcPill{
+.mcPill {
   padding: 6px 10px;
   border-radius: 999px;
   font-weight: 600;
-  font-size: .82rem;
+  font-size: 0.82rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
-.mcPill--green{
-  border-color: rgba(32,201,151,.25);
-  background: rgba(32,201,151,.12);
+.mcPill--green {
+  border-color: rgba(32, 201, 151, 0.25);
+  background: rgba(32, 201, 151, 0.12);
   color: var(--mc-green);
 }
-.mcPill--yellow{
-  border-color: rgba(245,197,66,.22);
-  background: rgba(245,197,66,.10);
+.mcPill--yellow {
+  border-color: rgba(245, 197, 66, 0.22);
+  background: rgba(245, 197, 66, 0.1);
   color: var(--mc-yellow);
 }
-.mcPill--red{
-  border-color: rgba(255,77,77,.22);
-  background: rgba(255,77,77,.10);
+.mcPill--red {
+  border-color: rgba(255, 77, 77, 0.22);
+  background: rgba(255, 77, 77, 0.1);
   color: var(--mc-red);
 }
-.mcPills{
-  display:flex;
+.mcPills {
+  display: flex;
   justify-content: space-between;
   gap: 6px;
 }
-.pd-fix{
+.pd-fix {
   padding: 0 !important;
 }
-.md-fix{
+.md-fix {
   margin: 2px !important;
 }
 /* ===== Table header improvement ===== */
-.mcDashTable thead th{
-  padding: 12px 14px !important;                 /* más aire */
-  background: rgba(255,255,255,.02) !important;  /* leve contraste */
-  color: rgba(255,255,255,.60) !important;
+.mcDashTable thead th {
+  padding: 12px 14px !important; /* más aire */
+  background: rgba(255, 255, 255, 0.02) !important; /* leve contraste */
+  color: rgba(255, 255, 255, 0.6) !important;
   font-weight: 800;
-  letter-spacing: .03em;
-  border-bottom: 1px solid rgba(255,255,255,.28) !important; /* línea suave */
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.28) !important; /* línea suave */
 }
 
 /* línea divisoria entre header y contenido */
-.mcDashTable thead{
-  border-bottom: 1px solid rgba(255,255,255,.10) !important;
+.mcDashTable thead {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 /* ===== Rows separation softer ===== */
-.mcDashTable tbody td{
+.mcDashTable tbody td {
   padding: 12px 14px !important;
-  border-top: 1px solid rgba(255,255,255,.28) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.28) !important;
 }
 
 /* opcional → hover elegante tipo explorer */
-.mcDashTable tbody tr:hover td{
-  background: rgba(255,255,255,.025);
+.mcDashTable tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.025);
 }
 /* ===== FIX: líneas blancas de Bootstrap dentro de tables ===== */
 
 /* Bootstrap pinta border-bottom en todas las celdas */
-.mcDashTable > :not(caption) > * > *{
-  border-bottom-color: rgba(255,255,255,.28) !important;
+.mcDashTable > :not(caption) > * > * {
+  border-bottom-color: rgba(255, 255, 255, 0.28) !important;
 }
 
 /* Asegura el color de borde general del table */
-.mcDashTable{
-  --bs-table-border-color: rgba(255,255,255,.28) !important;
-  border-color: rgba(255,255,255,.28) !important;
+.mcDashTable {
+  --bs-table-border-color: rgba(255, 255, 255, 0.28) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
 }
 
 /* Por si alguna regla queda colada en tr/td */
-.mcDashTable tbody tr{
-  border-color: rgba(255,255,255,.28) !important;
+.mcDashTable tbody tr {
+  border-color: rgba(255, 255, 255, 0.28) !important;
 }
-.mcDashTable tbody td{
-  border-top-color: rgba(255,255,255,.28) !important;
-  border-bottom-color: rgba(255,255,255,.28) !important;
+.mcDashTable tbody td {
+  border-top-color: rgba(255, 255, 255, 0.28) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.28) !important;
 }
 
 /* modal-content transparente: quien pinta es mcPanelCard */
@@ -3900,7 +3939,7 @@ textarea.form-control.mcProfileTextarea {
 /* divisor vertical */
 .mcSheetVSplit {
   width: 1px;
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
   align-self: stretch;
   border-radius: 1px;
 }
@@ -3920,7 +3959,7 @@ textarea.form-control.mcProfileTextarea {
 /* dividers del lado izquierdo (como la imagen) */
 .mcSheetDivider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
   margin: 14px 0;
 }
 
@@ -3985,15 +4024,15 @@ textarea.form-control.mcProfileTextarea {
 .mcSheetMetaCard {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 10px 12px;
 }
 .mcSheetMetaTop {
-  color: rgba(255, 255, 255, 0.60);
+  color: rgba(255, 255, 255, 0.6);
   font-weight: 600;
   font-size: 12px;
   display: flex;
-  align-items: center; 
+  align-items: center;
   gap: 4px;
 }
 .mcSheetMetaVal {
@@ -4012,7 +4051,7 @@ textarea.form-control.mcProfileTextarea {
 /* separadores internos del lado derecho */
 .mcSheetSideDivider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Institution top */
@@ -4028,7 +4067,7 @@ textarea.form-control.mcProfileTextarea {
   border-radius: 14px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4047,7 +4086,7 @@ textarea.form-control.mcProfileTextarea {
   border-radius: 14px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4089,7 +4128,7 @@ textarea.form-control.mcProfileTextarea {
   gap: 10px;
 }
 .mcSheetKvLabel {
-  color: rgba(255, 255, 255, 0.60);
+  color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
   font-size: 11px;
 }
@@ -4107,9 +4146,9 @@ textarea.form-control.mcProfileTextarea {
   text-align: right;
 }
 .mcSheetKvValue--accent {
-  color: #20C997;
+  color: #20c997;
 }
-.mcSheetKvGrid2{
+.mcSheetKvGrid2 {
   margin-top: 0px !important;
 }
 /* People list (sin card) */
@@ -4126,7 +4165,7 @@ textarea.form-control.mcProfileTextarea {
   padding: 10px 10px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .mcSheetAvatarDot {
   width: 24px;
@@ -4142,7 +4181,7 @@ textarea.form-control.mcProfileTextarea {
 }
 .mcSheetAvatarDot--cap {
   background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 .mcSheetPersonName {
@@ -4161,7 +4200,7 @@ textarea.form-control.mcProfileTextarea {
 .mcSheetStatCard {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 12px;
   text-align: center;
 }
@@ -4179,7 +4218,7 @@ textarea.form-control.mcProfileTextarea {
 
 /* footer como header */
 .mcSheetFooterHead {
-  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* status pill (memory-like) */
@@ -4215,7 +4254,7 @@ textarea.form-control.mcProfileTextarea {
   color: var(--mc-red);
 }
 .mcSheetStatus--unknown {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.14);
   color: rgba(255, 255, 255, 0.85);
 }
@@ -4249,7 +4288,7 @@ textarea.form-control.mcProfileTextarea {
   justify-content: center;
 
   background: rgba(220, 53, 69, 0.12);
-  border: 1px solid rgba(220, 53, 69, 0.20);
+  border: 1px solid rgba(220, 53, 69, 0.2);
   color: #dc3545;
 
   box-shadow: 0 10px 30px rgba(220, 53, 69, 0.18);
@@ -4265,9 +4304,9 @@ textarea.form-control.mcProfileTextarea {
 /* mensaje tipo “cajita” de la imagen */
 .mcSignOutMsgBox {
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 14px 14px;
-
+  text-align: center;
   color: rgba(255, 255, 255, 0.78);
   font-size: 14px;
   line-height: 1.55;
@@ -4282,7 +4321,7 @@ textarea.form-control.mcProfileTextarea {
   justify-content: center;
   flex-wrap: wrap;
   gap: 10px;
-  color: rgba(255, 255, 255, 0.60);
+  color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
   font-size: 13px;
 }
@@ -4301,7 +4340,7 @@ textarea.form-control.mcProfileTextarea {
 
 /* footer similar a header con línea superior */
 .mcSignOutFooter {
-  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* tamaños botones (como la imagen) */
@@ -4340,313 +4379,11 @@ textarea.form-control.mcProfileTextarea {
   border-color: rgba(32, 201, 151, 0.35);
   color: #dffcf3;
 }
-/* ===========================
-   LOGIN MODAL (LIGHT)
-=========================== */
-
-.mcLoginModalContent {
-  background: #ffffff;
-  color: #161616;
-  border: 1px solid rgba(0,0,0,0.06);
-  border-radius: 22px;
-  overflow: hidden;
-  box-shadow: 0 30px 80px rgba(0,0,0,0.20);
-  position: relative;
-}
-
-/* X arriba derecha (custom) */
-.mcLoginCloseBtn {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  border: 1px solid rgba(0,0,0,0.08);
-  background: rgba(255,255,255,0.8);
-  color: rgba(0,0,0,0.65);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  line-height: 1;
-  z-index: 2;
-}
-.mcLoginCloseBtn:hover {
-  background: rgba(32,201,151,0.10);
-  border-color: rgba(32,201,151,0.25);
-  color: #0b6b52;
-}
-
-/* body padding como la referencia */
-.mcLoginBody {
-  padding: 26px 26px 22px;
-}
-
-.mcLoginWrap {
-  width: 100%;
-}
-
-/* Brand top */
-.mcLoginBrand {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 10px;
-  margin-top: 6px;
-  margin-bottom: 16px;
-}
-
-.mcLoginBrandIcon {
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  background: #20c997;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 14px 40px rgba(32,201,151,0.35);
-}
-
-.mcLoginBrandTitle {
-  font-weight: 900;
-  font-size: 28px;
-  letter-spacing: -0.02em;
-  margin-top: 4px;
-}
-
-.mcLoginBrandSub {
-  color: rgba(22,22,22,0.62);
-  font-weight: 700;
-  margin-top: -6px;
-}
-
-/* Provider buttons */
-.mcLoginProviders {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: 16px 0 10px;
-}
-
-.mcProviderBtn {
-  height: 46px;
-  border-radius: 14px;
-  border: 1px solid rgba(0,0,0,0.10);
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  font-weight: 800;
-  color: #161616;
-}
-.mcProviderBtn:hover {
-  border-color: rgba(32,201,151,0.45);
-  box-shadow: 0 10px 24px rgba(32,201,151,0.14);
-}
-
-.mcProviderMark {
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.06);
-  font-weight: 900;
-}
-
-.mcProviderIcon {
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.06);
-}
-
-/* Divider */
-.mcLoginDivider {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 12px;
-  margin: 14px 0 14px;
-}
-
-.mcLoginDividerLine {
-  height: 1px;
-  background: rgba(0,0,0,0.10);
-}
-
-.mcLoginDividerText {
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  font-size: 12px;
-  color: rgba(22,22,22,0.55);
-  text-align: center;
-}
-
-/* Alert */
-.mcLoginAlert {
-  border-radius: 14px;
-  padding: 12px 12px;
-  border: 1px solid rgba(220,53,69,0.25);
-  background: rgba(220,53,69,0.08);
-  color: #b02a37;
-  font-weight: 800;
-  font-size: 13px;
-  margin-bottom: 12px;
-}
-
-/* Labels */
-.mcLoginLabel {
-  font-weight: 900;
-  margin: 10px 0 8px;
-  display: block;
-}
-
-/* input row with icons */
-.mcLoginField {
-  height: 50px;
-  border-radius: 14px;
-  border: 1px solid rgba(0,0,0,0.10);
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-}
-
-.mcLoginField:focus-within {
-  border-color: rgba(32,201,151,0.55);
-  box-shadow: 0 0 0 4px rgba(32,201,151,0.14);
-}
-
-.mcLoginFieldIcon {
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  background: rgba(0,0,0,0.05);
-  color: rgba(0,0,0,0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mcLoginInput {
-  border: 0;
-  outline: none;
-  flex: 1;
-  font-weight: 800;
-  color: #161616;
-  background: transparent;
-}
-.mcLoginInput::placeholder {
-  color: rgba(22,22,22,0.35);
-  font-weight: 700;
-}
-
-/* password toggle */
-.mcLoginEyeBtn {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  border: 0;
-  background: rgba(0,0,0,0.04);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(0,0,0,0.55);
-}
-.mcLoginEyeBtn:hover {
-  background: rgba(32,201,151,0.10);
-  color: #0b6b52;
-}
-
-/* row between label and link */
-.mcLoginRowBetween {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.mcLoginLink {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font-weight: 900;
-  color: #20c997;
-}
-.mcLoginLink:hover {
-  text-decoration: underline;
-}
-
-/* Submit */
-.mcLoginSubmit {
-  margin-top: 16px;
-  width: 100%;
-  height: 52px;
-  border-radius: 16px;
-  border: 1px solid rgba(32,201,151,0.45);
-  background: #20c997;
-  color: #ffffff;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  box-shadow: 0 16px 40px rgba(32,201,151,0.25);
-}
-
-.mcLoginSubmitArrow {
-  font-size: 18px;
-  margin-left: 6px;
-}
-
-/* Footer */
-.mcLoginFooter {
-  margin-top: 16px;
-  text-align: center;
-  font-weight: 800;
-  color: rgba(22,22,22,0.55);
-}
-
-.mcLoginFooterMuted {
-  color: rgba(22,22,22,0.55);
-}
-
-.mcLoginFooterLink {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font-weight: 900;
-  color: #20c997;
-}
-.mcLoginFooterLink:hover {
-  text-decoration: underline;
-}
-
-/* Responsive */
-@media (max-width: 520px) {
-  .mcLoginBody {
-    padding: 20px 18px 18px;
-  }
-  .mcLoginProviders {
-    grid-template-columns: 1fr;
-  }
-}
 .modal-body {
   background-color: var(--mc-bg);
   color: rgba(255, 255, 255, 0.92);
 }
-.mcMetricBtn{
+.mcMetricBtn {
   background: transparent;
   border: 0;
   padding: 0;
@@ -4657,8 +4394,8 @@ textarea.form-control.mcProfileTextarea {
   cursor: pointer;
 }
 
-.mcMetricBtn:disabled{
-  opacity: .6;
+.mcMetricBtn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
@@ -4689,7 +4426,7 @@ textarea.form-control.mcProfileTextarea {
   border-radius: 12px;
 
   background: rgba(20, 20, 20, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(10px);
 
@@ -4722,7 +4459,7 @@ textarea.form-control.mcProfileTextarea {
   place-items: center;
 
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   flex: 0 0 auto;
 }
 
@@ -4782,30 +4519,30 @@ textarea.form-control.mcProfileTextarea {
 }
 /* === FIX: dropdown visible SIN perder bordes arriba (sin alterar tamaños) === */
 
-.mcMemberCard{
-  overflow: visible;         /* para que el dropdown no se corte */
+.mcMemberCard {
+  overflow: visible; /* para que el dropdown no se corte */
   position: relative;
 }
 
 /* Clip SOLO header con el mismo radio que ya tenga la card (.mcCard) */
-.mcMemberCard .mcCardHeadClip{
+.mcMemberCard .mcCardHeadClip {
   border-top-left-radius: inherit;
   border-top-right-radius: inherit;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  overflow: hidden;          /* recorta la bar y el top dentro del radio */
-  position: relative;        /* por si mcCardBar es absolute en tu CSS */
+  overflow: hidden; /* recorta la bar y el top dentro del radio */
+  position: relative; /* por si mcCardBar es absolute en tu CSS */
 }
 
 /* Dropdown por encima */
-.mcMemberCard .dropdown-menu{
+.mcMemberCard .dropdown-menu {
   z-index: 9999;
 }
-.mcInstMeta{
+.mcInstMeta {
   display: flex;
   justify-content: space-between;
 }
-.mcLink{
+.mcLink {
   color: var(--mc-green);
   text-decoration: none;
 }
@@ -4814,6 +4551,500 @@ textarea.form-control.mcProfileTextarea {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+.mcSheetKv--full {
+  grid-column: 1 / -1;
+}
+
+.mcHashFull {
+  word-break: break-all;
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 11px;
+}
+.btn.btn-polygon {
+  border: 1px solid #8247e5;
+  background: rgba(130, 71, 229, 0.18);
+  color: #8247e5;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 500;
+}
+
+.btn.btn-polygon:hover {
+  background: #8247e5;
+  border-color: #8247e5;
+  color: rgba(255, 255, 255, 0.85);
+}
+.pbtn-fix {
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  font-weight: 500 !important;
+}
+.btn-outline-secondary {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+/* Layout base */
+.mcVerify2Wrap {
+  width: 100%;
+  padding: 18px 18px 26px;
+}
+.mcVerify2Grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .mcVerify2Grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mcVerify2Left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mcVerify2StepCard {
+  border-radius: 22px;
+  border: 1px solid var(--mc-border);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.02)
+  );
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+  padding: 18px;
+}
+
+.mcVerify2StepHead {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.mcVerify2StepTitle {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--mc-text);
+  line-height: 1.15;
+}
+.mcVerify2StepSub {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+}
+
+/* Meta */
+.mcVerify2Meta {
+  margin-top: 12px;
+  border: 1px solid var(--mc-border);
+  background: rgba(0, 0, 0, 0.14);
+  border-radius: 18px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mcVerify2MetaRow {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+@media (max-width: 520px) {
+  .mcVerify2MetaRow {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    align-items: start;
+  }
+}
+
+.mcVerify2MetaKey {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+}
+
+.mcVerify2Mono {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .mcVerify2Mono {
+    white-space: normal;
+    word-break: break-all;
+  }
+}
+
+.mcVerify2IconBtn {
+  padding: 6px 10px !important;
+  border-radius: 12px !important;
+}
+
+.mcVerify2Empty {
+  margin-top: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+
+/* Actions */
+.mcVerify2Actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.mcVerify2Actions--center {
+  justify-content: center;
+}
+
+/* Right panel */
+.mcVerify2Right {
+  border-radius: 22px;
+  border: 1px solid var(--mc-border);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03),
+    rgba(0, 0, 0, 0.12)
+  );
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+  min-height: 330px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Tone variants */
+.mcVerify2Right--approved {
+  border-color: rgba(32, 201, 151, 0.22);
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(32, 201, 151, 0.1);
+}
+.mcVerify2Right--pending {
+  border-color: rgba(255, 193, 7, 0.22);
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 193, 7, 0.1);
+}
+.mcVerify2Right--rejected {
+  border-color: rgba(220, 53, 69, 0.22);
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(220, 53, 69, 0.1);
+}
+.mcVerify2Right--notcert {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.mcVerify2RightInner {
+  width: min(560px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 14px 10px;
+}
+
+.mcVerify2HeroIcon {
+  width: 82px;
+  height: 82px;
+  border-radius: 18px;
+  border: 1px solid var(--mc-border);
+  background: rgba(255, 255, 255, 0.06);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.mcVerify2HeroIcon.is-approved {
+  border-color: rgba(32, 201, 151, 0.25);
+  background: rgba(32, 201, 151, 0.1);
+  color: rgba(32, 201, 151, 0.95);
+}
+.mcVerify2HeroIcon.is-pending {
+  border-color: rgba(255, 193, 7, 0.25);
+  background: rgba(255, 193, 7, 0.08);
+  color: rgba(255, 193, 7, 0.95);
+}
+.mcVerify2HeroIcon.is-rejected {
+  border-color: rgba(220, 53, 69, 0.25);
+  background: rgba(220, 53, 69, 0.08);
+  color: rgba(220, 53, 69, 0.95);
+}
+.mcVerify2HeroIcon.is-notcert {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.mcVerify2HeroTitle {
+  font-size: 28px;
+  font-weight: 950;
+  color: rgba(255, 255, 255, 0.92);
+  margin-top: 4px;
+}
+.mcVerify2HeroText {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 15px;
+  max-width: 54ch;
+}
+.mcVerify2TipPill {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* Preview */
+.mcVerify2PreviewWrap {
+  width: 100%;
+}
+.mcVerify2PreviewBody {
+  width: 100%;
+}
+
+/* Status pill top-right */
+.mcVerify2StepCard.mcVerify2StepCard--status {
+  position: relative;
+}
+.mcVerify2StatusCorner {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+}
+@media (max-width: 520px) {
+  .mcVerify2StatusCorner {
+    top: 12px;
+    right: 12px;
+  }
+}
+
+/* ===================== PDF MINI (NO CONTROLS) ===================== */
+.mcVerify2PdfMini {
+  width: 100%;
+}
+.mcVerify2PdfMiniScroll {
+  height: 100%;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.18);
+}
+.mcVerify2PdfMiniPages {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mcVerify2PdfMiniPage {
+  background: rgba(0, 0, 0, 0.16);
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin: 0 auto;
+  max-width: 980px;
+}
+
+/* ✅ oculta cualquier dock/controles si aún existen en tu CSS viejo */
+.mcPdfDock {
+  display: none !important;
+}
+/* ✅ Preview section 20% smaller (container), PDF stays same scale */
+.mcVerify2PreviewInset {
+  margin: 0 auto;
+}
+
+/* si en móvil se ve muy estrecho, lo devolvemos a full */
+@media (max-width: 1100px) {
+  .mcVerify2PreviewInset {
+    width: 100%;
+  }
+}
+/* ===================== LOGIN INSIDE SHEET (no full-page wrap) ===================== */
+
+.mcLoginHero {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 10px 0 18px;
+}
+
+.mcLoginHeroIcon {
+  width: 78px;
+  height: 78px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  background: var(--mc-green);
+  color: #0b0b0b;
+  margin-bottom: 12px;
+  box-shadow: 0 18px 45px rgba(32, 201, 151, 0.26);
+}
+
+.mcLoginHeroTitle {
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 800;
+  color: var(--mc-text);
+  margin-bottom: 6px;
+}
+
+.mcLoginHeroSub {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Input row with left icon + right eye button */
+.mcLoginInputRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px 12px;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.mcLoginInputRow:focus-within {
+  border-color: rgba(32, 201, 151, 0.55);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.mcLoginInputIcon {
+  width: 28px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.mcLoginInput {
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.mcLoginEyeBtn {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  border-radius: 10px;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.mcLoginEyeBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.mcLoginPrimaryBtn {
+  width: 60%;
+  margin-top: 18px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 800;
+}
+
+/* Bottom line like screenshot */
+.mcLoginBottomLine {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mcLoginBottomMuted {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.mcLoginBottomLink {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--mc-green);
+  font-weight: 800;
+}
+
+.mcLoginBottomLink:hover {
+  text-decoration: underline;
+}
+/* ===================== LOGIN CLOSE BUTTON ===================== */
+
+.mcSheetPanel {
+  position: relative; /* asegura el positioning */
+}
+
+.mcLoginCloseBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 10;
+
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--mc-text-gray);
+  border: 0;
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.mcLoginCloseBtn:hover {
+  transform: scale(1.08);
+  border-color: var(--mc-border-2);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+}
+
+.mcLoginCloseBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 /* ===================== HOME (Landing) ===================== */
 .mcHome {
@@ -4847,25 +5078,15 @@ textarea.form-control.mcProfileTextarea {
   gap: 10px;
   background: transparent;
   border: 0;
-  color: var(--mc-text, rgba(255,255,255,.92));
+  color: var(--mc-text, rgba(255, 255, 255, 0.92));
   cursor: pointer;
+  padding: 0;
 }
 
-.mcHomeBrandIcon {
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(32, 201, 151, 0.18);
-  border: 1px solid rgba(32, 201, 151, 0.35);
-  color: var(--mc-accent, #20C997);
-}
-
-.mcHomeBrandText {
-  font-weight: 700;
-  letter-spacing: 0.2px;
+.mcHomeBrandLogo {
+  width: 150px;
+  height: auto;
+  display: block;
 }
 
 .mcHomeNavLinks {
@@ -4898,12 +5119,27 @@ textarea.form-control.mcProfileTextarea {
 /* HERO */
 .mcHomeHero {
   position: relative;
-  padding: 70px 18px 40px;
   overflow: hidden;
   background:
-    radial-gradient(900px 380px at 50% 30%, rgba(32, 201, 151, 0.12), transparent 62%),
-    radial-gradient(700px 300px at 50% 60%, rgba(32, 201, 151, 0.06), transparent 65%),
-    linear-gradient(to bottom, rgba(0,0,0,.40), rgba(0,0,0,.35));
+    radial-gradient(
+      900px 380px at 50% 30%,
+      rgba(32, 201, 151, 0.12),
+      transparent 62%
+    ),
+    radial-gradient(
+      700px 300px at 50% 60%,
+      rgba(32, 201, 151, 0.06),
+      transparent 65%
+    ),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.35));
+}
+
+/* ✅ FULL SCREEN HERO */
+.mcHomeHeroFull {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 88px 18px 52px; /* deja espacio por navbar sticky */
 }
 
 .mcHomeGridGlow {
@@ -4911,10 +5147,14 @@ textarea.form-control.mcProfileTextarea {
   inset: 0;
   opacity: 0.18;
   background-image:
-    linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   background-size: 64px 64px;
-  mask-image: radial-gradient(ellipse at center, rgba(0,0,0,1) 40%, transparent 72%);
+  mask-image: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 1) 40%,
+    transparent 72%
+  );
   pointer-events: none;
 }
 
@@ -4932,7 +5172,7 @@ textarea.form-control.mcProfileTextarea {
   padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid rgba(32, 201, 151, 0.35);
-  background: rgba(32, 201, 151, 0.10);
+  background: rgba(32, 201, 151, 0.1);
   color: rgba(32, 201, 151, 0.95);
   font-weight: 600;
   margin-bottom: 18px;
@@ -4945,7 +5185,7 @@ textarea.form-control.mcProfileTextarea {
 }
 
 .mcHomeHeroTitle {
-  font-size: clamp(42px, 5vw, 76px);
+  font-size: clamp(40px, 5vw, 76px);
   line-height: 1.03;
   letter-spacing: -0.6px;
   margin: 0;
@@ -4956,7 +5196,7 @@ textarea.form-control.mcProfileTextarea {
 }
 
 .mcHomeHeroTitleAccent {
-  color: var(--mc-accent, #20C997);
+  color: var(--mc-accent, #20c997);
 }
 
 .mcHomeHeroSub {
@@ -5003,6 +5243,27 @@ textarea.form-control.mcProfileTextarea {
   font-size: 13px;
 }
 
+.mcHomeHeroHint {
+  margin-top: 22px;
+  display: flex;
+  justify-content: center;
+}
+
+.mcHomeHeroHintBtn {
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.62);
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+  padding: 8px 10px;
+}
+
+.mcHomeHeroHintBtn:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
 /* SECTION */
 .mcHomeSection {
   padding: 58px 18px;
@@ -5029,7 +5290,7 @@ textarea.form-control.mcProfileTextarea {
 }
 
 .mcHomeAccent {
-  color: var(--mc-accent, #20C997);
+  color: var(--mc-accent, #20c997);
 }
 
 .mcHomeLead {
@@ -5046,7 +5307,7 @@ textarea.form-control.mcProfileTextarea {
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(32, 201, 151, 0.25);
-  box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
   position: relative;
   display: grid;
   place-items: center;
@@ -5058,7 +5319,7 @@ textarea.form-control.mcProfileTextarea {
   border-radius: 999px;
   border: 1px solid rgba(32, 201, 151, 0.35);
   background: rgba(32, 201, 151, 0.14);
-  color: var(--mc-accent, #20C997);
+  color: var(--mc-accent, #20c997);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5071,7 +5332,7 @@ textarea.form-control.mcProfileTextarea {
   bottom: 26px;
   left: 50%;
   transform: translateX(-50%);
-  color: rgba(255,255,255,0.55);
+  color: rgba(255, 255, 255, 0.55);
   font-size: 13px;
 }
 
@@ -5087,9 +5348,9 @@ textarea.form-control.mcProfileTextarea {
 .mcHomeCard {
   border-radius: 16px;
   padding: 20px 20px 18px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.10);
-  box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
 }
 
 .mcHomeCardIcon {
@@ -5101,7 +5362,7 @@ textarea.form-control.mcProfileTextarea {
   justify-content: center;
   background: rgba(32, 201, 151, 0.12);
   border: 1px solid rgba(32, 201, 151, 0.25);
-  color: var(--mc-accent, #20C997);
+  color: var(--mc-accent, #20c997);
   margin-bottom: 14px;
 }
 
@@ -5112,7 +5373,7 @@ textarea.form-control.mcProfileTextarea {
 
 .mcHomeCardDesc {
   margin-top: 8px;
-  color: rgba(255,255,255,0.62);
+  color: rgba(255, 255, 255, 0.62);
   font-size: 14px;
   line-height: 1.45;
 }
@@ -5129,8 +5390,8 @@ textarea.form-control.mcProfileTextarea {
 .mcHomeStep {
   border-radius: 16px;
   padding: 22px 18px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .mcHomeStepNum {
@@ -5146,7 +5407,7 @@ textarea.form-control.mcProfileTextarea {
 
 .mcHomeStepDesc {
   margin-top: 8px;
-  color: rgba(255,255,255,0.60);
+  color: rgba(255, 255, 255, 0.6);
   font-size: 13px;
 }
 
@@ -5178,14 +5439,14 @@ textarea.form-control.mcProfileTextarea {
   position: relative;
   border-radius: 18px;
   padding: 22px 22px 18px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.10);
-  box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
 }
 
 .mcHomePrice.isPrimary {
   border-color: rgba(32, 201, 151, 0.35);
-  box-shadow: 0 30px 90px rgba(0,0,0,0.45);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
 }
 
 .mcHomePrice.isDisabled {
@@ -5214,7 +5475,7 @@ textarea.form-control.mcProfileTextarea {
 
 .mcHomePriceSub {
   margin-top: 4px;
-  color: rgba(255,255,255,0.55);
+  color: rgba(255, 255, 255, 0.55);
   font-size: 13px;
 }
 
@@ -5231,7 +5492,7 @@ textarea.form-control.mcProfileTextarea {
 }
 
 .mcHomePriceNote {
-  color: rgba(255,255,255,0.55);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .mcHomePriceList {
@@ -5246,12 +5507,12 @@ textarea.form-control.mcProfileTextarea {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  color: rgba(255,255,255,0.72);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .mcHomePriceList li svg {
   margin-top: 2px;
-  color: var(--mc-accent, #20C997);
+  color: var(--mc-accent, #20c997);
 }
 
 .mcHomePriceBtn {
@@ -5279,8 +5540,8 @@ textarea.form-control.mcProfileTextarea {
 .mcHomeAddon {
   border-radius: 16px;
   padding: 18px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 12px;
@@ -5294,7 +5555,7 @@ textarea.form-control.mcProfileTextarea {
   place-items: center;
   background: rgba(32, 201, 151, 0.12);
   border: 1px solid rgba(32, 201, 151, 0.25);
-  color: var(--mc-accent, #20C997);
+  color: var(--mc-accent, #20c997);
 }
 
 .mcHomeAddonPrice {
@@ -5310,7 +5571,7 @@ textarea.form-control.mcProfileTextarea {
 
 .mcHomeAddonDesc {
   margin-top: 6px;
-  color: rgba(255,255,255,0.60);
+  color: rgba(255, 255, 255, 0.6);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -5327,9 +5588,9 @@ textarea.form-control.mcProfileTextarea {
 .mcHomeMission {
   border-radius: 18px;
   padding: 22px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(32, 201, 151, 0.20);
-  box-shadow: 0 26px 80px rgba(0,0,0,0.38);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(32, 201, 151, 0.2);
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.38);
 }
 
 .mcHomeMission.isPrimary {
@@ -5351,7 +5612,7 @@ textarea.form-control.mcProfileTextarea {
   place-items: center;
   background: rgba(32, 201, 151, 0.12);
   border: 1px solid rgba(32, 201, 151, 0.25);
-  color: var(--mc-accent, #20C997);
+  color: var(--mc-accent, #20c997);
 }
 
 .mcHomeMissionTitle {
@@ -5361,7 +5622,7 @@ textarea.form-control.mcProfileTextarea {
 
 .mcHomeMissionSub {
   margin-top: 2px;
-  color: rgba(255,255,255,0.55);
+  color: rgba(255, 255, 255, 0.55);
   font-size: 13px;
 }
 
@@ -5377,12 +5638,12 @@ textarea.form-control.mcProfileTextarea {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  color: rgba(255,255,255,0.72);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .mcHomeMissionList li svg {
   margin-top: 2px;
-  color: var(--mc-accent, #20C997);
+  color: var(--mc-accent, #20c997);
 }
 
 .mcHomeMissionBtn {
@@ -5395,9 +5656,13 @@ textarea.form-control.mcProfileTextarea {
 .mcHomeFinal {
   padding: 58px 18px 0;
   background:
-    radial-gradient(900px 380px at 50% 20%, rgba(32, 201, 151, 0.12), transparent 65%),
-    linear-gradient(to bottom, rgba(0,0,0,.20), rgba(0,0,0,.45));
-  border-top: 1px solid rgba(255,255,255,0.08);
+    radial-gradient(
+      900px 380px at 50% 20%,
+      rgba(32, 201, 151, 0.12),
+      transparent 65%
+    ),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.45));
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .mcHomeFinalInner {
@@ -5417,7 +5682,7 @@ textarea.form-control.mcProfileTextarea {
   place-items: center;
   background: rgba(32, 201, 151, 0.12);
   border: 1px solid rgba(32, 201, 151, 0.25);
-  color: var(--mc-accent, #20C997);
+  color: var(--mc-accent, #20c997);
 }
 
 .mcHomeFinalTitle {
@@ -5429,7 +5694,7 @@ textarea.form-control.mcProfileTextarea {
 .mcHomeFinalSub {
   margin: 10px auto 0;
   max-width: 720px;
-  color: rgba(255,255,255,0.62);
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .mcHomeFinalBtn {
@@ -5441,10 +5706,10 @@ textarea.form-control.mcProfileTextarea {
   padding: 12px 18px;
 }
 
-/* FOOTER */
+/* FOOTER (simple, sin tabs) */
 .mcHomeFooter {
   margin-top: 32px;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding: 18px 0;
 }
 
@@ -5453,81 +5718,166 @@ textarea.form-control.mcProfileTextarea {
   margin: 0 auto;
   padding: 0 18px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 14px;
+  grid-template-columns: 1fr;
+  gap: 10px;
   align-items: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.mcHomeFooterInnerSimple {
+  grid-template-columns: 1fr;
 }
 
 .mcHomeFooterBrand {
   display: inline-flex;
   gap: 10px;
   align-items: center;
-}
-
-.mcHomeFooterIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: rgba(32, 201, 151, 0.12);
-  border: 1px solid rgba(32, 201, 151, 0.25);
-  color: var(--mc-accent, #20C997);
-}
-
-.mcHomeFooterText {
-  font-weight: 800;
-}
-
-.mcHomeFooterLinks {
-  display: flex;
-  gap: 18px;
   justify-content: center;
 }
 
-.mcHomeFooterLink {
-  background: transparent;
-  border: 0;
-  color: rgba(255,255,255,0.60);
-  cursor: pointer;
-}
-
-.mcHomeFooterLink:hover {
-  color: rgba(255,255,255,0.88);
+.mcHomeFooterLogo {
+  width: 180px;
+  height: auto;
+  display: block;
+  opacity: 0.95;
 }
 
 .mcHomeFooterCopy {
-  color: rgba(255,255,255,0.45);
+  color: rgba(255, 255, 255, 0.45);
   font-size: 13px;
 }
 
-/* RESPONSIVE */
+/* ✅ VERIFY modal minimal */
+.mcHomeVerifyBox {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.mcHomeVerifyRow {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.mcHomeVerifyInput {
+  width: 100%;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+  outline: none;
+}
+
+.mcHomeVerifyInput:focus {
+  border-color: rgba(32, 201, 151, 0.35);
+  box-shadow: 0 0 0 4px rgba(32, 201, 151, 0.12);
+}
+
+.mcHomeVerifyBtn {
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mcHomeVerifyHint {
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+
+/* ===================== RESPONSIVE ===================== */
 @media (max-width: 980px) {
   .mcHomeNavLinks {
     display: none;
   }
+
+  .mcHomeHeroFull {
+    padding-top: 96px;
+  }
+
   .mcHomeStats {
     grid-template-columns: 1fr;
     gap: 10px;
   }
+
   .mcHomeGrid3 {
     grid-template-columns: 1fr;
   }
+
   .mcHomeSteps {
     grid-template-columns: 1fr;
   }
+
   .mcHomePricing {
     grid-template-columns: 1fr;
   }
+
   .mcHomeAddons {
     grid-template-columns: 1fr;
   }
+
   .mcHomeTwoCols {
     grid-template-columns: 1fr;
   }
-  .mcHomeFooterInner {
+
+  .mcHomeVerifyRow {
     grid-template-columns: 1fr;
-    text-align: center;
-    justify-items: center;
   }
+
+  .mcHomeFooterLogo {
+    width: 160px;
+  }
+}
+
+@media (max-width: 420px) {
+  .mcHomeBrandLogo {
+    width: 130px;
+  }
+
+  .mcHomeLoginBtn {
+    padding: 10px 14px;
+  }
+
+  .mcHomeHeroSub {
+    font-size: 15px;
+  }
+}
+/* HERO */
+.mcHomeHero {
+  position: relative;
+  min-height: 90vh;              /*  clave: ocupa toda la pantalla */
+  display: flex;                  /*  centra verticalmente */
+  align-items: center;            /*  centra vertical */
+  justify-content: center;
+  padding: 90px 18px 60px;        /* espacio arriba por navbar */
+
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      900px 380px at 50% 30%,
+      rgba(32, 201, 151, 0.12),
+      transparent 62%
+    ),
+    radial-gradient(
+      700px 300px at 50% 60%,
+      rgba(32, 201, 151, 0.06),
+      transparent 65%
+    ),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.35));
+}
+
+/* 🔥 mejor centrado interno */
+.mcHomeHeroInner {
+  max-width: 980px;
+  margin: 0 auto;
+  text-align: center;
+  position: relative;
+  width: 100%;
 }

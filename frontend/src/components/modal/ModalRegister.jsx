@@ -1,19 +1,42 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { EyeIcon, EyeSlashIcon } from "../../utils/icons";
 import ModalRegisterInstitution from "./ModalRegisterInstitution";
+import { useToast } from "../../utils/toast";
+import {
+  CircleX,
+  UserPlus,
+  Eye,
+  EyeOff,
+  Loader,
+  OctagonAlert,
+  Check,
+  Mail,
+  Lock,
+  ArrowLeft,
+  Building2,
+  User,
+} from "lucide-react";
+import Logo from "../../assets/logo.png";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function showModal(id) {
   const el = document.getElementById(id);
-  if (!el) return;
+  if (!el) return false;
+
+  const anyOpen = document.querySelector(".modal.show");
+  if (anyOpen && anyOpen.id !== id) {
+    const openInst = window.bootstrap?.Modal?.getInstance(anyOpen);
+    openInst?.hide();
+  }
+
   const inst = window.bootstrap?.Modal?.getOrCreateInstance(el, {
     backdrop: "static",
     keyboard: false,
   });
   inst?.show();
+  return true;
 }
 
 function hideModal(id) {
@@ -26,9 +49,11 @@ function hideModal(id) {
 const ModalRegister = ({
   modalId = "registerModal",
   loginModalId = "modalLogin",
-  institutionRegisterModalId = "registerInstitutionModal", // ✅ NUEVO
+  institutionRegisterModalId = "registerInstitutionModal",
   onRegistered,
 }) => {
+  const { showToast } = useToast();
+
   // form fields
   const [name, setName] = useState("");
   const [lastname, setLastname] = useState("");
@@ -42,10 +67,10 @@ const ModalRegister = ({
 
   const [touched, setTouched] = useState({});
   const [errors, setErrors] = useState({});
-  const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
   const canSubmit = useMemo(() => !loading, [loading]);
+  const pendingOpenRef = useRef(false);
 
   const resetAll = () => {
     setName("");
@@ -57,11 +82,10 @@ const ModalRegister = ({
     setShowConfirm(false);
     setTouched({});
     setErrors({});
-    setErrorMsg("");
     setLoading(false);
+    pendingOpenRef.current = false;
   };
 
-  // reset form when modal closes
   useEffect(() => {
     const el = document.getElementById(modalId);
     if (!el) return;
@@ -71,7 +95,9 @@ const ModalRegister = ({
     return () => el.removeEventListener("hidden.bs.modal", onHidden);
   }, [modalId]);
 
-  // live validation
+  const touch = (k) => setTouched((p) => ({ ...p, [k]: true }));
+  const hasErr = (k) => !!errors[k];
+
   const validate = (opts = { showAll: false }) => {
     const showAll = !!opts.showAll;
     const shouldShow = (k) => showAll || touched[k];
@@ -91,19 +117,23 @@ const ModalRegister = ({
     else if (em && !EMAIL_RE.test(em) && shouldShow("email"))
       e.email = "Invalid email format.";
 
-    if (!pwd.trim() && shouldShow("password")) e.password = "Password is required.";
+    if (!pwd.trim() && shouldShow("password"))
+      e.password = "Password is required.";
     else if (pwd.trim() && shouldShow("password")) {
-      if (pwd.length < 8) e.password = "Password must be at least 8 characters long.";
+      if (pwd.length < 8)
+        e.password = "Password must be at least 8 characters long.";
       const hasUpper = /[A-Z]/.test(pwd);
       const hasLower = /[a-z]/.test(pwd);
       const hasDigit = /\d/.test(pwd);
       const hasSymbol = /[^A-Za-z0-9]/.test(pwd);
       if (!hasUpper || !hasLower || !hasDigit || !hasSymbol) {
-        e.password = "Password must have uppercase, lowercase, a number and a symbol.";
+        e.password =
+          "Password must have uppercase, lowercase, a number and a symbol.";
       }
     }
 
-    if (!conf.trim() && shouldShow("confirm")) e.confirm = "Please confirm your password.";
+    if (!conf.trim() && shouldShow("confirm"))
+      e.confirm = "Please confirm your password.";
     if (pwd && conf && pwd !== conf && shouldShow("confirm"))
       e.confirm = "Passwords do not match.";
 
@@ -116,22 +146,75 @@ const ModalRegister = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, lastname, email, password, confirm, touched]);
 
-  const touch = (k) => setTouched((p) => ({ ...p, [k]: true }));
-
   const backToLogin = () => {
-    hideModal(modalId);
-    setTimeout(() => showModal(loginModalId), 150);
+    if (loading) return;
+
+    const regEl = document.getElementById(modalId);
+    if (!regEl) return;
+
+    const loginEl = document.getElementById(loginModalId);
+    if (!loginEl) {
+      showToast({
+        message: `No encuentro el modal "${loginModalId}" en el DOM. Asegúrate de renderizar <ModalLogin />.`,
+        type: "error",
+        icon: OctagonAlert,
+        duration: 3000,
+      });
+      return;
+    }
+
+    if (pendingOpenRef.current) return;
+    pendingOpenRef.current = true;
+
+    const onHiddenOpenLogin = () => {
+      regEl.removeEventListener("hidden.bs.modal", onHiddenOpenLogin);
+      pendingOpenRef.current = false;
+      showModal(loginModalId);
+    };
+
+    regEl.addEventListener("hidden.bs.modal", onHiddenOpenLogin);
+
+    const inst = window.bootstrap?.Modal?.getInstance(regEl);
+    if (inst) inst.hide();
+    else hideModal(modalId);
   };
 
-  // ✅ NUEVO: abrir modal de institución
   const openInstitutionRegister = () => {
-    hideModal(modalId);
-    setTimeout(() => showModal(institutionRegisterModalId), 150);
+    if (loading) return;
+
+    const regEl = document.getElementById(modalId);
+    if (!regEl) return;
+
+    const instEl = document.getElementById(institutionRegisterModalId);
+    if (!instEl) {
+      showToast({
+        message: `No encuentro el modal "${institutionRegisterModalId}" en el DOM. Asegúrate de renderizar <ModalRegisterInstitution />.`,
+        type: "error",
+        icon: OctagonAlert,
+        duration: 3000,
+      });
+      return;
+    }
+
+    if (pendingOpenRef.current) return;
+    pendingOpenRef.current = true;
+
+    const onHiddenOpenInst = () => {
+      regEl.removeEventListener("hidden.bs.modal", onHiddenOpenInst);
+      pendingOpenRef.current = false;
+      showModal(institutionRegisterModalId);
+    };
+
+    regEl.addEventListener("hidden.bs.modal", onHiddenOpenInst);
+
+    const inst = window.bootstrap?.Modal?.getInstance(regEl);
+    if (inst) inst.hide();
+    else hideModal(modalId);
   };
 
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    setErrorMsg("");
+    if (loading) return;
 
     setTouched({
       name: true,
@@ -142,7 +225,15 @@ const ModalRegister = ({
     });
 
     const ok = validate({ showAll: true });
-    if (!ok) return;
+    if (!ok) {
+      showToast({
+        message: "Please fix the highlighted fields.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2200,
+      });
+      return;
+    }
 
     try {
       setLoading(true);
@@ -156,223 +247,327 @@ const ModalRegister = ({
 
       await axios.post(`${API_BASE_URL}/api/auth/register`, payload);
 
+      showToast({
+        message: "Account created ✅",
+        type: "success",
+        icon: Check,
+        duration: 1800,
+      });
+
       onRegistered?.({ email: payload.email });
 
-      hideModal(modalId);
-      setTimeout(() => showModal(loginModalId), 150);
+      const regEl = document.getElementById(modalId);
+      if (regEl) {
+        const onHiddenOpenLogin = () => {
+          regEl.removeEventListener("hidden.bs.modal", onHiddenOpenLogin);
+          showModal(loginModalId);
+        };
+        regEl.addEventListener("hidden.bs.modal", onHiddenOpenLogin);
+
+        const inst = window.bootstrap?.Modal?.getInstance(regEl);
+        if (inst) inst.hide();
+        else hideModal(modalId);
+      } else {
+        setTimeout(() => showModal(loginModalId), 150);
+      }
     } catch (err) {
       console.error(err);
-      setErrorMsg(
-        err?.response?.data?.message || "Registration failed. Please try again."
-      );
+      showToast({
+        message:
+          err?.response?.data?.message ||
+          "Registration failed. Please try again.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2600,
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const hasErr = (k) => !!errors[k];
-
   return (
     <>
-    <div
-      className="modal fade"
-      id={modalId}
-      tabIndex={-1}
-      aria-hidden="true"
-      data-bs-backdrop="static"
-      data-bs-keyboard="false"
-      style={{ zIndex: 1099 }}
-    >
-      <div className="modal-dialog modal-lg modal-dialog-centered">
-        <div className="modal-content bg-mc-dark text-white">
-          <div className="modal-body container">
-            <div className="row">
-              <div className="button-close-modal-fix">
-                <button
-                  type="button"
-                  className="btn-close btn-close-white"
-                  data-bs-dismiss="modal"
-                  aria-label="Close"
-                  disabled={loading}
-                />
-              </div>
+      <div
+        className="modal fade"
+        id={modalId}
+        tabIndex={-1}
+        aria-hidden="true"
+        data-bs-backdrop="static"
+        data-bs-keyboard="false"
+        style={{ zIndex: 1099 }}
+      >
+        <div className="modal-dialog modal-lg modal-dialog-centered">
+          <div className="modal-content mcSheetModal">
+            <div className="mcPanelCard mcSheetPanel">
+              {/* X arriba derecha */}
+              <button
+                type="button"
+                className="mcLoginCloseBtn"
+                onClick={() => hideModal(modalId)}
+                disabled={loading}
+                aria-label="Close"
+                title="Close"
+              >
+                <CircleX size={22} />
+              </button>
 
-              <div className="col-12 px-5">
-                <div className="text-center spaced-fix">
-                  <h1 className="h3 mb-2 font-weight-normal mt-2">Create account</h1>
-                  <p className="text-white-50 mb-0">
-                    Join MemoryChain and protect your research
-                  </p>
+              <form onSubmit={handleSubmit} noValidate>
+                <div className="mcPanelBody mcSheetBody">
+                  {/* Hero */}
+                  <div className="mcLoginHero">
+                  <img src={Logo} alt="" width={300} />
                 </div>
 
-                {errorMsg ? (
-                  <div className="alert alert-danger mt-3" role="alert">
-                    {errorMsg}
-                  </div>
-                ) : null}
+                  {/* ✅ Name + Lastname (con mx-4 igual que login) */}
+                  <div className="mcWizardGrid2 mx-4">
+                    <div className="mcWizardField">
+                      <label className="mcWizardLabel">First name</label>
 
-                <form className="mt-4" onSubmit={handleSubmit} noValidate>
-                  <div className="row g-3">
-                    <div className="col-md-6">
-                      <label className="form-label">First name</label>
-                      <input
-                        className={`form-control ${hasErr("name") ? "is-invalid" : ""}`}
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        onBlur={() => touch("name")}
-                        disabled={loading}
-                        placeholder="Your first name"
-                        autoComplete="given-name"
-                        required
-                      />
+                      <div
+                        className={`mcLoginInputRow ${
+                          hasErr("name") ? "is-invalid" : ""
+                        }`}
+                      >
+                        <span className="mcLoginInputIcon" aria-hidden="true">
+                          <User size={18} />
+                        </span>
+
+                        <input
+                          className="mcWizardInput mcLoginInput"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          onBlur={() => touch("name")}
+                          disabled={loading}
+                          placeholder="Your first name"
+                          autoComplete="given-name"
+                          required
+                        />
+                      </div>
+
                       {hasErr("name") ? (
-                        <div className="invalid-feedback">{errors.name}</div>
+                        <div className="invalid-feedback d-block">
+                          {errors.name}
+                        </div>
                       ) : null}
                     </div>
 
-                    <div className="col-md-6">
-                      <label className="form-label">Last name</label>
-                      <input
-                        className={`form-control ${hasErr("lastname") ? "is-invalid" : ""}`}
-                        value={lastname}
-                        onChange={(e) => setLastname(e.target.value)}
-                        onBlur={() => touch("lastname")}
-                        disabled={loading}
-                        placeholder="Your last name"
-                        autoComplete="family-name"
-                        required
-                      />
+                    <div className="mcWizardField">
+                      <label className="mcWizardLabel">Last name</label>
+
+                      <div
+                        className={`mcLoginInputRow ${
+                          hasErr("lastname") ? "is-invalid" : ""
+                        }`}
+                      >
+                        <span className="mcLoginInputIcon" aria-hidden="true">
+                          <User size={18} />
+                        </span>
+
+                        <input
+                          className="mcWizardInput mcLoginInput"
+                          value={lastname}
+                          onChange={(e) => setLastname(e.target.value)}
+                          onBlur={() => touch("lastname")}
+                          disabled={loading}
+                          placeholder="Your last name"
+                          autoComplete="family-name"
+                          required
+                        />
+                      </div>
+
                       {hasErr("lastname") ? (
-                        <div className="invalid-feedback">{errors.lastname}</div>
+                        <div className="invalid-feedback d-block">
+                          {errors.lastname}
+                        </div>
                       ) : null}
                     </div>
+                  </div>
 
-                    <div className="col-12">
-                      <label className="form-label">Email</label>
+                  {/* ✅ Email (con mx-4 igual que login) */}
+                  <div className="mcWizardField mt-3 mx-4">
+                    <label className="mcWizardLabel">Email Address</label>
+                    <div
+                      className={`mcLoginInputRow ${
+                        hasErr("email") ? "is-invalid" : ""
+                      }`}
+                    >
+                      <span className="mcLoginInputIcon" aria-hidden="true">
+                        <Mail size={18} />
+                      </span>
+
                       <input
                         type="email"
-                        className={`form-control ${hasErr("email") ? "is-invalid" : ""}`}
+                        className="mcWizardInput mcLoginInput"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         onBlur={() => touch("email")}
                         disabled={loading}
-                        placeholder="name@domain.com"
+                        placeholder="you@institution.edu"
                         autoComplete="email"
                         required
                       />
-                      {hasErr("email") ? (
-                        <div className="invalid-feedback">{errors.email}</div>
+                    </div>
+
+                    {hasErr("email") ? (
+                      <div className="invalid-feedback d-block">
+                        {errors.email}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* ✅ Passwords (con mx-4 igual que login) */}
+                  <div className="mcWizardGrid2 mt-3 mx-4">
+                    <div className="mcWizardField">
+                      <label className="mcWizardLabel">Password</label>
+
+                      <div
+                        className={`mcLoginInputRow ${
+                          hasErr("password") ? "is-invalid" : ""
+                        }`}
+                      >
+                        <span className="mcLoginInputIcon" aria-hidden="true">
+                          <Lock size={18} />
+                        </span>
+
+                        <input
+                          className="mcWizardInput mcLoginInput"
+                          type={showPass ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          onBlur={() => touch("password")}
+                          disabled={loading}
+                          placeholder="At least 8 characters"
+                          autoComplete="new-password"
+                          required
+                        />
+
+                        <button
+                          type="button"
+                          className="mcLoginEyeBtn"
+                          onClick={() => setShowPass((v) => !v)}
+                          disabled={loading}
+                          aria-label={
+                            showPass ? "Hide password" : "Show password"
+                          }
+                          title={showPass ? "Hide password" : "Show password"}
+                        >
+                          {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+
+                      {hasErr("password") ? (
+                        <div className="invalid-feedback d-block">
+                          {errors.password}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="mcWizardField">
+                      <label className="mcWizardLabel">Confirm password</label>
+
+                      <div
+                        className={`mcLoginInputRow ${
+                          hasErr("confirm") ? "is-invalid" : ""
+                        }`}
+                      >
+                        <span className="mcLoginInputIcon" aria-hidden="true">
+                          <Lock size={18} />
+                        </span>
+
+                        <input
+                          className="mcWizardInput mcLoginInput"
+                          type={showConfirm ? "text" : "password"}
+                          value={confirm}
+                          onChange={(e) => setConfirm(e.target.value)}
+                          onBlur={() => touch("confirm")}
+                          disabled={loading}
+                          placeholder="Repeat the password"
+                          autoComplete="new-password"
+                          required
+                        />
+
+                        <button
+                          type="button"
+                          className="mcLoginEyeBtn"
+                          onClick={() => setShowConfirm((v) => !v)}
+                          disabled={loading}
+                          aria-label={
+                            showConfirm ? "Hide password" : "Show password"
+                          }
+                          title={showConfirm ? "Hide password" : "Show password"}
+                        >
+                          {showConfirm ? (
+                            <EyeOff size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
+                        </button>
+                      </div>
+
+                      {hasErr("confirm") ? (
+                        <div className="invalid-feedback d-block">
+                          {errors.confirm}
+                        </div>
                       ) : null}
                     </div>
                   </div>
 
-                  <div className="mt-3">
-                    <div className="row g-3">
-                      <div className="col-md-6">
-                        <label className="form-label">Password</label>
-                        <div className="input-group">
-                          <input
-                            className={`form-control ${hasErr("password") ? "is-invalid" : ""}`}
-                            type={showPass ? "text" : "password"}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            onBlur={() => touch("password")}
-                            disabled={loading}
-                            placeholder="At least 8 characters"
-                            autoComplete="new-password"
-                            required
-                          />
-                          <button
-                            type="button"
-                            className="btn password-toggle-btn-login d-flex align-items-center"
-                            onClick={() => setShowPass((v) => !v)}
-                            tabIndex={-1}
-                            disabled={loading}
-                            aria-label={showPass ? "Hide password" : "Show password"}
-                            title={showPass ? "Hide password" : "Show password"}
-                          >
-                            {showPass ? EyeSlashIcon : EyeIcon}
-                          </button>
-                        </div>
-                        {hasErr("password") ? (
-                          <div className="invalid-feedback d-block">{errors.password}</div>
-                        ) : null}
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Confirm password</label>
-                        <div className="input-group">
-                          <input
-                            className={`form-control ${hasErr("confirm") ? "is-invalid" : ""}`}
-                            type={showConfirm ? "text" : "password"}
-                            value={confirm}
-                            onChange={(e) => setConfirm(e.target.value)}
-                            onBlur={() => touch("confirm")}
-                            disabled={loading}
-                            placeholder="Repeat the password"
-                            autoComplete="new-password"
-                            required
-                          />
-                          <button
-                            type="button"
-                            className="btn password-toggle-btn-login d-flex align-items-center"
-                            onClick={() => setShowConfirm((v) => !v)}
-                            tabIndex={-1}
-                            disabled={loading}
-                            aria-label={showConfirm ? "Hide password" : "Show password"}
-                            title={showConfirm ? "Hide password" : "Show password"}
-                          >
-                            {showConfirm ? EyeSlashIcon : EyeIcon}
-                          </button>
-                        </div>
-                        {hasErr("confirm") ? (
-                          <div className="invalid-feedback d-block">{errors.confirm}</div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ✅ BOTONES */}
-                  <div className="my-4 d-flex justify-content-center gap-3 flex-wrap">
-                    <button
-                      type="submit"
-                      className="btn btn-memory"
-                      disabled={!canSubmit}
-                      style={{ minWidth: 180 }}
-                    >
-                      {loading ? "Creating..." : "Create account"}
-                    </button>
-
+                  {/* ✅ Buttons: Back a la izquierda, los otros dos a la derecha */}
+                  <div className="mx-4 mt-4 mb-3 d-flex flex-wrap align-items-center justify-content-between">
                     <button
                       type="button"
-                      className="btn btn-outline-memory"
+                      className="btn btn-outline-memory d-flex align-items-center gap-2"
                       onClick={backToLogin}
                       disabled={loading}
-                      style={{ minWidth: 180 }}
+                      title="Back to login"
                     >
+                      <ArrowLeft size={18} />
                       Back to login
                     </button>
 
-                    {/* ✅ NUEVO: Register Institution */}
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary"
-                      onClick={openInstitutionRegister}
-                      disabled={loading}
-                      style={{ minWidth: 220 }}
-                    >
-                      Register Institution
-                    </button>
+                    <div className="d-flex flex-wrap gap-2 ms-auto ">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary pbtn-fix d-flex align-items-center gap-2"
+                        onClick={openInstitutionRegister}
+                        disabled={loading}
+                        title="Register Institution"
+                      >
+                        <Building2 size={18} />
+                        Register Institution
+                      </button>
+
+                      <button
+                        type="submit"
+                        className="btn btn-memory d-flex align-items-center gap-2"
+                        disabled={!canSubmit}
+                        aria-busy={loading ? "true" : "false"}
+                        title={loading ? "Creating..." : "Create account"}
+                      >
+                        <span className="mcBtnText">
+                          {loading ? "Creating..." : "Create account"}
+                        </span>
+                        <span className="mcBtnIcon" aria-hidden="true">
+                          {loading ? (
+                            <Loader size={18} className="mcSpin" />
+                          ) : (
+                            <UserPlus size={18} />
+                          )}
+                        </span>
+                      </button>
+                    </div>
                   </div>
-                </form>
-              </div>
+                </div>
+              </form>
             </div>
           </div>
         </div>
       </div>
-    </div>
-    
-    <ModalRegisterInstitution modalId="registerInstitutionModal" userRegisterModalId="registerModal" />
+
+      <ModalRegisterInstitution
+        modalId={institutionRegisterModalId}
+        userRegisterModalId={modalId}
+      />
     </>
   );
 };

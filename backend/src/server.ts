@@ -22,7 +22,7 @@ app.use("/api/auth", authRoutes); // Auth: login y registro
 app.use("/api/users", userRoutes); // Usuarios
 app.use("/api/institutions", institutionRoutes); // Instituciones
 app.use("/api/theses", thesisRoutes); // Tesis
-app.use("/api", certificateRoutes); // Certificados (blockchain)
+app.use("/api/certificates", certificateRoutes); // Certificados (blockchain)
 
 // Ruta base de prueba
 app.get("/", (_req, res) => {

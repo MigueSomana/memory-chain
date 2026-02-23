@@ -2,10 +2,14 @@ import { Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import { Thesis, CertificationStatus } from "../models/thesis.model";
 import { User } from "../models/user.model";
+import { Institution } from "../models/institution.model"; // ✅ NUEVO
 import { uploadPdfBufferToPinata } from "../services/pinata.service";
 import mongoose, { Types } from "mongoose";
 import { ethers } from "ethers";
 import abi from "../blockchain/ThesisCertification.abi.json";
+import {
+  assertPrivateKeyWithFunds,
+} from "../services/wallet.validation"; // ✅ NUEVO (helper)
 
 // Helpers tipados para evitar any
 type AnyRecord = Record<string, unknown>;
@@ -85,10 +89,9 @@ function forcePrimaryAuthorId(
 }
 
 // ============================
-// Blockchain helper con wallet dinámica
+// Blockchain helper (firma SIEMPRE institución)
 // ============================
 const RPC_URL = process.env.POLYGON_RPC_URL!;
-const BACKEND_PK = process.env.BACKEND_WALLET_PRIVATE_KEY!;
 const CONTRACT_ADDRESS = process.env.CERT_CONTRACT_ADDRESS!;
 const CHAIN_ID = Number(process.env.POLYGON_CHAIN_ID || 80002);
 
@@ -98,32 +101,43 @@ function isPrivateKey(pk?: string) {
   return /^0x[0-9a-fA-F]{64}$/.test(s);
 }
 
+/**
+ * ✅ NUEVO CONTRATO:
+ * certify(fileHash, thesisId, authorIds[], institutionId, ipfsCid)
+ *
+ * ✅ Reglas de tu requerimiento:
+ * - Instituciones deben tener wallet obligatoria
+ * - La certificación (APPROVED) debe firmarse con la wallet de la institución (private key)
+ * - Validar que exista y que tenga fondos
+ */
 async function certifyOnChainDynamic(params: {
+  fileHash: string;          // ✅ KEY del mapping on-chain
   thesisId: string;
-  userId: string;
+  authorIds: string[];
   institutionId: string;
   ipfsCid: string;
-  fileHash: string;
-  signerPrivateKey?: string; // si viene, se usa
+  signerPrivateKey: string;  // ✅ OBLIGATORIA (institución)
 }) {
   const provider = new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID);
-  const signerKey = isPrivateKey(params.signerPrivateKey)
-    ? params.signerPrivateKey!.trim()
-    : BACKEND_PK;
+
+  const signerKey = params.signerPrivateKey?.trim();
+
+  if (!isPrivateKey(signerKey)) {
+    throw new Error("Wallet de institución inválida: debe ser PRIVATE KEY 0x...");
+  }
+
+  // ✅ valida fondos (gas)
+  await assertPrivateKeyWithFunds(signerKey);
 
   const signer = new ethers.Wallet(signerKey, provider);
   const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 
-  // hashAlgorithm eliminado en DB, pero el contrato (si aún lo pide) puede seguir recibiendo un valor fijo
-  const hashAlgorithm = "sha256";
-
   const tx = await contract.certify(
-    params.thesisId,
-    params.userId,
-    params.institutionId,
-    params.ipfsCid,
     params.fileHash,
-    hashAlgorithm
+    params.thesisId,
+    params.authorIds,
+    params.institutionId,
+    params.ipfsCid
   );
 
   const receipt = await tx.wait();
@@ -283,6 +297,12 @@ export async function createThesis(req: AuthRequest, res: Response) {
  * Requiere: auth + (opcional) multer pdf
  * ✅ resetea status según institución y limpia txHash/chain data
  */
+/**
+ * PATCH /theses/:id
+ * Requiere: auth + (opcional) multer pdf
+ * ✅ resetea status según institución y limpia txHash/chain data
+ * ✅ FIX: permite BORRAR institution/department cuando el frontend manda null/""
+ */
 export async function updateThesis(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "No autorizado" });
@@ -303,21 +323,40 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       ? parseMaybeJson<AnyRecord>(req.body.data, {})
       : (req.body as AnyRecord);
 
-    const updates: Record<string, unknown> = {};
+    // ✅ FIX: usamos $set / $unset (unset borra de verdad en Mongo)
+    const $set: Record<string, unknown> = {};
+    const $unset: Record<string, unknown> = {};
 
-    if (body.title !== undefined) updates.title = toRequiredTrimmedString(body.title);
-    if (body.summary !== undefined) updates.summary = toRequiredTrimmedString(body.summary);
-    if (body.language !== undefined) updates.language = toRequiredTrimmedString(body.language);
-    if (body.degree !== undefined) updates.degree = toRequiredTrimmedString(body.degree);
-    if (body.field !== undefined) updates.field = toOptionalTrimmedString(body.field);
-    if (body.department !== undefined) updates.department = toOptionalTrimmedString(body.department);
+    if (body.title !== undefined) $set.title = toRequiredTrimmedString(body.title);
+    if (body.summary !== undefined) $set.summary = toRequiredTrimmedString(body.summary);
+    if (body.language !== undefined) $set.language = toRequiredTrimmedString(body.language);
+    if (body.degree !== undefined) $set.degree = toRequiredTrimmedString(body.degree);
 
-    // institution (si viene)
+    // field
+    if (body.field !== undefined) {
+      const f = toOptionalTrimmedString(body.field);
+      if (f) $set.field = f;
+      else $unset.field = 1;
+    }
+
+    // department (puede limpiarse)
+    if (body.department !== undefined) {
+      const dep = toOptionalTrimmedString(body.department);
+      if (dep) $set.department = dep;
+      else $unset.department = 1;
+    }
+
+    // ✅ FIX: institution (puede limpiarse con null/"" desde el frontend)
     if (body.institution !== undefined) {
-      const inst = isValidObjectId(body.institution)
-        ? new Types.ObjectId(String(body.institution))
-        : undefined;
-      updates.institution = inst;
+      // Si viene null o "" => borrar institution y department
+      if (body.institution === null || String(body.institution).trim() === "") {
+        $unset.institution = 1;
+        $unset.department = 1;
+      } else if (isValidObjectId(body.institution)) {
+        $set.institution = new Types.ObjectId(String(body.institution));
+      } else {
+        return res.status(400).json({ message: "ID de institución inválido" });
+      }
     }
 
     // date (si viene)
@@ -330,7 +369,7 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       } else if (raw instanceof Date) {
         if (!Number.isNaN(raw.getTime())) d = raw;
       }
-      if (d) updates.date = d;
+      if (d) $set.date = d;
     }
 
     if (body.authors !== undefined) {
@@ -340,13 +379,15 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       }
       const ownerId = thesis.uploadedBy as Types.ObjectId;
       a = forcePrimaryAuthorId(a, ownerId);
-      updates.authors = a;
+      $set.authors = a;
     }
 
-    if (body.tutors !== undefined) updates.tutors = normalizeAuthors(body.tutors);
+    if (body.tutors !== undefined) {
+      $set.tutors = normalizeAuthors(body.tutors);
+    }
 
     if (body.keywords !== undefined) {
-      updates.keywords = parseMaybeJson<string[]>(body.keywords, [])
+      $set.keywords = parseMaybeJson<string[]>(body.keywords, [])
         .map((k) => String(k).trim())
         .filter((k) => k.length);
     }
@@ -357,22 +398,31 @@ export async function updateThesis(req: AuthRequest, res: Response) {
         req.file.buffer,
         req.file.originalname
       );
-      updates.ipfsCid = cid;
-      updates.fileHash = fileHash;
+      $set.ipfsCid = cid;
+      $set.fileHash = fileHash;
     }
 
-    // ✅ Regla: al actualizar, reset de status según institución final (nueva o existente)
+    // ✅ FIX: institución final real (respeta unset/set)
     const finalInstitution =
-      (updates.institution as Types.ObjectId | undefined) ?? thesis.institution ?? undefined;
+      "institution" in $set
+        ? ($set.institution as Types.ObjectId)
+        : "institution" in $unset
+        ? undefined
+        : (thesis.institution as Types.ObjectId | undefined);
 
-    updates.status = finalInstitution ? "PENDING" : "NOT_CERTIFIED";
+    $set.status = finalInstitution ? "PENDING" : "NOT_CERTIFIED";
 
     // ✅ Invalida certificación previa (si existía)
-    updates.txHash = undefined;
-    updates.chainId = undefined;
-    updates.blockNumber = undefined;
+    $unset.txHash = 1;
+    $unset.chainId = 1;
+    $unset.blockNumber = 1;
 
-    const updated = await Thesis.findByIdAndUpdate(id, { $set: updates }, { new: true })
+    // construir update doc
+    const updateDoc: AnyRecord = {};
+    if (Object.keys($set).length) updateDoc.$set = $set;
+    if (Object.keys($unset).length) updateDoc.$unset = $unset;
+
+    const updated = await Thesis.findByIdAndUpdate(id, updateDoc, { new: true })
       .populate("uploadedBy", "name lastname")
       .populate("institution", "name");
 
@@ -434,24 +484,44 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
 
     if (status === "APPROVED") {
       if (!thesis.txHash) {
-        if (!thesis.uploadedBy) {
+        // ✅ authorIds salen de thesis.authors[]._id
+        const authorIds = (Array.isArray(thesis.authors) ? thesis.authors : [])
+          .map((a: any) => (a?._id ? String(a._id) : ""))
+          .filter((x) => mongoose.Types.ObjectId.isValid(x));
+
+        if (!authorIds.length) {
           return res.status(400).json({
-            message: "Tesis sin uploadedBy, no se puede certificar",
+            message:
+              "No se puede certificar: los autores no tienen _id válido en thesis.authors",
           });
         }
 
-        // ✅ si aprueba institución y tiene wallet (private key), se firma desde ahí
-        const signerPrivateKey =
-          req.institution?.wallet && String(req.institution.wallet).trim().length
-            ? String(req.institution.wallet).trim()
-            : undefined;
+        // ✅ la institución DEBE tener wallet (private key). Si el request viene como user, igual buscamos la institución en DB.
+        const instId = thesis.institution.toString();
+        const inst =
+          req.institution && req.institution._id.toString() === instId
+            ? req.institution
+            : await Institution.findById(instId);
 
+        if (!inst) {
+          return res.status(404).json({ message: "Institución no encontrada" });
+        }
+
+        const signerPrivateKey = String((inst as any).wallet ?? "").trim();
+        if (!signerPrivateKey) {
+          return res.status(400).json({
+            message:
+              "La institución debe tener wallet configurada (private key) para certificar",
+          });
+        }
+
+        // ✅ NUEVO call al contrato por fileHash
         const onchain = await certifyOnChainDynamic({
-          thesisId: thesis._id.toString(),
-          userId: thesis.uploadedBy.toString(),
-          institutionId: thesis.institution.toString(),
-          ipfsCid: thesis.ipfsCid,
           fileHash: thesis.fileHash,
+          thesisId: thesis._id.toString(),
+          authorIds,
+          institutionId: instId,
+          ipfsCid: thesis.ipfsCid,
           signerPrivateKey,
         });
 
@@ -464,8 +534,9 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
     await thesis.save();
     return res.json(thesis);
   } catch (err) {
+    const msg = err instanceof Error ? err.message : "Error del servidor";
     console.error("Error setThesisStatus", err);
-    return res.status(500).json({ message: "Error del servidor" });
+    return res.status(500).json({ message: "Error del servidor", error: msg });
   }
 }
 

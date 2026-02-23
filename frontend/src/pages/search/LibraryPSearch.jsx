@@ -4,6 +4,7 @@ import ModalViewThesis from "../../components/modal/ModalViewThesis";
 import axios from "axios";
 import { NavLink } from "react-router-dom";
 import { getAuthToken, getIdUser } from "../../utils/authSession";
+import { useToast } from "../../utils/toast";
 
 import {
   Eye,
@@ -23,6 +24,7 @@ import {
   GraduationCap,
   Binoculars,
   UserPen,
+  OctagonAlert,
 } from "lucide-react";
 
 // ===================== CONFIG GLOBAL (API) =====================
@@ -46,17 +48,34 @@ const getInstitutionName = (thesis) => {
   return inst?.name || "";
 };
 
-// UI validation: si no hay institución => "Investigación Independiente"
-function getInstitutionUI(thesis) {
-  const instName = String(getInstitutionName(thesis) || "").trim();
-  const hasInstitution = Boolean(instName);
+const words = (s) =>
+  String(s || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
 
-  return {
-    hasInstitution,
-    label: hasInstitution ? "Institution:" : "Independent Research",
-    value: hasInstitution ? instName : "",
-  };
-}
+const compactWithInitials = (raw) => {
+  const parts = words(raw);
+  if (parts.length <= 1) return parts[0] || "";
+
+  const first = parts[0];
+  const rest = parts
+    .slice(1)
+    .map((w) => (w ? `${w[0].toUpperCase()}.` : ""))
+    .filter(Boolean)
+    .join(" ");
+
+  return `${first} ${rest}`.trim();
+};
+
+const formatAuthorCard = (a) => {
+  if (!a) return "";
+  if (typeof a === "string") return a.trim();
+  const last = compactWithInitials(a.lastname);
+  const name = compactWithInitials(a.name);
+  const out = `${last} ${name}`.trim();
+  return out;
+};
 
 const buildAuthorsSearchString = (authors) => {
   if (!Array.isArray(authors)) return "";
@@ -118,29 +137,30 @@ function thesisBelongsToUser(thesis, userId) {
 }
 
 // helpers status
-const normalizeStatus = (s) => String(s || "").toUpperCase();
+const normalizeStatus = (s) => String(s || "").trim().toUpperCase();
 
-// ✅ tone como LibraryUSearch + caso especial "Not certified"
+// ✅ tone + label basado en STATUS (incluye NOT_CERTIFIED)
 const getCardTone = (thesis) => {
   const status = normalizeStatus(thesis?.status);
-  const instUI = getInstitutionUI(thesis);
 
-  // independiente + NO aprobado => gris (notcertified)
-  if (!instUI.hasInstitution && status !== "APPROVED") return "notcertified";
-
-  if (status === "APPROVED") return "certified";
+  if (status === "APPROVED" || status === "VERIFIED" || status === "CERTIFIED")
+    return "certified";
   if (status === "REJECTED") return "rejected";
+  if (status === "NOT_CERTIFIED") return "notcertified";
+  if (status === "PENDING") return "pending";
+
   return "pending";
 };
 
-// ✅ label superior
 const getStatusLabel = (thesis) => {
   const status = normalizeStatus(thesis?.status);
-  const instUI = getInstitutionUI(thesis);
 
-  if (!instUI.hasInstitution && status !== "APPROVED") return "Not certified";
-  if (status === "APPROVED") return "Verified";
+  if (status === "APPROVED" || status === "VERIFIED" || status === "CERTIFIED")
+    return "Verified";
   if (status === "REJECTED") return "Rejected";
+  if (status === "NOT_CERTIFIED") return "Not certified";
+  if (status === "PENDING") return "Pending";
+
   return "Pending";
 };
 
@@ -169,6 +189,8 @@ const LibraryPSearch = () => {
   const token = useMemo(() => getAuthToken(), []);
   const userId = useMemo(() => getIdUser(), []);
 
+  const { showToast } = useToast();
+
   const [theses, setTheses] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -187,7 +209,7 @@ const LibraryPSearch = () => {
   const [selectedThesis, setSelectedThesis] = useState(null);
   const [selectedThesisView, setSelectedThesisView] = useState(null);
 
-  // copy toast (hash)
+  // copy feedback icon (hash)
   const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
@@ -201,9 +223,7 @@ const LibraryPSearch = () => {
           return;
         }
 
-        const headers = token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses`,
@@ -225,7 +245,6 @@ const LibraryPSearch = () => {
             ...t,
             likes: likesCount,
             userLiked,
-            // ✅ nuevo backend: quotes
             quotes: Number(t.quotes ?? 0),
           };
         });
@@ -352,12 +371,13 @@ const LibraryPSearch = () => {
     console.log("Request Log thesis:", thesis);
   };
 
+  // ✅ CERTIFICATE (ruta nueva)
   const handleCertificate = async (thesis) => {
     try {
       setSelectedThesis(thesis);
 
       const res = await axios.get(
-        `${API_BASE_URL}/api/theses/${thesis._id}/certificate`,
+        `${API_BASE_URL}/api/certificates/thesis/${thesis._id}`,
         token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
       );
 
@@ -367,7 +387,13 @@ const LibraryPSearch = () => {
       console.error(e);
       setCertificateData(null);
       setSelectedThesis(null);
-      alert("No se pudo obtener el certificado.");
+
+      showToast({
+        message: "No se pudo obtener el certificado",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2200,
+      });
     }
   };
 
@@ -379,9 +405,7 @@ const LibraryPSearch = () => {
     modal?.show();
   };
 
-  // ✅ NUEVO: incrementar quotes
   const handleAddQuote = async (thesisId) => {
-    // si quieres permitir público, quita este guard y no mandes headers
     if (!token) return;
 
     try {
@@ -407,10 +431,47 @@ const LibraryPSearch = () => {
           };
         }),
       );
+
+      showToast({
+        message: "Quote added",
+        type: "success",
+        icon: BadgeCheck,
+        duration: 1800,
+      });
     } catch (err) {
       console.error("Error incrementing quotes:", err);
-      alert("Failed to add quote ❌");
+      showToast({
+        message: "Failed to add quote",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2200,
+      });
     }
+  };
+
+  // ✅ COPY HASH + TOAST (como ThesisSearch)
+  const handleCopyHash = async (thesisId, textToCopy) => {
+    const ok = await copyToClipboard(String(textToCopy || "").trim());
+
+    if (!ok) {
+      showToast({
+        message: "Could not copy to clipboard",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2200,
+      });
+      return;
+    }
+
+    setCopiedId(String(thesisId));
+    setTimeout(() => setCopiedId(null), 1400);
+
+    showToast({
+      message: "Hash copied to clipboard",
+      type: "success",
+      icon: BadgeCheck,
+      duration: 2000,
+    });
   };
 
   // ===================== UI STATES =====================
@@ -500,16 +561,16 @@ const LibraryPSearch = () => {
               <span className="mcSortIcon" aria-hidden="true">
                 {activeSortOption.icon}
               </span>
-              <span className="mcSortLabelDesktop">
-                {activeSortOption.label}
-              </span>
+              <span className="mcSortLabelDesktop">{activeSortOption.label}</span>
             </button>
 
             <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
               {SORT_OPTIONS.map((opt) => (
                 <li key={opt.key}>
                   <button
-                    className={`dropdown-item ${sortBy === opt.key ? "active" : ""}`}
+                    className={`dropdown-item ${
+                      sortBy === opt.key ? "active" : ""
+                    }`}
                     onClick={() => {
                       setSortBy(opt.key);
                       setPage(1);
@@ -529,24 +590,20 @@ const LibraryPSearch = () => {
           <div className="mcCardsGrid mcCardsGrid3">
             {pageItems.map((t, idx) => {
               const rowKey = `${t._id}-${start + idx}`;
-              const instUI = getInstitutionUI(t);
               const status = normalizeStatus(t.status);
-              const isApproved = status === "APPROVED";
-              const isPendingOrRejected =
-                status === "PENDING" || status === "REJECTED";
+
+              const isCertified =
+                status === "APPROVED" ||
+                status === "VERIFIED" ||
+                status === "CERTIFIED";
+              const isNotCertified = status === "NOT_CERTIFIED";
+              const canEditOnly = status === "PENDING" || status === "REJECTED";
 
               const tone = getCardTone(t);
               const statusLabel = getStatusLabel(t);
 
               const authorsText = Array.isArray(t.authors)
-                ? t.authors
-                    .map((a) =>
-                      typeof a === "string"
-                        ? a
-                        : `${a.lastname ?? ""} ${a.name ?? ""}`.trim(),
-                    )
-                    .filter(Boolean)
-                    .join(", ")
+                ? t.authors.map(formatAuthorCard).filter(Boolean).join(", ")
                 : "";
 
               const fileHash = String(t.fileHash || "").trim();
@@ -570,10 +627,7 @@ const LibraryPSearch = () => {
                       {t.title}
                     </h3>
 
-                    <div
-                      className="mcCardAuthors mcMetaRow"
-                      title={authorsText}
-                    >
+                    <div className="mcCardAuthors mcMetaRow" title={authorsText}>
                       <span className="mcMetaIcon" aria-hidden="true">
                         <UserPen size={18} />
                       </span>
@@ -629,13 +683,7 @@ const LibraryPSearch = () => {
                         }`}
                         type="button"
                         title="Copy file hash"
-                        onClick={async () => {
-                          const ok = await copyToClipboard(fileHash);
-                          if (ok) {
-                            setCopiedId(String(t._id));
-                            setTimeout(() => setCopiedId(null), 1400);
-                          }
-                        }}
+                        onClick={() => handleCopyHash(t._id, fileHash)}
                         disabled={!fileHash}
                       >
                         {copiedId === String(t._id) ? (
@@ -650,17 +698,13 @@ const LibraryPSearch = () => {
 
                     <div className="mcCardFooter">
                       <div className="mcMetrics">
-                        {/* ✅ Quotes: clickeable */}
                         <button
                           type="button"
                           className="mcMetric mcMetricBtn"
                           title="Add quote"
                           onClick={() => handleAddQuote(t._id)}
                         >
-                          <span
-                            className="mcMetricIcon fix1"
-                            aria-hidden="true"
-                          >
+                          <span className="mcMetricIcon fix1" aria-hidden="true">
                             <TextQuote size={18} />
                           </span>
                           <span className="mcMetricVal">{quotesCount}</span>
@@ -668,10 +712,7 @@ const LibraryPSearch = () => {
                         </button>
 
                         <span className="mcMetric">
-                          <span
-                            className="mcMetricIcon fix1"
-                            aria-hidden="true"
-                          >
+                          <span className="mcMetricIcon fix1" aria-hidden="true">
                             <Heart size={18} />
                           </span>
                           <span className="mcMetricVal">{likesCount}</span>
@@ -679,6 +720,7 @@ const LibraryPSearch = () => {
                         </span>
                       </div>
 
+                      {/* ===================== ACTIONS ===================== */}
                       <div className="mcActions">
                         <button
                           type="button"
@@ -689,7 +731,8 @@ const LibraryPSearch = () => {
                           <Eye size={18} />
                         </button>
 
-                        {isApproved ? (
+                        {/* ✅ CERTIFIED => abre certificado */}
+                        {isCertified ? (
                           <button
                             type="button"
                             className="mcStatusChip mcStatusChip--approved is-locked"
@@ -698,17 +741,22 @@ const LibraryPSearch = () => {
                           >
                             <BadgeCheck size={18} />
                           </button>
-                        ) : instUI.hasInstitution && isPendingOrRejected ? (
+                        ) : null}
+
+                        {/* ✅ PENDING / REJECTED => SOLO EDIT */}
+                        {canEditOnly ? (
                           <NavLink
-                            to={"/update/" + t._id}
-                            type="button"
+                            to={`/update/${t._id}`}
                             className="mcIconBtn"
                             onClick={() => handleEdit(t)}
                             title="Edit thesis"
                           >
                             <SquarePen size={18} />
                           </NavLink>
-                        ) : !instUI.hasInstitution && isPendingOrRejected ? (
+                        ) : null}
+
+                        {/* ✅ NOT_CERTIFIED => dropdown (Edit + Request Log) */}
+                        {isNotCertified ? (
                           <div className="dropdown">
                             <button
                               type="button"
@@ -723,8 +771,7 @@ const LibraryPSearch = () => {
                             <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
                               <li>
                                 <NavLink
-                                  to={"/update/" + t._id}
-                                  type="button"
+                                  to={`/update/${t._id}`}
                                   className="dropdown-item"
                                   onClick={() => handleEdit(t)}
                                 >

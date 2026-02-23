@@ -25,8 +25,8 @@ router.get("/institution/:idInstitution", getThesesByInstitutionId);
 router.get("/:id", getThesisById);
 
 // Crear / Editar (requiere USER + PDF opcional en update)
-router.post("/", authMiddleware, upload.single("file"), createThesis);
-router.patch("/:id", authMiddleware, upload.single("file"), updateThesis);
+router.post("/", authMiddleware, upload.single("pdf"), createThesis);
+router.patch("/:id", authMiddleware, upload.single("pdf"), updateThesis);
 
 // Cambiar status (certificar/rechazar) (USER miembro o INSTITUTION)
 router.patch("/:id/status", authMiddleware, setThesisStatus);

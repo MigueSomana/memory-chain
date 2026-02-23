@@ -23,7 +23,7 @@ router.get("/:id/students", getInstitutionStudents);
 router.get("/:id/theses", getInstitutionTheses);
 
 // Update perfil institución (auth requerido)
-router.put("/:id", authMiddleware, upload.single("file"), updateInstitution);
+router.put("/:id", authMiddleware, upload.single("logo"), updateInstitution);
 
 /**
  * ✅ NUEVO: institución aprueba/rechaza estudiantes (educationalEmails.status)

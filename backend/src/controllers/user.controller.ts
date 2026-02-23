@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AuthRequest } from "../middleware/auth";
 import { User } from "../models/user.model";
 import mongoose from "mongoose";
+import { assertAddressWithFunds } from "../services/wallet.validation";
 
 // Convierte la imagen binaria (Buffer) a una URL base64 para el frontend
 function buildImgUrl(img?: { data: Buffer; contentType: string }) {
@@ -84,48 +85,94 @@ export async function updateMe(req: AuthRequest, res: Response) {
       "email",
       "educationalEmails",
       "institutions",
-      "wallet",     // ✅ nuevo
+      "wallet",
       "removeImg",
     ] as const;
 
-    const updates: Record<string, unknown> = {};
+    const updates: any = {};
 
-    for (const key of allowedFields) {
-      if (req.body[key] !== undefined) {
-        updates[key] = req.body[key];
+    for (const k of allowedFields) {
+      if (typeof (req.body as any)[k] !== "undefined") {
+        updates[k] = (req.body as any)[k];
       }
     }
 
-    const parsedEdu = safeJsonParse<unknown[]>(updates.educationalEmails);
-    if (parsedEdu) updates.educationalEmails = parsedEdu;
-
-    const parsedInst = safeJsonParse<string[]>(updates.institutions);
-    if (parsedInst) updates.institutions = parsedInst;
-
-    if (updates.wallet !== undefined) {
-      updates.wallet = String(updates.wallet).trim();
+    // ✅ FormData -> JSON strings
+    if (typeof updates.educationalEmails === "string") {
+      updates.educationalEmails =
+        safeJsonParse(updates.educationalEmails) ?? req.user.educationalEmails;
     }
 
-    const removeImg =
-      String(req.body.removeImg || "").toLowerCase() === "1" ||
-      String(req.body.removeImg || "").toLowerCase() === "true";
-
-    if (removeImg) {
-      updates.img = undefined;
+    // ✅ FIX CLAVE: institutions también viene string en FormData
+    if (typeof updates.institutions === "string") {
+      const parsed = safeJsonParse<any[]>(updates.institutions);
+      updates.institutions = Array.isArray(parsed) ? parsed : req.user.institutions;
     }
 
-    if (req.file) {
+    // ✅ wallet: opcional; si viene, validar address + fondos
+    if (typeof updates.wallet !== "undefined") {
+      const w = String(updates.wallet ?? "").trim();
+      if (!w) {
+        updates.wallet = undefined;
+      } else {
+        try {
+          await assertAddressWithFunds(w);
+          updates.wallet = w;
+        } catch (e: any) {
+          return res
+            .status(400)
+            .json({ message: e?.message || "Wallet inválida" });
+        }
+      }
+    }
+
+    // ✅ guardar imagen si viene por multer
+    if ((req as any).file?.buffer && (req as any).file?.mimetype) {
       updates.img = {
-        data: req.file.buffer,
-        contentType: req.file.mimetype,
+        data: (req as any).file.buffer,
+        contentType: (req as any).file.mimetype,
       };
     }
 
-    const updated = await User.findByIdAndUpdate(
-      req.user._id,
-      { $set: updates, ...(removeImg ? { $unset: { img: 1 } } : {}) },
-      { new: true }
-    ).select("-password");
+    // remover img
+    if (updates.removeImg) {
+      updates.img = undefined;
+      delete updates.removeImg;
+    }
+
+    // ✅ FIX password: no uses findByIdAndUpdate si vas a hashear en save()
+    if (typeof updates.password !== "undefined" && String(updates.password || "").trim()) {
+      const user = await User.findById(req.user._id);
+      if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+      // aplica updates manualmente
+      if (typeof updates.name !== "undefined") user.name = updates.name;
+      if (typeof updates.lastname !== "undefined") user.lastname = updates.lastname;
+      if (typeof updates.email !== "undefined") user.email = updates.email;
+      if (typeof updates.wallet !== "undefined") user.wallet = updates.wallet;
+
+      if (typeof updates.educationalEmails !== "undefined") user.educationalEmails = updates.educationalEmails;
+      if (typeof updates.institutions !== "undefined") user.institutions = updates.institutions;
+
+      if (typeof updates.img !== "undefined") user.img = updates.img;
+
+      // password (que tu schema debería hashear en pre-save)
+      user.password = updates.password;
+
+      const saved = await user.save();
+      const obj = saved.toObject();
+
+      return res.json({
+        ...obj,
+        imgUrl: buildImgUrl(obj.img),
+        img: undefined,
+      });
+    }
+
+    // ✅ sin password, update normal
+    const updated = await User.findByIdAndUpdate(req.user._id, updates, {
+      new: true,
+    }).select("-password");
 
     if (!updated) return res.status(404).json({ message: "Usuario no encontrado" });
 
@@ -135,11 +182,12 @@ export async function updateMe(req: AuthRequest, res: Response) {
       imgUrl: buildImgUrl(obj.img),
       img: undefined,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error updateMe", err);
     return res.status(500).json({ message: "Error del servidor" });
   }
 }
+
 export async function setUserEducationalStatus(req: AuthRequest, res: Response) {
   try {
     // ✅ acepta USER o INSTITUTION (igual que setThesisStatus)

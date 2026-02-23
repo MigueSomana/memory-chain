@@ -26,7 +26,7 @@ export interface IInstitution extends Document {
   canVerify: boolean;
 
   // Wallet
-  wallet?: string;
+  wallet: string;
 
   logo?: {
     data: Buffer;
@@ -86,7 +86,7 @@ const InstitutionSchema = new Schema<IInstitution>(
     },
 
     // Wallet institución
-    wallet: { type: String, trim: true },
+    wallet: { type: String, trim: true, required: true },
 
     logo: {
       data: Buffer,

@@ -859,9 +859,9 @@ const FormThesis = ({
       degree,
       field: field.trim(),
       date: dateIso,
-      institution: isPersonalResearch ? undefined : institutionId,
-      department: isPersonalResearch ? undefined : department || undefined,
-      status: "PENDING",
+      institution: isPersonalResearch ? null : institutionId,
+department: isPersonalResearch ? null : (department || null),
+      status: isPersonalResearch ? "NOT CERTIFIED": "PENDING",
     };
 
     const redirectAfterMs = 2000;

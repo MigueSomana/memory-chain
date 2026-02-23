@@ -4,6 +4,7 @@ import axios from "axios";
 import { getAuthToken, getAuthInstitution } from "../../utils/authSession";
 import ModalViewThesis from "../../components/modal/ModalViewThesis";
 import ModalCertificate from "../../components/modal/ModalCertificate"; // ✅ nuevo
+import { useToast } from "../../utils/toast";
 
 import {
   Eye,
@@ -24,14 +25,11 @@ import {
   Funnel,
   UserPen,
   ChevronDown,
+  OctagonAlert,
 } from "lucide-react";
 
 // ===================== CONFIG GLOBAL =====================
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
-
-// ✅ NUEVO: endpoint correcto para certificados (según tus rutas nuevas)
-const CERTIFICATE_BASE =
-  import.meta.env.VITE_CERT_API_PATH || "/api/certificates";
 
 // ===================== SORT OPTIONS =====================
 const SORT_OPTIONS = [
@@ -75,6 +73,34 @@ const buildAuthorsSearchString = (authors) => {
     })
     .join(" ")
     .toLowerCase();
+};
+
+const words = (s) =>
+  String(s || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+const compactWithInitials = (raw) => {
+  const parts = words(raw);
+  if (parts.length <= 1) return parts[0] || "";
+
+  const first = parts[0];
+  const rest = parts
+    .slice(1)
+    .map((w) => (w ? `${w[0].toUpperCase()}.` : ""))
+    .filter(Boolean)
+    .join(" ");
+
+  return `${first} ${rest}`.trim();
+};
+
+const formatAuthorCard = (a) => {
+  if (!a) return "";
+  if (typeof a === "string") return a.trim();
+  const last = compactWithInitials(a.lastname);
+  const name = compactWithInitials(a.name);
+  return `${last} ${name}`.trim();
 };
 
 const getYearFromThesis = (t) => {
@@ -149,10 +175,20 @@ async function copyToClipboard(text) {
   }
 }
 
+const statusLabelForToast = (s) => {
+  const x = normalizeStatus(s);
+  if (x === "APPROVED") return "Verified";
+  if (x === "REJECTED") return "Rejected";
+  if (x === "PENDING") return "Pending";
+  return x || "—";
+};
+
 // ===================== COMPONENT =====================
 const LibraryUSearch = () => {
   const token = useMemo(() => getAuthToken(), []);
   const authInst = useMemo(() => getAuthInstitution(), []);
+
+  const { showToast } = useToast();
 
   const [theses, setTheses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -174,7 +210,7 @@ const LibraryUSearch = () => {
   const [certificateData, setCertificateData] = useState(null);
   const [selectedThesisCert, setSelectedThesisCert] = useState(null);
 
-  // copy toast
+  // copy feedback (icon)
   const [copiedId, setCopiedId] = useState(null);
 
   // ===================== LOAD =====================
@@ -191,10 +227,9 @@ const LibraryUSearch = () => {
 
         const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-        // ✅ endpoint real
         const res = await axios.get(
           `${API_BASE_URL}/api/theses/institution/${authInst._id}`,
-          headers ? { headers } : undefined
+          headers ? { headers } : undefined,
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
@@ -204,7 +239,7 @@ const LibraryUSearch = () => {
             ...t,
             likes: Number(t.likes ?? 0),
             quotes: Number(t.quotes ?? 0),
-          }))
+          })),
         );
       } catch (err) {
         console.error("Error loading institution theses:", err);
@@ -293,7 +328,7 @@ const LibraryUSearch = () => {
 
   const pagesArray = useMemo(
     () => Array.from({ length: totalPages }, (_, i) => i + 1),
-    [totalPages]
+    [totalPages],
   );
 
   const go = (p) => setPage(p);
@@ -312,8 +347,37 @@ const LibraryUSearch = () => {
     modal?.show();
   };
 
+  // ✅ COPY + TOAST
+  const handleCopyHash = async (thesisId, hash) => {
+    const text = String(hash || "").trim();
+    const ok = await copyToClipboard(text);
+
+    if (!ok) {
+      showToast({
+        message: "Could not copy to clipboard",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2200,
+      });
+      return;
+    }
+
+    setCopiedId(String(thesisId));
+    setTimeout(() => setCopiedId(null), 1400);
+
+    showToast({
+      message: "Hash copied to clipboard",
+      type: "success",
+      icon: BadgeCheck,
+      duration: 2000,
+    });
+  };
+
+  // ✅ STATUS CHANGE + TOAST
   const handleChangeStatus = async (thesisId, newStatus) => {
     if (!token) return;
+
+    const prev = theses.find((x) => String(x._id) === String(thesisId))?.status;
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
@@ -321,21 +385,46 @@ const LibraryUSearch = () => {
       const res = await axios.patch(
         `${API_BASE_URL}/api/theses/${thesisId}/status`,
         { status: newStatus },
-        { headers }
+        { headers },
       );
 
-      const updated = res?.data?.thesis || res?.data || null;
+      const updated = res?.data?.thesis ?? res?.data ?? null;
 
-      setTheses((prev) =>
-        prev.map((t) =>
+      if (!updated?._id) {
+        throw new Error("Invalid response from server (missing thesis).");
+      }
+
+      setTheses((p) =>
+        p.map((t) =>
           String(t._id) === String(thesisId)
-            ? { ...t, status: updated?.status ?? newStatus }
-            : t
-        )
+            ? { ...t, status: updated.status }
+            : t,
+        ),
       );
+
+      showToast({
+        message: `Status updated: ${statusLabelForToast(prev)} → ${statusLabelForToast(
+          updated.status,
+        )}`,
+        type: "success",
+        icon: BadgeCheck,
+        duration: 2200,
+      });
     } catch (err) {
       console.error("Error updating thesis status:", err);
-      alert("Failed to update status ❌");
+
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Failed to update status";
+
+      showToast({
+        message: msg,
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2400,
+      });
     }
   };
 
@@ -345,7 +434,9 @@ const LibraryUSearch = () => {
       const res = await axios.post(`${API_BASE_URL}/api/theses/${thesisId}/quote`);
 
       const updated = res?.data?.thesis || res?.data || null;
-      const newQuotes = Number(updated?.quotes ?? updated?.quote ?? updated?.count ?? NaN);
+      const newQuotes = Number(
+        updated?.quotes ?? updated?.quote ?? updated?.count ?? NaN,
+      );
 
       setTheses((prev) =>
         prev.map((t) => {
@@ -356,11 +447,16 @@ const LibraryUSearch = () => {
               ? newQuotes
               : Number(t.quotes ?? 0) + 1,
           };
-        })
+        }),
       );
     } catch (err) {
       console.error("Error incrementing quotes:", err);
-      alert("Failed to add quote ❌");
+      showToast({
+        message: "Failed to add quote",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2200,
+      });
     }
   };
 
@@ -372,7 +468,7 @@ const LibraryUSearch = () => {
     modal?.show();
   };
 
-  // ✅ FIX PRINCIPAL: endpoint correcto + manejo 404 + no borrar thesis
+  // ✅ endpoint correcto + manejo 404 + no borrar thesis
   const handleCertificate = async (thesis) => {
     try {
       if (!thesis?._id) return;
@@ -381,8 +477,8 @@ const LibraryUSearch = () => {
       setCertificateData(null);
 
       const res = await axios.get(
-        `${API_BASE_URL}${CERTIFICATE_BASE}/thesis/${thesis._id}`,
-        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+        `${API_BASE_URL}/api/certificates/thesis/${thesis._id}`,
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
       );
 
       setCertificateData(res.data);
@@ -391,18 +487,30 @@ const LibraryUSearch = () => {
       console.error(err);
 
       const code = err?.response?.status;
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "No se pudo obtener el certificado.";
 
-      // 404 = no certificado (según tu backend)
       if (code === 404) {
         setCertificateData(null);
-        // si quieres abrir el modal igual, lo abrimos para que el usuario vea que no hay data
         openCertificateModal();
-        alert("Esta tesis aún no está certificada.");
+        showToast({
+          message: msg,
+          type: "error",
+          icon: OctagonAlert,
+          duration: 2400,
+        });
         return;
       }
 
       setCertificateData(null);
-      alert("No se pudo obtener el certificado.");
+      showToast({
+        message: msg,
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2400,
+      });
     }
   };
 
@@ -451,14 +559,12 @@ const LibraryUSearch = () => {
 
       <div className="mcExploreContainer">
         {!canVerify && (
-          <div className="mcAlert mcAlertDanger">
-            <span className="mcAlertIcon" aria-hidden="true">
-              !
+          <div className="alert border-0 mcDashBanner mcDashBanner--bad" role="alert">
+            <span className="mx-2">
+              <OctagonAlert />
             </span>
-            <div>
-              Please activate your membership in order to certify those of your
-              institution.
-            </div>
+            Your membership is <strong>inactive</strong>. Please activate your membership to
+            certify theses of your institution
           </div>
         )}
 
@@ -578,14 +684,7 @@ const LibraryUSearch = () => {
               const degree = String(t.degree || "").trim();
 
               const authorsText = Array.isArray(t.authors)
-                ? t.authors
-                    .map((a) =>
-                      typeof a === "string"
-                        ? a
-                        : `${a.lastname ?? ""} ${a.name ?? ""}`.trim()
-                    )
-                    .filter(Boolean)
-                    .join(", ")
+                ? t.authors.map(formatAuthorCard).filter(Boolean).join(", ")
                 : "";
 
               const fileHash = String(t.fileHash || "").trim();
@@ -606,8 +705,8 @@ const LibraryUSearch = () => {
                         {tone === "certified"
                           ? "Verified"
                           : tone === "rejected"
-                          ? "Rejected"
-                          : "Pending"}
+                            ? "Rejected"
+                            : "Pending"}
                       </span>
                     </div>
 
@@ -666,20 +765,10 @@ const LibraryUSearch = () => {
                         }`}
                         type="button"
                         title="Copy file hash"
-                        onClick={async () => {
-                          const ok = await copyToClipboard(fileHash);
-                          if (ok) {
-                            setCopiedId(String(t._id));
-                            setTimeout(() => setCopiedId(null), 1400);
-                          }
-                        }}
+                        onClick={() => handleCopyHash(t._id, fileHash)}
                         disabled={!fileHash}
                       >
-                        {copiedId === String(t._id) ? (
-                          <Check size={16} />
-                        ) : (
-                          <Copy size={16} />
-                        )}
+                        {copiedId === String(t._id) ? <Check size={16} /> : <Copy size={16} />}
                       </button>
                     </div>
 
@@ -729,7 +818,6 @@ const LibraryUSearch = () => {
                               data-bs-toggle={locked ? undefined : "dropdown"}
                               aria-expanded="false"
                               title={locked ? "Open certificate" : "Change status"}
-                              // ✅ si está aprobado: click abre certificado
                               onClick={() => {
                                 if (locked) handleCertificate(t);
                               }}

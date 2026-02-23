@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+// ListMember.jsx
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import NavbarReal from "../../components/navbar/NavbarReal";
 import Layout from "../../components/layout/LayoutPrivado";
 import axios from "axios";
-import { getAuthToken } from "../../utils/authSession";
-import ModalViewUser from "../../components/modal/ModalViewUser"; // ✅ ajusta el path real
+import { getAuthToken, getAuthInstitution } from "../../utils/authSession";
+import ModalViewUser from "../../components/modal/ModalViewUser";
+import { useToast } from "../../utils/toast";
 
 import {
   Eye,
@@ -15,6 +17,7 @@ import {
   BadgeCheck,
   Clock3,
   OctagonMinus,
+  OctagonAlert,
   ChevronDown,
   BookMarked,
   Mail,
@@ -57,7 +60,34 @@ const STATUS_CHANGE_OPTIONS = [
 
 // ===================== HELPERS =====================
 const safeStr = (v) => String(v ?? "").trim();
-const normalizeStatus = (s) => String(s || "").toUpperCase();
+const normalizeStatus = (s) => String(s || "").trim().toUpperCase();
+const words = (s) =>
+  String(s || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+const compactWithInitials = (raw) => {
+  const parts = words(raw);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0];
+
+  const first = parts[0];
+  const rest = parts
+    .slice(1)
+    .map((w) => (w ? `${w[0].toUpperCase()}.` : ""))
+    .filter(Boolean)
+    .join(" ");
+
+  return `${first} ${rest}`.trim();
+};
+
+// ✅ Nombre primero, Apellido después
+function getUserDisplayName(u) {
+  const name = compactWithInitials(u?.name);
+  const lastname = compactWithInitials(u?.lastname);
+  return `${name} ${lastname}`.trim() || "User";
+}
 
 function getCurrentInstitutionId() {
   try {
@@ -72,34 +102,32 @@ function getCurrentInstitutionId() {
   return localStorage.getItem("memorychain_institutionId") || null;
 }
 
-function getUserDisplayName(u) {
-  const name = safeStr(u?.name);
-  const lastname = safeStr(u?.lastname);
-  return safeStr(`${name} ${lastname}`).trim() || "User";
-}
-function getUserId(u) {
-  return u?._id || u?.id || null;
+// robust id
+function getAnyId(v) {
+  if (!v) return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "object" && v.$oid) return String(v.$oid);
+  if (typeof v === "object" && v._id) return getAnyId(v._id);
+  if (typeof v === "object" && v.id) return String(v.id);
+  return null;
 }
 
-// ✅ backend nuevo: educationalEmails[{institution,email?,status}]
+function getUserId(u) {
+  return getAnyId(u?._id) || getAnyId(u?.id) || null;
+}
+
+// educationalEmails[{institution,email?,status}]
 function getMemberStatusFromUser(u, institutionId) {
   const edu = Array.isArray(u?.educationalEmails) ? u.educationalEmails : [];
   for (const entry of edu) {
-    const inst = entry?.institution;
-    const instId =
-      typeof inst === "string"
-        ? inst
-        : inst && typeof inst === "object" && inst._id
-          ? String(inst._id)
-          : "";
-    if (String(instId) === String(institutionId)) {
+    const instId = getAnyId(entry?.institution);
+    if (instId && String(instId) === String(institutionId)) {
       return normalizeStatus(entry?.status || "PENDING");
     }
   }
   return "";
 }
 
-// ✅ NUEVO: tone para mcCardBar--pending/approved/rejected (igual que LibraryUSearch)
 const getTone = (raw) => {
   const s = normalizeStatus(raw);
   if (s === "APPROVED") return "approved";
@@ -123,34 +151,70 @@ const getStatusChip = (rawStatus) => {
   return { Icon: Clock3, toneClass: "mcStatusChip--pending" };
 };
 
-// Cuenta tesis donde user aparece como author OR uploadedBy
+const statusLabelForToast = (s) => {
+  const up = normalizeStatus(s);
+  if (up === "APPROVED" || up === "VERIFIED") return "Approved";
+  if (up === "REJECTED") return "Rejected";
+  if (up === "PENDING") return "Pending";
+  return up || "—";
+};
+
+// ✅ actualiza educationalEmails en memoria para que el modal refresque
+function patchEducationalEmails(userObj, institutionId, nextStatus) {
+  const u = userObj || {};
+  const edu = Array.isArray(u.educationalEmails) ? [...u.educationalEmails] : [];
+
+  const idx = edu.findIndex((e) => {
+    const instId = getAnyId(e?.institution);
+    return instId && String(instId) === String(institutionId);
+  });
+
+  if (idx >= 0) {
+    edu[idx] = { ...edu[idx], status: normalizeStatus(nextStatus) };
+  } else {
+    edu.push({ institution: institutionId, status: normalizeStatus(nextStatus) });
+  }
+
+  return { ...u, educationalEmails: edu };
+}
+
+// ✅ CERRAR DROPDOWN DE BOOTSTRAP MANUALMENTE
+function closeBootstrapDropdownFromEvent(e) {
+  try {
+    const root =
+      e?.currentTarget?.closest?.(".dropdown") ||
+      e?.target?.closest?.(".dropdown");
+    if (!root) return;
+
+    const toggle =
+      root.querySelector('[data-bs-toggle="dropdown"]') ||
+      root.querySelector(".dropdown-toggle");
+
+    const DropCtor = window?.bootstrap?.Dropdown;
+    if (!toggle || !DropCtor) return;
+
+    const instance = DropCtor.getOrCreateInstance(toggle);
+    instance?.hide?.();
+  } catch (err) {
+    console.warn("Could not close dropdown", err);
+  }
+}
+
+// Count theses where user appears as author OR uploadedBy
 function countUserTheses(theses, userId) {
   const uid = String(userId || "");
   if (!uid) return 0;
 
   let c = 0;
   for (const t of theses) {
-    const up = t?.uploadedBy;
-    const upId =
-      typeof up === "string"
-        ? up
-        : up && typeof up === "object" && up._id
-          ? String(up._id)
-          : "";
+    const upId = getAnyId(t?.uploadedBy) || getAnyId(t?.uploadBy);
     const matchUploadedBy = upId && String(upId) === uid;
 
     const authors = Array.isArray(t?.authors) ? t.authors : [];
     let matchAuthor = false;
     for (const a of authors) {
       if (typeof a === "string") continue;
-      const aid =
-        typeof a?._id === "string"
-          ? a._id
-          : a?._id
-            ? String(a._id)
-            : a?.id
-              ? String(a.id)
-              : "";
+      const aid = getAnyId(a?._id) || getAnyId(a?.id);
       if (aid && String(aid) === uid) {
         matchAuthor = true;
         break;
@@ -162,25 +226,21 @@ function countUserTheses(theses, userId) {
   return c;
 }
 
-// ✅ helper para abrir modal Bootstrap sin data-bs-target
+// Open bootstrap modal by id
 function openBootstrapModalById(id) {
   try {
     const el = document.getElementById(id);
     if (!el) return false;
-
-    // Bootstrap 5 expone window.bootstrap.Modal
     const ModalCtor = window?.bootstrap?.Modal;
     if (ModalCtor) {
-      const instance = ModalCtor.getOrCreateInstance(el);
+      const instance = ModalCtor.getOrCreateInstance(el, {
+        backdrop: "static",
+        keyboard: false,
+      });
       instance.show();
       return true;
     }
-
-    // fallback: dispara el evento nativo (si estás usando auto-init por data api)
-    el.classList.add("show");
-    el.style.display = "block";
-    el.removeAttribute("aria-hidden");
-    return true;
+    return false;
   } catch (e) {
     console.warn("Could not open modal:", e);
     return false;
@@ -189,7 +249,11 @@ function openBootstrapModalById(id) {
 
 // ===================== COMPONENT: MembersSearch =====================
 const MembersSearch = () => {
-  const token = getAuthToken();
+  const token = useMemo(() => getAuthToken(), []);
+  const sessionInst = useMemo(() => getAuthInstitution(), []);
+  const institutionId = useMemo(() => getCurrentInstitutionId(), []);
+
+  const { showToast } = useToast();
 
   const [members, setMembers] = useState([]);
   const [theses, setTheses] = useState([]);
@@ -204,12 +268,86 @@ const MembersSearch = () => {
   const [page, setPage] = useState(1);
   const pageSize = 12;
 
-  const institutionId = useMemo(() => getCurrentInstitutionId(), []);
-
-  // ✅ para el modal
+  // Modal
   const [selectedUser, setSelectedUser] = useState(null);
 
-  // ===================== LOAD =====================
+  // ✅ canVerify gating
+  const [canVerify, setCanVerify] = useState(false);
+  const [verifyChecked, setVerifyChecked] = useState(false);
+
+  // ======= fetch helper (para refetch post-update) =======
+  const refetchMembersOnly = useCallback(async () => {
+    if (!token || !institutionId) return;
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const usersRes = await axios.get(`${API_BASE_URL}/api/users`, { headers });
+    const usersData = Array.isArray(usersRes.data) ? usersRes.data : [];
+
+    const filteredMembers = usersData
+      .map((u) => {
+        const st = getMemberStatusFromUser(u, institutionId);
+        return st ? { ...u, __memberStatus: st } : null;
+      })
+      .filter(Boolean);
+
+    setMembers(filteredMembers);
+
+    // ✅ si el modal está abierto, refrescamos el user del modal con el nuevo objeto
+    setSelectedUser((prev) => {
+      if (!prev) return prev;
+      const pid = String(getUserId(prev) ?? "");
+      if (!pid) return prev;
+      const fresh = filteredMembers.find((m) => String(getUserId(m) ?? "") === pid);
+      return fresh || prev;
+    });
+  }, [token, institutionId]);
+
+  // ===================== 1) CHECK canVerify =====================
+  useEffect(() => {
+    const check = async () => {
+      try {
+        setVerifyChecked(false);
+
+        const localCan =
+          !!sessionInst?.canVerify ||
+          !!sessionInst?.can_verify ||
+          !!sessionInst?.canVerifyMembership;
+
+        if (localCan) {
+          setCanVerify(true);
+          return;
+        }
+
+        if (institutionId) {
+          try {
+            const res = await axios.get(
+              `${API_BASE_URL}/api/institutions/${institutionId}`,
+            );
+            const inst = res.data || null;
+
+            const ok =
+              !!inst?.canVerify ||
+              !!inst?.can_verify ||
+              !!inst?.canVerifyMembership;
+
+            setCanVerify(!!ok);
+          } catch (e) {
+            console.error("Error fetching institution for canVerify:", e);
+            setCanVerify(false);
+          }
+        } else {
+          setCanVerify(false);
+        }
+      } finally {
+        setVerifyChecked(true);
+      }
+    };
+
+    check();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [institutionId]);
+
+  // ===================== LOAD MEMBERS + THESES =====================
   useEffect(() => {
     const fetchMembersAndTheses = async () => {
       try {
@@ -231,14 +369,10 @@ const MembersSearch = () => {
 
         const headers = { Authorization: `Bearer ${token}` };
 
-        const usersRes = await axios.get(`${API_BASE_URL}/api/users`, {
-          headers,
-        });
+        const usersRes = await axios.get(`${API_BASE_URL}/api/users`, { headers });
         const usersData = Array.isArray(usersRes.data) ? usersRes.data : [];
 
-        const thesesRes = await axios.get(`${API_BASE_URL}/api/theses`, {
-          headers,
-        });
+        const thesesRes = await axios.get(`${API_BASE_URL}/api/theses`, { headers });
         const thesesData = Array.isArray(thesesRes.data) ? thesesRes.data : [];
         setTheses(thesesData);
 
@@ -323,11 +457,10 @@ const MembersSearch = () => {
   const totalPages = Math.max(1, Math.ceil(filteredOrdered.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const start = (currentPage - 1) * pageSize;
-  const end = start + pageSize;
 
   const pageItems = useMemo(
-    () => filteredOrdered.slice(start, end),
-    [filteredOrdered, start, end],
+    () => filteredOrdered.slice(start, start + pageSize),
+    [filteredOrdered, start],
   );
 
   const pagesArray = useMemo(
@@ -339,48 +472,116 @@ const MembersSearch = () => {
 
   // ===================== ACTIONS =====================
   const handleView = (member) => {
-    // ✅ setea usuario y abre el modal
     setSelectedUser(member);
     openBootstrapModalById("modalViewUser");
   };
 
   // PATCH /api/users/:userId/educational-status  body: { institutionId, status }
-  const handleChangeMemberStatus = async (userId, newStatus) => {
-    if (!token || !institutionId) return;
+  const handleChangeMemberStatus = useCallback(
+    async (e, userId, newStatus) => {
+      // ✅ cerrar dropdown de una vez (antes del async)
+      closeBootstrapDropdownFromEvent(e);
 
-    try {
-      const headers = { Authorization: `Bearer ${token}` };
+      if (!token || !institutionId) return;
+      if (!canVerify) return;
 
-      const res = await axios.patch(
-        `${API_BASE_URL}/api/users/${userId}/educational-status`,
-        { institutionId, status: newStatus },
-        { headers },
-      );
+      const uid = String(userId || "");
+      const prevMember = members.find((m) => String(getUserId(m) || "") === uid);
+      const prevStatus = prevMember?.__memberStatus || "PENDING";
 
-      const updatedStatus =
-        res?.data?.updated?.status || normalizeStatus(newStatus);
-
+      // ✅ Optimistic update
       setMembers((prev) =>
-        prev.map((u) =>
-          String(getUserId(u)) === String(userId)
-            ? { ...u, __memberStatus: updatedStatus }
-            : u,
-        ),
+        prev.map((u) => {
+          const id = String(getUserId(u) || "");
+          if (id !== uid) return u;
+          const patched = patchEducationalEmails(u, institutionId, newStatus);
+          return { ...patched, __memberStatus: normalizeStatus(newStatus) };
+        }),
       );
 
-      // si el que estás viendo en el modal cambia, refresca selectedUser para que el pill se actualice
       setSelectedUser((prev) => {
         if (!prev) return prev;
-        if (String(getUserId(prev)) !== String(userId)) return prev;
-        return { ...prev, __memberStatus: updatedStatus };
+        const pid = String(getUserId(prev) || "");
+        if (pid !== uid) return prev;
+        const patched = patchEducationalEmails(prev, institutionId, newStatus);
+        return { ...patched, __memberStatus: normalizeStatus(newStatus) };
       });
-    } catch (err) {
-      console.error("Error updating member status:", err);
-      alert("Failed to update member status ❌");
-    }
-  };
+
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const res = await axios.patch(
+          `${API_BASE_URL}/api/users/${uid}/educational-status`,
+          { institutionId, status: newStatus },
+          { headers },
+        );
+
+        const updatedStatus = normalizeStatus(
+          res?.data?.updated?.status || res?.data?.status || newStatus,
+        );
+
+        setMembers((prev) =>
+          prev.map((u) => {
+            const id = String(getUserId(u) || "");
+            if (id !== uid) return u;
+            const patched = patchEducationalEmails(u, institutionId, updatedStatus);
+            return { ...patched, __memberStatus: updatedStatus };
+          }),
+        );
+
+        setSelectedUser((prev) => {
+          if (!prev) return prev;
+          const pid = String(getUserId(prev) || "");
+          if (pid !== uid) return prev;
+          const patched = patchEducationalEmails(prev, institutionId, updatedStatus);
+          return { ...patched, __memberStatus: updatedStatus };
+        });
+
+        showToast({
+          message: `Member status: ${statusLabelForToast(prevStatus)} → ${statusLabelForToast(
+            updatedStatus,
+          )}`,
+          type: "success",
+          icon: BadgeCheck,
+          duration: 2200,
+        });
+
+        await refetchMembersOnly();
+      } catch (err) {
+        console.error("Error updating member status:", err);
+
+        try {
+          await refetchMembersOnly();
+        } catch {}
+
+        const msg =
+          err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.message ||
+          "Failed to update member status";
+
+        showToast({
+          message: msg,
+          type: "error",
+          icon: OctagonAlert,
+          duration: 2400,
+        });
+      }
+    },
+    [token, institutionId, canVerify, members, showToast, refetchMembersOnly],
+  );
 
   // ===================== UI STATES =====================
+  if (!verifyChecked) {
+    return (
+      <div className="mcExploreWrap">
+        <div className="mcExploreContainer">
+          <div className="mcMuted">Checking verification…</div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="mcExploreWrap">
@@ -410,10 +611,26 @@ const MembersSearch = () => {
   return (
     <div className="mcExploreWrap">
       <div className="mcExploreContainer">
-        {/* ✅ Modal montado UNA vez */}
         <ModalViewUser user={selectedUser} institutionId={institutionId} />
 
-        {/* ===================== TOP ROW ===================== */}
+        <div className="mb-3">
+          {canVerify ? (
+            <div className="alert border-0 mcDashBanner mcDashBanner--ok" role="alert">
+              <span className="mx-2">
+                <BadgeCheck />
+              </span>
+              Your institution is <strong>verified</strong>. You can manage member roles.
+            </div>
+          ) : (
+            <div className="alert border-0 mcDashBanner mcDashBanner--bad" role="alert">
+              <span className="mx-2">
+                <OctagonAlert />
+              </span>
+              Your institution is <strong>not verified</strong>. You can’t modify member roles.
+            </div>
+          )}
+        </div>
+
         <div className="mcTopRow mcLibTopRow">
           <div className="mcSearch mcSearchSm">
             <span className="mcSearchIcon" aria-hidden="true">
@@ -519,7 +736,6 @@ const MembersSearch = () => {
           </div>
         </div>
 
-        {/* ===================== GRID ===================== */}
         <section className="mcResults">
           <div className="mcCardsGrid mcCardsGrid3 mcMembersGrid">
             {pageItems.map((u, idx) => {
@@ -622,7 +838,6 @@ const MembersSearch = () => {
                       </div>
 
                       <div className="mcActions">
-                        {/* ✅ AQUÍ ahora abre el modal */}
                         <button
                           type="button"
                           className="mcIconBtn"
@@ -632,42 +847,45 @@ const MembersSearch = () => {
                           <Eye size={18} />
                         </button>
 
-                        {/* Dropdown status */}
-                        <div className="dropdown">
-                          <button
-                            type="button"
-                            className={`mcStatusChip ${chip.toneClass}`}
-                            data-bs-toggle="dropdown"
-                            data-bs-display="static"
-                            aria-expanded="false"
-                            title="Change status"
-                          >
-                            <StatusIcon size={18} />
-                            <span className="mcStatusChipCaret" aria-hidden="true">
-                              <ChevronDown size={16} />
-                            </span>
-                          </button>
+                        {canVerify ? (
+                          <div className="dropdown">
+                            <button
+                              type="button"
+                              className={`mcStatusChip ${chip.toneClass}`}
+                              data-bs-toggle="dropdown"
+                              data-bs-display="static"
+                              aria-expanded="false"
+                              title="Change status"
+                            >
+                              <StatusIcon size={18} />
+                              <span className="mcStatusChipCaret" aria-hidden="true">
+                                <ChevronDown size={16} />
+                              </span>
+                            </button>
 
-                          <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
-                            {STATUS_CHANGE_OPTIONS.map((opt) => {
-                              const isCurrent =
-                                normalizeStatus(opt.key) === normalizeStatus(rawStatus);
+                            <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
+                              {STATUS_CHANGE_OPTIONS.map((opt) => {
+                                const isCurrent =
+                                  normalizeStatus(opt.key) === normalizeStatus(rawStatus);
 
-                              return (
-                                <li key={opt.key}>
-                                  <button
-                                    type="button"
-                                    className={`dropdown-item ${isCurrent ? "active" : ""}`}
-                                    onClick={() => handleChangeMemberStatus(uid, opt.key)}
-                                    disabled={isCurrent}
-                                  >
-                                    {opt.label}
-                                  </button>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
+                                return (
+                                  <li key={opt.key}>
+                                    <button
+                                      type="button"
+                                      className={`dropdown-item ${isCurrent ? "active" : ""}`}
+                                      onClick={(e) =>
+                                        handleChangeMemberStatus(e, uid, opt.key)
+                                      }
+                                      disabled={isCurrent}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -678,7 +896,6 @@ const MembersSearch = () => {
             {pageItems.length === 0 && <div className="mcMuted">No members found.</div>}
           </div>
 
-          {/* ===================== PAGER ===================== */}
           <div className="mcPager">
             <button
               className="mcPagerBtn"

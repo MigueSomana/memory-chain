@@ -1,6 +1,7 @@
 // ModalViewUser.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { useToast } from "../../utils/toast";
 import {
   User,
   Mail,
@@ -17,13 +18,11 @@ import {
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 const safeStr = (v) => String(v ?? "").trim();
-
 const normalizeStatus = (s) =>
   String(s || "PENDING")
     .trim()
     .toUpperCase();
 
-// ✅ MISMA FORMA que ModalViewThesis (month long, day 2-digit, year numeric)
 const formatDateShort = (d) => {
   if (!d) return "—";
   try {
@@ -39,7 +38,6 @@ const formatDateShort = (d) => {
   }
 };
 
-// ============ helpers robustos ============
 function getAnyId(v) {
   if (!v) return null;
   if (typeof v === "string") return v;
@@ -49,7 +47,7 @@ function getAnyId(v) {
   return null;
 }
 
-// ============ STATUS PILL (igual a tu FormProfile) ============
+// ============ STATUS PILL ============
 const StatusPill = ({ status }) => {
   const up = normalizeStatus(status);
 
@@ -83,25 +81,25 @@ const StatusPill = ({ status }) => {
 
 function ModalViewUser({ user, institutionId }) {
   const u = user || {};
+  const { showToast } = useToast();
 
-  const userId = useMemo(() => safeStr(u?._id), [u?._id]);
+  const userId = useMemo(() => safeStr(getAnyId(u?._id) || ""), [u?._id]);
 
-  // ✅ status del usuario EN ESA institucion (educationalEmails[].status)
+  // ✅ IMPORTANTe: usa educationalEmails (principal) y fallback a __memberStatus
   const statusInInstitution = useMemo(() => {
     const edu = u?.educationalEmails;
-    if (!Array.isArray(edu) || !edu.length || !institutionId) return "PENDING";
+    if (Array.isArray(edu) && edu.length && institutionId) {
+      const found = edu.find((e) => {
+        const instId = getAnyId(e?.institution);
+        return instId && String(instId) === String(institutionId);
+      });
+      if (found?.status) return normalizeStatus(found.status);
+    }
+    // fallback por si viene sin edu
+    if (u?.__memberStatus) return normalizeStatus(u.__memberStatus);
+    return "PENDING";
+  }, [u?.educationalEmails, u?.__memberStatus, institutionId]);
 
-    const found = edu.find((e) => {
-      const instRef = e?.institution;
-      const id =
-        typeof instRef === "string" ? instRef : String(instRef?._id ?? "");
-      return String(id) === String(institutionId);
-    });
-
-    return normalizeStatus(found?.status || "PENDING");
-  }, [u?.educationalEmails, institutionId]);
-
-  // avatar url (img / imgUrl)
   const imgUrl = useMemo(
     () => safeStr(u?.imgUrl || u?.img || u?.avatar || ""),
     [u?.imgUrl, u?.img, u?.avatar],
@@ -115,18 +113,11 @@ function ModalViewUser({ user, institutionId }) {
   }, [u?.name, u?.lastname]);
 
   const emailRaw = useMemo(() => safeStr(u?.email), [u?.email]);
-  const emailHref = useMemo(
-    () => (emailRaw ? `mailto:${emailRaw}` : ""),
-    [emailRaw],
-  );
+  const emailHref = useMemo(() => (emailRaw ? `mailto:${emailRaw}` : ""), [emailRaw]);
 
-  // ✅ antes: formatDateDMY -> ahora: formatDateShort (igual a Thesis)
-  const joinedSince = useMemo(
-    () => formatDateShort(u?.createdAt),
-    [u?.createdAt],
-  );
+  const joinedSince = useMemo(() => formatDateShort(u?.createdAt), [u?.createdAt]);
 
-  // ✅ stats desde tesis (misma lógica base de tu FormProfile)
+  // stats
   const [thesisCount, setThesisCount] = useState(0);
   const [likesTotal, setLikesTotal] = useState(0);
   const [citationsTotal, setCitationsTotal] = useState(0);
@@ -175,19 +166,12 @@ function ModalViewUser({ user, institutionId }) {
           ];
 
           for (const c of candidates) {
-            if (!c) continue;
-            if (typeof c === "string" && c === myId) return true;
-            if (typeof c === "object" && c?._id === myId) return true;
+            const cid = getAnyId(c);
+            if (cid && String(cid) === String(myId)) return true;
           }
 
           if (Array.isArray(t?.authors)) {
-            if (t.authors.some((a) => a === myId || a?._id === myId))
-              return true;
-          }
-
-          if (Array.isArray(t?.author)) {
-            if (t.author.some((a) => a === myId || a?._id === myId))
-              return true;
+            if (t.authors.some((a) => getAnyId(a?._id) === myId || a === myId)) return true;
           }
 
           const upId = getAnyId(t?.uploadedBy) || getAnyId(t?.uploadBy);
@@ -208,15 +192,9 @@ function ModalViewUser({ user, institutionId }) {
 
         const lTotal = mine.reduce((acc, t) => {
           const likesArr = Array.isArray(t?.likes) ? t.likes.length : null;
-          const likesNum = Number(
-            t?.likesCount ?? t?.likes ?? t?.stats?.likes ?? 0,
-          );
+          const likesNum = Number(t?.likesCount ?? t?.likes ?? t?.stats?.likes ?? 0);
           const val =
-            likesArr !== null
-              ? likesArr
-              : Number.isFinite(likesNum)
-                ? likesNum
-                : 0;
+            likesArr !== null ? likesArr : Number.isFinite(likesNum) ? likesNum : 0;
           return acc + val;
         }, 0);
         setLikesTotal(lTotal);
@@ -231,7 +209,7 @@ function ModalViewUser({ user, institutionId }) {
     fetchUserThesesAndStats();
   }, [userId]);
 
-  // Copy ID
+  // Copy ID + toast
   const [idCopied, setIdCopied] = useState(false);
   const copyUserId = async () => {
     if (!userId) return;
@@ -239,8 +217,21 @@ function ModalViewUser({ user, institutionId }) {
       await navigator.clipboard.writeText(userId);
       setIdCopied(true);
       window.setTimeout(() => setIdCopied(false), 900);
+
+      showToast({
+        message: "User ID copied",
+        type: "success",
+        icon: BadgeCheck,
+        duration: 2000,
+      });
     } catch (e) {
       console.warn("Failed to copy user ID", e);
+      showToast({
+        message: "Could not copy user ID",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2200,
+      });
     }
   };
 
@@ -284,7 +275,6 @@ function ModalViewUser({ user, institutionId }) {
                     <span>IDENTITY</span>
                   </div>
 
-                  {/* ✅ 2 columnas: LEFT = KV | RIGHT = Foto/Nombre/Email */}
                   <div className="mcSheetKvGrid mcSheetKvGrid2">
                     <div className="mcSheetKv mcSheetInstTop mcUserInstTop">
                       <div className="mcSheetMembLogo" title={fullName}>
@@ -303,14 +293,8 @@ function ModalViewUser({ user, institutionId }) {
                         <div className="mcSheetInstName mx-1">{u?.lastname}</div>
                         <div className="mcSheetInstSub">
                           {emailRaw ? (
-                            <a
-                              className="mcLink"
-                              href={emailHref}
-                              title={`Send email to ${emailRaw}`}
-                            >
-                              <span className="mcUserEmailLine">
-                                <Mail size={14} className="mx-1" /> {emailRaw}
-                              </span>
+                            <a className="mcLink" href={emailHref} title={`Send email to ${emailRaw}`}>
+                              <span className="mcUserEmailLine mx-1">{emailRaw}</span>
                             </a>
                           ) : (
                             <span className="mcUserEmailLine">
@@ -321,7 +305,6 @@ function ModalViewUser({ user, institutionId }) {
                       </div>
                     </div>
 
-                    {/* LEFT: UserID + Joined (KV GRID) */}
                     <div className="mcSheetKv--right">
                       <div className="mcSheetKvLabel">
                         <span className="d-inline-flex align-items-center gap-2">
@@ -365,23 +348,17 @@ function ModalViewUser({ user, institutionId }) {
 
                   <div className="mcSheetStatsGrid mcSheetStatsGrid--3">
                     <div className="mcSheetStatCard">
-                      <div className="mcSheetStatNum">
-                        {Number(thesisCount) || 0}
-                      </div>
+                      <div className="mcSheetStatNum">{Number(thesisCount) || 0}</div>
                       <div className="mcSheetStatLbl">Theses</div>
                     </div>
 
                     <div className="mcSheetStatCard">
-                      <div className="mcSheetStatNum">
-                        {Number(likesTotal) || 0}
-                      </div>
+                      <div className="mcSheetStatNum">{Number(likesTotal) || 0}</div>
                       <div className="mcSheetStatLbl">Likes</div>
                     </div>
 
                     <div className="mcSheetStatCard">
-                      <div className="mcSheetStatNum">
-                        {Number(citationsTotal) || 0}
-                      </div>
+                      <div className="mcSheetStatNum">{Number(citationsTotal) || 0}</div>
                       <div className="mcSheetStatLbl">Citations</div>
                     </div>
                   </div>

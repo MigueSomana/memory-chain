@@ -20,7 +20,7 @@ router.get("/", authMiddleware, getAllUsers);
 
 // Perfil
 router.get("/me", authMiddleware, getMe);
-router.put("/me", authMiddleware, upload.single("file"), updateMe);
+router.put("/me", authMiddleware, upload.single("img"), updateMe);
 
 router.patch("/:id/educational-status", authMiddleware, setUserEducationalStatus);
 

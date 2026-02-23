@@ -73,7 +73,7 @@ function getAnyId(v) {
 function getInstNameSafe(thesis) {
   const inst = thesis?.institution;
   if (!inst) return "";
-  if (typeof inst === "string") return ""; // si es id no tenemos name; no inventamos
+  if (typeof inst === "string") return "";
   return String(inst?.name || "").trim();
 }
 
@@ -85,7 +85,7 @@ function getInstLineSafe(thesis) {
 }
 
 // ===================== Dropdown =====================
-const DashDropdown = ({ value, options, onChange, width = 190 }) => {
+const DashDropdown = ({ value, options, onChange, width = 190, disabled }) => {
   const current = options.find((o) => o.value === value) || options[0];
   return (
     <div className="dropdown mcDashDd" style={{ width }}>
@@ -95,6 +95,7 @@ const DashDropdown = ({ value, options, onChange, width = 190 }) => {
         data-bs-toggle="dropdown"
         aria-expanded="false"
         title={current?.label || ""}
+        disabled={!!disabled}
       >
         <span className="mcDashDdText">{current?.label || "Select"}</span>
       </button>
@@ -106,6 +107,7 @@ const DashDropdown = ({ value, options, onChange, width = 190 }) => {
               type="button"
               className={`dropdown-item ${value === o.value ? "active" : ""}`}
               onClick={() => onChange(o.value)}
+              disabled={!!disabled}
             >
               {o.label}
             </button>
@@ -147,6 +149,9 @@ const PanelUniversity = () => {
   const [deptPage, setDeptPage] = useState(1);
   const deptPageSize = 5;
 
+  // ✅ estado “bloqueado”
+  const isLocked = memberChecked && !isMember;
+
   // =========================
   // ✅ 1) MEMBERSHIP CHECK
   // =========================
@@ -168,7 +173,7 @@ const PanelUniversity = () => {
         if (!active && institutionId) {
           try {
             const res = await axios.get(
-              `${API_BASE_URL}/api/institutions/${institutionId}`
+              `${API_BASE_URL}/api/institutions/${institutionId}`,
             );
             const inst = res.data || null;
             setInstitution(inst);
@@ -204,7 +209,7 @@ const PanelUniversity = () => {
       if (institution?.email || !institutionId) return;
       try {
         const res = await axios.get(
-          `${API_BASE_URL}/api/institutions/${institutionId}`
+          `${API_BASE_URL}/api/institutions/${institutionId}`,
         );
         setInstitution(res.data || null);
       } catch (e) {
@@ -226,10 +231,11 @@ const PanelUniversity = () => {
       }
       if (!memberChecked) return;
 
+      // ✅ si está inactivo: NO fetch, pero UI debe mostrarse con data vacía
       if (!isMember) {
         setTheses([]);
-        setLoading(false);
         setLoadError("");
+        setLoading(false);
         return;
       }
 
@@ -237,11 +243,13 @@ const PanelUniversity = () => {
         setLoading(true);
         setLoadError("");
 
-        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        const headers = token
+          ? { Authorization: `Bearer ${token}` }
+          : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses/institution/${institutionId}`,
-          headers ? { headers } : undefined
+          headers ? { headers } : undefined,
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
@@ -250,7 +258,7 @@ const PanelUniversity = () => {
         console.error(
           "Dashboard fetch error:",
           err?.response?.status,
-          err?.response?.data || err?.message
+          err?.response?.data || err?.message,
         );
 
         const msg =
@@ -284,7 +292,7 @@ const PanelUniversity = () => {
       try {
         const res = await axios.get(
           `${API_BASE_URL}/api/institutions/${institutionId}/students`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         const data = Array.isArray(res.data) ? res.data : [];
         setStudents(data);
@@ -309,36 +317,36 @@ const PanelUniversity = () => {
   // =========================
   // ✅ TOP METRICS
   // =========================
-  const totalTheses = theses.length; // total real (incluye rejected)
+  const totalTheses = theses.length;
 
   const approvedTheses = useMemo(
     () => thesesAP.filter((t) => normalizeStatus(t.status) === "APPROVED").length,
-    [thesesAP]
+    [thesesAP],
   );
 
   const rejectedTheses = useMemo(
     () => theses.filter((t) => normalizeStatus(t.status) === "REJECTED").length,
-    [theses]
+    [theses],
   );
 
   const pendingTheses = useMemo(
     () => thesesAP.filter((t) => normalizeStatus(t.status) === "PENDING").length,
-    [thesesAP]
+    [thesesAP],
   );
 
   const totalLikes = useMemo(
     () => thesesAP.reduce((acc, t) => acc + safeNum(t.likes), 0),
-    [thesesAP]
+    [thesesAP],
   );
 
   const verificationRate = useMemo(
     () => pct(approvedTheses, thesesAP.length),
-    [approvedTheses, thesesAP.length]
+    [approvedTheses, thesesAP.length],
   );
 
   const rejectedRate = useMemo(
     () => pct(rejectedTheses, totalTheses),
-    [rejectedTheses, totalTheses]
+    [rejectedTheses, totalTheses],
   );
 
   const avgVerificationDays = useMemo(() => {
@@ -357,12 +365,10 @@ const PanelUniversity = () => {
   const totalMembers = useMemo(() => students.length, [students]);
 
   // =========================
-  // ✅ DONUT 1: STATUS (ÚNICO lugar donde se incluye REJECTED)
+  // ✅ DONUT 1: STATUS (incluye rejected)
   // =========================
   const statusCounts = useMemo(() => {
-    let approved = 0,
-      pending = 0,
-      rejected = 0;
+    let approved = 0, pending = 0, rejected = 0;
 
     theses.forEach((t) => {
       const st = normalizeStatus(t.status);
@@ -380,15 +386,14 @@ const PanelUniversity = () => {
       { name: "Pending", value: statusCounts.pending, key: "PENDING" },
       { name: "Rejected", value: statusCounts.rejected, key: "REJECTED" },
     ],
-    [statusCounts]
+    [statusCounts],
   );
 
   const statusDonutTotal = useMemo(
     () => statusDonutData.reduce((acc, d) => acc + safeNum(d.value), 0),
-    [statusDonutData]
+    [statusDonutData],
   );
 
-  // ✅ Status table (única tabla donde puede salir REJECTED)
   const statusTableFiltered = useMemo(() => {
     const f = String(statusFilter || "ALL").toUpperCase();
     if (f === "ALL") return theses;
@@ -405,7 +410,7 @@ const PanelUniversity = () => {
 
   const statusTotalPages = useMemo(
     () => Math.max(1, Math.ceil(statusTableSorted.length / statusPageSize)),
-    [statusTableSorted.length]
+    [statusTableSorted.length],
   );
 
   const statusCurrentPage = Math.min(Math.max(1, statusPage), statusTotalPages);
@@ -425,7 +430,7 @@ const PanelUniversity = () => {
   const statusCanNext = statusCurrentPage < statusTotalPages;
 
   // =========================
-  // ✅ TABLA 2: LIKES (SOLO Approved+Pending)
+  // ✅ TABLA 2: LIKES (thesesAP)
   // =========================
   const likesTableSorted = useMemo(() => {
     const dir = String(likesOrder || "DESC").toUpperCase();
@@ -435,7 +440,7 @@ const PanelUniversity = () => {
 
   const likesTotalPages = useMemo(
     () => Math.max(1, Math.ceil(likesTableSorted.length / likesPageSize)),
-    [likesTableSorted.length]
+    [likesTableSorted.length],
   );
 
   const likesCurrentPage = Math.min(Math.max(1, likesPage), likesTotalPages);
@@ -455,13 +460,9 @@ const PanelUniversity = () => {
   const likesCanNext = likesCurrentPage < likesTotalPages;
 
   // =========================
-  // ✅ DONUT 2: LIKES (MISMA DATA QUE TABLA 2)
-  //   - Usa EXACTAMENTE likesTableSorted (thesesAP sin rejected)
-  //   - Representa CONTEO de tesis: Top3 + Others
-  //   - Total = cantidad de tesis (igual que la tabla)
+  // ✅ DONUT 2: LIKES (conteo tesis: Top3 + Others) usando thesesAP
   // =========================
   const likesSortedForDonut = useMemo(() => {
-    // Donut siempre por "más likes" (independiente de ASC/DESC del dropdown)
     return [...thesesAP].sort((a, b) => safeNum(b.likes) - safeNum(a.likes));
   }, [thesesAP]);
 
@@ -473,23 +474,22 @@ const PanelUniversity = () => {
     const top3 = arr.slice(0, 3).map((t, idx) => ({
       key: String(t._id || `TOP_${idx}`),
       name: trimLabel(t.title, 22),
-      value: 1, // ✅ conteo de tesis (no likes)
+      value: 1,
     }));
 
     const othersCount = Math.max(0, n - 3);
-
     const final = [...top3];
     if (othersCount > 0) final.push({ key: "OTHERS", name: "Others", value: othersCount });
     return final;
   }, [likesSortedForDonut]);
 
   const likesThesisDonutTotal = useMemo(
-    () => likesTableSorted.length, // ✅ MISMO total que la tabla
-    [likesTableSorted.length]
+    () => likesTableSorted.length,
+    [likesTableSorted.length],
   );
 
   // =========================
-  // ✅ STUDENTS: #THESES (SOLO Approved+Pending)
+  // ✅ STUDENTS (thesesAP)
   // =========================
   const studentLabelById = useMemo(() => {
     const map = {};
@@ -512,7 +512,6 @@ const PanelUniversity = () => {
         return;
       }
 
-      // fallback: primer autor (si viene sin ids)
       const a0 = Array.isArray(t?.authors) ? t.authors[0] : null;
       if (!a0) return;
 
@@ -554,9 +553,7 @@ const PanelUniversity = () => {
       name: trimLabel(x.name, 22),
       value: safeNum(x.value),
     }));
-    const othersSum = studentSortedDesc
-      .slice(3)
-      .reduce((acc, x) => acc + safeNum(x.value), 0);
+    const othersSum = studentSortedDesc.slice(3).reduce((acc, x) => acc + safeNum(x.value), 0);
     const final = [...top3];
     if (othersSum > 0) final.push({ key: "STU_OTHERS", name: "Others", value: othersSum });
     return final;
@@ -564,7 +561,7 @@ const PanelUniversity = () => {
 
   const studentDonutTotal = useMemo(
     () => studentDonutData.reduce((acc, d) => acc + safeNum(d.value), 0),
-    [studentDonutData]
+    [studentDonutData],
   );
 
   const studentTableSorted = useMemo(() => {
@@ -575,7 +572,7 @@ const PanelUniversity = () => {
 
   const studentTotalPages = useMemo(
     () => Math.max(1, Math.ceil(studentTableSorted.length / studentPageSize)),
-    [studentTableSorted.length]
+    [studentTableSorted.length],
   );
 
   const studentCurrentPage = Math.min(Math.max(1, studentPage), studentTotalPages);
@@ -595,7 +592,7 @@ const PanelUniversity = () => {
   const studentCanNext = studentCurrentPage < studentTotalPages;
 
   // =========================
-  // ✅ DEPARTMENTS (SOLO Approved+Pending)
+  // ✅ DEPARTMENTS (thesesAP)
   // =========================
   const deptCountsObj = useMemo(() => {
     const counts = {};
@@ -624,9 +621,7 @@ const PanelUniversity = () => {
       name: trimLabel(x.name, 22),
       value: safeNum(x.value),
     }));
-    const othersSum = deptSortedDesc
-      .slice(3)
-      .reduce((acc, x) => acc + safeNum(x.value), 0);
+    const othersSum = deptSortedDesc.slice(3).reduce((acc, x) => acc + safeNum(x.value), 0);
     const final = [...top3];
     if (othersSum > 0) final.push({ key: "DEPT_OTHERS", name: "Others", value: othersSum });
     return final;
@@ -634,7 +629,7 @@ const PanelUniversity = () => {
 
   const deptDonutTotal = useMemo(
     () => deptDonutData.reduce((acc, d) => acc + safeNum(d.value), 0),
-    [deptDonutData]
+    [deptDonutData],
   );
 
   const deptTableSorted = useMemo(() => {
@@ -645,7 +640,7 @@ const PanelUniversity = () => {
 
   const deptTotalPages = useMemo(
     () => Math.max(1, Math.ceil(deptTableSorted.length / deptPageSize)),
-    [deptTableSorted.length]
+    [deptTableSorted.length],
   );
 
   const deptCurrentPage = Math.min(Math.max(1, deptPage), deptTotalPages);
@@ -679,7 +674,6 @@ const PanelUniversity = () => {
     STATUS_COLORS.REJECTED,
   ];
 
-  // Likes/Student/Dept palettes no cambian
   const LIKES_COLORS = ["#20C997", "#0d6efd", "#6f42c1", "#adb5bd"];
   const STUDENT_COLORS = ["#0dcaf0", "#20C997", "#6f42c1", "#adb5bd"];
   const DEPT_COLORS = ["#fd7e14", "#0d6efd", "#20C997", "#adb5bd"];
@@ -711,25 +705,18 @@ const PanelUniversity = () => {
     </div>
   );
 
-  if (!isMember) {
-    return (
-      <div className="container py-3">
-        <MembershipBanner />
-      </div>
-    );
-  }
+  // ✅ si está activo, respetamos loading/error como antes
+  if (!isLocked) {
+    if (loading) return <div className="container py-3 text-muted">Loading dashboard…</div>;
 
-  if (loading) {
-    return <div className="container py-3 text-muted">Loading dashboard…</div>;
-  }
-
-  if (loadError) {
-    return (
-      <div className="container py-3">
-        <MembershipBanner />
-        <div className="alert alert-danger">{loadError}</div>
-      </div>
-    );
+    if (loadError) {
+      return (
+        <div className="container py-3">
+          <MembershipBanner />
+          <div className="alert alert-danger">{loadError}</div>
+        </div>
+      );
+    }
   }
 
   // =========================
@@ -745,13 +732,13 @@ const PanelUniversity = () => {
     </div>
   );
 
-  const Pager = ({ onPrev, onNext, canPrev, canNext }) => (
+  const Pager = ({ onPrev, onNext, canPrev, canNext, disabled }) => (
     <div className="mcPagerMini" role="group" aria-label="Pagination">
       <button
         type="button"
         className="mcPagerMiniBtn"
         onClick={onPrev}
-        disabled={!canPrev}
+        disabled={!!disabled || !canPrev}
         title="Previous"
         aria-label="Previous"
       >
@@ -761,7 +748,7 @@ const PanelUniversity = () => {
         type="button"
         className="mcPagerMiniBtn"
         onClick={onNext}
-        disabled={!canNext}
+        disabled={!!disabled || !canNext}
         title="Next"
         aria-label="Next"
       >
@@ -787,6 +774,8 @@ const PanelUniversity = () => {
 
   const DonutWithLegend = ({ data, total, colors, centerLabel }) => {
     const safeTotal = safeNum(total);
+    const hideLegend = safeTotal === 0;
+
     return (
       <div className="mcDonutStack">
         <div className="mcDonutChartSolo">
@@ -805,7 +794,10 @@ const PanelUniversity = () => {
                   stroke="transparent"
                 >
                   {data.map((entry, idx) => (
-                    <Cell key={entry.key || entry.name || idx} fill={colors[idx] || "#adb5bd"} />
+                    <Cell
+                      key={entry.key || entry.name || idx}
+                      fill={colors[idx] || "#adb5bd"}
+                    />
                   ))}
                 </Pie>
 
@@ -816,11 +808,7 @@ const PanelUniversity = () => {
                   y="50%"
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  style={{
-                    fontSize: 22,
-                    fontWeight: 900,
-                    fill: "rgba(255,255,255,.92)",
-                  }}
+                  style={{ fontSize: 22, fontWeight: 900, fill: "rgba(255,255,255,.92)" }}
                 >
                   {safeTotal}
                 </text>
@@ -844,23 +832,25 @@ const PanelUniversity = () => {
           )}
         </div>
 
-        <div className="mcLegendBox">
-          <div className="mcLegendList">
-            {(data || []).map((d, idx) => (
-              <div className="mcLegendRow2" key={d.key || `${d.name}-${idx}`}>
-                <div className="mcLegendLeft2" title={d.name}>
-                  <span className="mcDot" style={{ background: colors[idx] || "#adb5bd" }} />
-                  <span className="mcLegendName">{trimLabel(d.name, 26)}</span>
-                </div>
+        {!hideLegend && (
+          <div className="mcLegendBox">
+            <div className="mcLegendList">
+              {(data || []).map((d, idx) => (
+                <div className="mcLegendRow2" key={d.key || `${d.name}-${idx}`}>
+                  <div className="mcLegendLeft2" title={d.name}>
+                    <span className="mcDot" style={{ background: colors[idx] || "#adb5bd" }} />
+                    <span className="mcLegendName">{trimLabel(d.name, 26)}</span>
+                  </div>
 
-                <div className="mcLegendRight2">
-                  {safeNum(d.value)}{" "}
-                  <span className="mcLegendPct">({pct(d.value, safeTotal)}%)</span>
+                  <div className="mcLegendRight2">
+                    {safeNum(d.value)}{" "}
+                    <span className="mcLegendPct">({pct(d.value, safeTotal)}%)</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -886,337 +876,356 @@ const PanelUniversity = () => {
     { value: "DESC", label: "Theses: High → Low" },
     { value: "ASC", label: "Theses: Low → High" },
   ];
+;
 
   return (
     <div className="mcDashWrap">
       <MembershipBanner />
 
-      {/* ======= METRICS GRID ======= */}
-      <div className="mcTilesGrid">
-        <MetricCard title="Total Theses" icon={BookMarked} value={totalTheses} />
-        <MetricCard title="Verified Theses" icon={BookCheck} value={approvedTheses} />
-        <MetricCard title="Total Likes" icon={BookHeart} value={totalLikes} />
-        <MetricCard title="Members" icon={Users} value={totalMembers} />
+      {/* ======= METRICS GRID (SIEMPRE visible) ======= */}
+      <div >
+        <div className="mcTilesGrid">
+          <MetricCard title="Total Theses" icon={BookMarked} value={totalTheses} />
+          <MetricCard title="Verified Theses" icon={BookCheck} value={approvedTheses} />
+          <MetricCard title="Total Likes" icon={BookHeart} value={totalLikes} />
+          <MetricCard title="Members" icon={Users} value={totalMembers} />
+        </div>
+
+        <div className="mcTilesGrid mcTilesGrid--second">
+          <MetricCard title="Verification Rate" icon={BadgeCheck} value={`${verificationRate}%`} />
+          <MetricCard title="Rejected Rate" icon={OctagonAlert} value={`${rejectedRate}%`} />
+          <MetricCard title="AVG Verification Days" icon={Clock3} value={avgVerificationDays} />
+          <MetricCard title="Pending Theses" icon={Clock3} value={pendingTheses} />
+        </div>
       </div>
 
-      <div className="mcTilesGrid mcTilesGrid--second">
-        <MetricCard title="Verification Rate" icon={BadgeCheck} value={`${verificationRate}%`} />
-        <MetricCard title="Rejected Rate" icon={OctagonAlert} value={`${rejectedRate}%`} />
-        <MetricCard title="AVG Verification Days" icon={Clock3} value={avgVerificationDays} />
-        <MetricCard title="Pending Theses" icon={Clock3} value={pendingTheses} />
-      </div>
+      {/* ======= PRIMERAS 2 SECCIONES SIEMPRE visibles ======= */}
+      <div >
+        {/* STATUS (Donut + Table) */}
+        <div className="mcDashGrid2">
+          <DashCard title="Thesis Status" icon={ChartPie}>
+            <DonutWithLegend
+              data={statusDonutData}
+              total={statusDonutTotal}
+              colors={statusLegendColors}
+              centerLabel="Total"
+            />
+          </DashCard>
 
-      {/* ======= STATUS (Donut + Table) ======= */}
-      <div className="mcDashGrid2">
-        <DashCard title="Thesis Status" icon={ChartPie}>
-          <DonutWithLegend
-            data={statusDonutData}
-            total={statusDonutTotal}
-            colors={statusLegendColors}
-            centerLabel="Total"
-          />
-        </DashCard>
-
-        <DashCard
-          title="Thesis Status"
-          icon={ChartPie}
-          className="mcDashCard--table"
-          right={
-            <>
-              <DashDropdown
-                value={statusFilter}
-                options={STATUS_FILTER_OPTIONS}
-                onChange={setStatusFilter}
-                width={200}
-              />
-              <Pager
-                onPrev={() => setStatusPage((p) => Math.max(1, p - 1))}
-                onNext={() => setStatusPage((p) => Math.min(statusTotalPages, p + 1))}
-                canPrev={statusCanPrev}
-                canNext={statusCanNext}
-              />
-            </>
-          }
-        >
-          <div className="mcTableFrame">
-            <table className="table table-sm align-middle mb-0 mcDashTable">
-              <thead>
-                <tr>
-                  <th style={{ width: "75%" }}>Title</th>
-                  <th className="text-end">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {statusTableSorted.length === 0 ? (
+          <DashCard
+            title="Thesis Status"
+            icon={ChartPie}
+            className="mcDashCard--table"
+            right={
+              <>
+                <DashDropdown
+                  value={statusFilter}
+                  options={STATUS_FILTER_OPTIONS}
+                  onChange={setStatusFilter}
+                  width={200}
+                  disabled={isLocked}
+                />
+                <Pager
+                  onPrev={() => setStatusPage((p) => Math.max(1, p - 1))}
+                  onNext={() => setStatusPage((p) => Math.min(statusTotalPages, p + 1))}
+                  canPrev={statusCanPrev}
+                  canNext={statusCanNext}
+                  disabled={isLocked}
+                />
+              </>
+            }
+          >
+            <div className="mcTableFrame">
+              <table className="table table-sm align-middle mb-0 mcDashTable">
+                <thead>
                   <tr>
-                    <td colSpan={2} className="mcMuted">
-                      No theses found.
-                    </td>
+                    <th style={{ width: "75%" }}>Title</th>
+                    <th className="text-end">Status</th>
                   </tr>
-                ) : (
-                  statusPageItems.map((t) => {
-                    const st = normalizeStatus(t.status);
-                    const pillClass =
-                      st === "APPROVED"
-                        ? "mcPill mcPill--green"
-                        : st === "REJECTED"
-                        ? "mcPill mcPill--red"
-                        : "mcPill mcPill--yellow";
+                </thead>
+                <tbody>
+                  {statusTableSorted.length === 0 ? (
+                    <tr>
+                      <td colSpan={2} className="mcMuted">
+                        No theses found.
+                      </td>
+                    </tr>
+                  ) : (
+                    statusPageItems.map((t) => {
+                      const st = normalizeStatus(t.status);
+                      const pillClass =
+                        st === "APPROVED"
+                          ? "mcPill mcPill--green"
+                          : st === "REJECTED"
+                          ? "mcPill mcPill--red"
+                          : "mcPill mcPill--yellow";
 
-                    return (
+                      return (
+                        <tr key={t._id}>
+                          <td title={t.title || ""}>
+                            <div className="mcTitleCell">{t.title || "—"}</div>
+                            <div className="mcSubCell">{getInstLineSafe(t)}</div>
+                          </td>
+                          <td className="text-end">
+                            <span className={pillClass}>{prettyStatus(st)}</span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mcFoot mcFoot--split">
+              <span>
+                Showing{" "}
+                {statusTableSorted.length === 0
+                  ? 0
+                  : (statusCurrentPage - 1) * statusPageSize + 1}{" "}
+                – {Math.min(statusCurrentPage * statusPageSize, statusTableSorted.length)} of{" "}
+                {statusTableSorted.length}
+              </span>
+            </div>
+          </DashCard>
+        </div>
+
+        {/* LIKES (Donut + Table) */}
+        <div className="mcDashGrid2">
+          <DashCard title="Likes Distribution" icon={Heart}>
+            <DonutWithLegend
+              data={likesThesisDonutData}
+              total={likesThesisDonutTotal}
+              colors={LIKES_COLORS}
+              centerLabel="Total Theses"
+            />
+          </DashCard>
+
+          <DashCard
+            title="Thesis Likes"
+            icon={Heart}
+            className="mcDashCard--table"
+            right={
+              <>
+                <DashDropdown
+                  value={likesOrder}
+                  options={LIKES_ORDER_OPTIONS}
+                  onChange={setLikesOrder}
+                  width={210}
+                  disabled={isLocked}
+                />
+                <Pager
+                  onPrev={() => setLikesPage((p) => Math.max(1, p - 1))}
+                  onNext={() => setLikesPage((p) => Math.min(likesTotalPages, p + 1))}
+                  canPrev={likesCanPrev}
+                  canNext={likesCanNext}
+                  disabled={isLocked}
+                />
+              </>
+            }
+          >
+            <div className="mcTableFrame">
+              <table className="table table-sm align-middle mb-0 mcDashTable">
+                <thead>
+                  <tr>
+                    <th style={{ width: "78%" }}>Title</th>
+                    <th className="text-end">Likes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {likesTableSorted.length === 0 ? (
+                    <tr>
+                      <td colSpan={2} className="mcMuted">
+                        No theses found.
+                      </td>
+                    </tr>
+                  ) : (
+                    likesPageItems.map((t) => (
                       <tr key={t._id}>
                         <td title={t.title || ""}>
                           <div className="mcTitleCell">{t.title || "—"}</div>
                           <div className="mcSubCell">{getInstLineSafe(t)}</div>
                         </td>
-                        <td className="text-end">
-                          <span className={pillClass}>{prettyStatus(st)}</span>
+                        <td className="text-end mcNumCell">{safeNum(t.likes)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mcFoot mcFoot--split">
+              <span>
+                Showing{" "}
+                {likesTableSorted.length === 0
+                  ? 0
+                  : (likesCurrentPage - 1) * likesPageSize + 1}{" "}
+                – {Math.min(likesCurrentPage * likesPageSize, likesTableSorted.length)} of{" "}
+                {likesTableSorted.length}
+              </span>
+            </div>
+          </DashCard>
+        </div>
+      </div>
+
+      {/* ======= SOLO SI ACTIVO: resto del dashboard ======= */}
+      {isLocked ? null : (
+        <>
+          {/* STUDENTS */}
+          <div className="mcDashGrid2">
+            <DashCard title="Students Distribution" icon={User}>
+              <DonutWithLegend
+                data={studentDonutData}
+                total={studentDonutTotal}
+                colors={STUDENT_COLORS}
+                centerLabel="Total Theses"
+              />
+            </DashCard>
+
+            <DashCard
+              title="Theses by Students"
+              icon={User}
+              className="mcDashCard--table"
+              right={
+                <>
+                  <DashDropdown
+                    value={studentOrder}
+                    options={STUDENT_ORDER_OPTIONS}
+                    onChange={setStudentOrder}
+                    width={220}
+                  />
+                  <Pager
+                    onPrev={() => setStudentPage((p) => Math.max(1, p - 1))}
+                    onNext={() => setStudentPage((p) => Math.min(studentTotalPages, p + 1))}
+                    canPrev={studentCanPrev}
+                    canNext={studentCanNext}
+                  />
+                </>
+              }
+            >
+              <div className="mcTableFrame">
+                <table className="table table-sm align-middle mb-0 mcDashTable">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "78%" }}>Full Name</th>
+                      <th className="text-end">Theses</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {studentTableSorted.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} className="mcMuted">
+                          No students found.
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                    ) : (
+                      studentPageItems.map((row) => (
+                        <tr key={row.key}>
+                          <td title={row.name || ""}>
+                            <div className="mcTitleCell">{row.name || "—"}</div>
+                            <div className="mcSubCell">
+                              {institution?.name ? `Students of ${institution.name}` : ""}
+                            </div>
+                          </td>
+                          <td className="text-end mcNumCell">{safeNum(row.value)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mcFoot mcFoot--split">
+                <span>
+                  Showing{" "}
+                  {studentTableSorted.length === 0
+                    ? 0
+                    : (studentCurrentPage - 1) * studentPageSize + 1}{" "}
+                  – {Math.min(studentCurrentPage * studentPageSize, studentTableSorted.length)} of{" "}
+                  {studentTableSorted.length}
+                </span>
+              </div>
+            </DashCard>
           </div>
 
-          <div className="mcFoot mcFoot--split">
-            <span>
-              Showing{" "}
-              {statusTableSorted.length === 0 ? 0 : (statusCurrentPage - 1) * statusPageSize + 1} –{" "}
-              {Math.min(statusCurrentPage * statusPageSize, statusTableSorted.length)} of{" "}
-              {statusTableSorted.length}
-            </span>
-          </div>
-        </DashCard>
-      </div>
-
-      {/* ======= LIKES (Donut + Table) ======= */}
-      {/* ✅ Donut 2 ahora usa el MISMO universo que la tabla: thesesAP sin rejected */}
-      <div className="mcDashGrid2">
-        <DashCard title="Likes Distribution" icon={Heart}>
-          <DonutWithLegend
-            data={likesThesisDonutData}
-            total={likesThesisDonutTotal}
-            colors={LIKES_COLORS}
-            centerLabel="Total Theses"
-          />
-        </DashCard>
-
-        <DashCard
-          title="Thesis Likes"
-          icon={Heart}
-          className="mcDashCard--table"
-          right={
-            <>
-              <DashDropdown
-                value={likesOrder}
-                options={LIKES_ORDER_OPTIONS}
-                onChange={setLikesOrder}
-                width={210}
+          {/* DEPARTMENTS */}
+          <div className="mcDashGrid2">
+            <DashCard title="Departments Distribution" icon={Layers}>
+              <DonutWithLegend
+                data={deptDonutData}
+                total={deptDonutTotal}
+                colors={DEPT_COLORS}
+                centerLabel="Total Theses"
               />
-              <Pager
-                onPrev={() => setLikesPage((p) => Math.max(1, p - 1))}
-                onNext={() => setLikesPage((p) => Math.min(likesTotalPages, p + 1))}
-                canPrev={likesCanPrev}
-                canNext={likesCanNext}
-              />
-            </>
-          }
-        >
-          <div className="mcTableFrame">
-            <table className="table table-sm align-middle mb-0 mcDashTable">
-              <thead>
-                <tr>
-                  <th style={{ width: "78%" }}>Title</th>
-                  <th className="text-end">Likes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {likesTableSorted.length === 0 ? (
-                  <tr>
-                    <td colSpan={2} className="mcMuted">
-                      No theses found.
-                    </td>
-                  </tr>
-                ) : (
-                  likesPageItems.map((t) => (
-                    <tr key={t._id}>
-                      <td title={t.title || ""}>
-                        <div className="mcTitleCell">{t.title || "—"}</div>
-                        <div className="mcSubCell">{getInstLineSafe(t)}</div>
-                      </td>
-                      <td className="text-end mcNumCell">{safeNum(t.likes)}</td>
+            </DashCard>
+
+            <DashCard
+              title="Theses by Department"
+              icon={Layers}
+              className="mcDashCard--table"
+              right={
+                <>
+                  <DashDropdown
+                    value={deptOrder}
+                    options={DEPT_ORDER_OPTIONS}
+                    onChange={setDeptOrder}
+                    width={220}
+                  />
+                  <Pager
+                    onPrev={() => setDeptPage((p) => Math.max(1, p - 1))}
+                    onNext={() => setDeptPage((p) => Math.min(deptTotalPages, p + 1))}
+                    canPrev={deptCanPrev}
+                    canNext={deptCanNext}
+                  />
+                </>
+              }
+            >
+              <div className="mcTableFrame">
+                <table className="table table-sm align-middle mb-0 mcDashTable">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "78%" }}>Department</th>
+                      <th className="text-end">Theses</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {deptTableSorted.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} className="mcMuted">
+                          No departments found.
+                        </td>
+                      </tr>
+                    ) : (
+                      deptPageItems.map((row) => (
+                        <tr key={row.key}>
+                          <td title={row.name || ""}>
+                            <div className="mcTitleCell">{row.name || "—"}</div>
+                            <div className="mcSubCell">
+                              {institution?.name ? `Departments of ${institution.name}` : ""}
+                            </div>
+                          </td>
+                          <td className="text-end mcNumCell">{safeNum(row.value)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mcFoot mcFoot--split">
+                <span>
+                  Showing{" "}
+                  {deptTableSorted.length === 0
+                    ? 0
+                    : (deptCurrentPage - 1) * deptPageSize + 1}{" "}
+                  – {Math.min(deptCurrentPage * deptPageSize, deptTableSorted.length)} of{" "}
+                  {deptTableSorted.length}
+                </span>
+              </div>
+            </DashCard>
           </div>
-
-          <div className="mcFoot mcFoot--split">
-            <span>
-              Showing{" "}
-              {likesTableSorted.length === 0 ? 0 : (likesCurrentPage - 1) * likesPageSize + 1} –{" "}
-              {Math.min(likesCurrentPage * likesPageSize, likesTableSorted.length)} of{" "}
-              {likesTableSorted.length}
-            </span>
-          </div>
-        </DashCard>
-      </div>
-
-      {/* ======= STUDENTS (Donut + Table) ======= */}
-      <div className="mcDashGrid2">
-        <DashCard title="Students Distribution" icon={User}>
-          <DonutWithLegend
-            data={studentDonutData}
-            total={studentDonutTotal}
-            colors={STUDENT_COLORS}
-            centerLabel="Total Theses"
-          />
-        </DashCard>
-
-        <DashCard
-          title="Theses by Students"
-          icon={User}
-          className="mcDashCard--table"
-          right={
-            <>
-              <DashDropdown
-                value={studentOrder}
-                options={STUDENT_ORDER_OPTIONS}
-                onChange={setStudentOrder}
-                width={220}
-              />
-              <Pager
-                onPrev={() => setStudentPage((p) => Math.max(1, p - 1))}
-                onNext={() => setStudentPage((p) => Math.min(studentTotalPages, p + 1))}
-                canPrev={studentCanPrev}
-                canNext={studentCanNext}
-              />
-            </>
-          }
-        >
-          <div className="mcTableFrame">
-            <table className="table table-sm align-middle mb-0 mcDashTable">
-              <thead>
-                <tr>
-                  <th style={{ width: "78%" }}>Full Name</th>
-                  <th className="text-end">Theses</th>
-                </tr>
-              </thead>
-              <tbody>
-                {studentTableSorted.length === 0 ? (
-                  <tr>
-                    <td colSpan={2} className="mcMuted">
-                      No students found.
-                    </td>
-                  </tr>
-                ) : (
-                  studentPageItems.map((row) => (
-                    <tr key={row.key}>
-                      <td title={row.name || ""}>
-                        <div className="mcTitleCell">{row.name || "—"}</div>
-                        <div className="mcSubCell">
-                          {institution?.name ? `Students of ${institution.name}` : ""}
-                        </div>
-                      </td>
-                      <td className="text-end mcNumCell">{safeNum(row.value)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mcFoot mcFoot--split">
-            <span>
-              Showing{" "}
-              {studentTableSorted.length === 0
-                ? 0
-                : (studentCurrentPage - 1) * studentPageSize + 1}{" "}
-              –{" "}
-              {Math.min(studentCurrentPage * studentPageSize, studentTableSorted.length)} of{" "}
-              {studentTableSorted.length}
-            </span>
-          </div>
-        </DashCard>
-      </div>
-
-      {/* ======= DEPARTMENTS (Donut + Table) ======= */}
-      <div className="mcDashGrid2">
-        <DashCard title="Departments Distribution" icon={Layers}>
-          <DonutWithLegend
-            data={deptDonutData}
-            total={deptDonutTotal}
-            colors={DEPT_COLORS}
-            centerLabel="Total Theses"
-          />
-        </DashCard>
-
-        <DashCard
-          title="Theses by Department"
-          icon={Layers}
-          className="mcDashCard--table"
-          right={
-            <>
-              <DashDropdown
-                value={deptOrder}
-                options={DEPT_ORDER_OPTIONS}
-                onChange={setDeptOrder}
-                width={220}
-              />
-              <Pager
-                onPrev={() => setDeptPage((p) => Math.max(1, p - 1))}
-                onNext={() => setDeptPage((p) => Math.min(deptTotalPages, p + 1))}
-                canPrev={deptCanPrev}
-                canNext={deptCanNext}
-              />
-            </>
-          }
-        >
-          <div className="mcTableFrame">
-            <table className="table table-sm align-middle mb-0 mcDashTable">
-              <thead>
-                <tr>
-                  <th style={{ width: "78%" }}>Department</th>
-                  <th className="text-end">Theses</th>
-                </tr>
-              </thead>
-              <tbody>
-                {deptTableSorted.length === 0 ? (
-                  <tr>
-                    <td colSpan={2} className="mcMuted">
-                      No departments found.
-                    </td>
-                  </tr>
-                ) : (
-                  deptPageItems.map((row) => (
-                    <tr key={row.key}>
-                      <td title={row.name || ""}>
-                        <div className="mcTitleCell">{row.name || "—"}</div>
-                        <div className="mcSubCell">
-                          {institution?.name ? `Departments of ${institution.name}` : ""}
-                        </div>
-                      </td>
-                      <td className="text-end mcNumCell">{safeNum(row.value)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mcFoot mcFoot--split">
-            <span>
-              Showing{" "}
-              {deptTableSorted.length === 0 ? 0 : (deptCurrentPage - 1) * deptPageSize + 1} –{" "}
-              {Math.min(deptCurrentPage * deptPageSize, deptTableSorted.length)} of{" "}
-              {deptTableSorted.length}
-            </span>
-          </div>
-        </DashCard>
-      </div>
+        </>
+      )}
     </div>
   );
 };

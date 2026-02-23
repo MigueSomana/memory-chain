@@ -3,6 +3,7 @@ import { Institution } from "../models/institution.model";
 import { User } from "../models/user.model";
 import { Thesis } from "../models/thesis.model";
 import { AuthRequest } from "../middleware/auth";
+import { assertPrivateKeyWithFunds } from "../services/wallet.validation";
 
 // Convierte el logo binario a una URL base64 para mostrarlo en el frontend
 function buildLogoUrl(logo?: { data: Buffer; contentType: string }) {
@@ -78,7 +79,7 @@ export const updateInstitution = async (req: AuthRequest, res: Response) => {
       }
     } else if (req.user) {
       const isMember = (req.user.institutions ?? []).some(
-        (instId) => instId.toString() === institutionId
+        (instId) => instId.toString() === institutionId,
       );
       if (!isMember) {
         return res
@@ -99,57 +100,63 @@ export const updateInstitution = async (req: AuthRequest, res: Response) => {
       "type",
       "isMember",
       "canVerify",
-      "wallet", // ✅ nuevo
+      "wallet",
       "removeImg",
     ] as const;
 
-    const updates: Record<string, any> = {};
-    for (const key of allowedFields) {
-      if (req.body[key] !== undefined) {
-        updates[key] = req.body[key];
+    const updates: any = {};
+    for (const k of allowedFields) {
+      if (typeof (req.body as any)[k] !== "undefined") {
+        updates[k] = (req.body as any)[k];
       }
     }
 
-    const parsedDepts = safeJsonParse<string[]>(updates.departments);
-    if (parsedDepts) updates.departments = parsedDepts;
-
-    const parsedDomains = safeJsonParse<string[]>(updates.emailDomains);
-    if (parsedDomains) updates.emailDomains = parsedDomains;
-
-    if (updates.name) updates.name = String(updates.name).trim();
-    if (updates.country) updates.country = String(updates.country).trim();
-    if (updates.email) updates.email = String(updates.email).trim().toLowerCase();
-    if (updates.website) updates.website = String(updates.website).trim();
-    if (updates.wallet !== undefined) updates.wallet = String(updates.wallet).trim();
-
-    const removeImg =
-      String(req.body.removeImg || "").toLowerCase() === "1" ||
-      String(req.body.removeImg || "").toLowerCase() === "true";
-
-    if (removeImg) {
-      updates.logo = undefined;
+    // emailDomains/departments pueden venir como string (FormData)
+    if (typeof updates.emailDomains === "string") {
+      updates.emailDomains =
+        safeJsonParse(updates.emailDomains) ?? updates.emailDomains;
+    }
+    if (typeof updates.departments === "string") {
+      updates.departments =
+        safeJsonParse(updates.departments) ?? updates.departments;
     }
 
-    if (req.file) {
+    // ✅ wallet institución: no puede quedar vacía, y debe ser private key + fondos
+    if (typeof updates.wallet !== "undefined") {
+      const w = String(updates.wallet ?? "").trim();
+      if (!w) {
+        return res.status(400).json({
+          message:
+            "La wallet de institución es obligatoria y no puede estar vacía",
+        });
+      }
+      try {
+        await assertPrivateKeyWithFunds(w);
+      } catch (e: any) {
+        return res
+          .status(400)
+          .json({ message: e?.message || "Wallet inválida" });
+      }
+      updates.wallet = w;
+    }
+
+    if ((req as any).file) {
+      const f = (req as any).file as { buffer: Buffer; mimetype: string };
       updates.logo = {
-        data: req.file.buffer,
-        contentType: req.file.mimetype,
+        data: f.buffer,
+        contentType: f.mimetype,
       };
     }
-
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ message: "No hay campos para actualizar" });
-    }
-
     const updated = await Institution.findByIdAndUpdate(
       institutionId,
-      { $set: updates, ...(removeImg ? { $unset: { logo: 1 } } : {}) },
-      { new: true, runValidators: true }
+      updates,
+      {
+        new: true,
+      },
     ).select("-password");
 
-    if (!updated) {
+    if (!updated)
       return res.status(404).json({ message: "Institution not found" });
-    }
 
     const obj: any = updated.toObject();
     return res.json({
@@ -157,12 +164,9 @@ export const updateInstitution = async (req: AuthRequest, res: Response) => {
       logoUrl: buildLogoUrl(obj.logo),
       logo: undefined,
     });
-  } catch (err: any) {
-    console.error("Error updating institution profile:", err);
-    return res.status(500).json({
-      message: "Error updating institution profile",
-      error: err.message,
-    });
+  } catch (err) {
+    console.error("Error updateInstitution", err);
+    return res.status(500).json({ message: "Error del servidor" });
   }
 };
 
@@ -171,7 +175,7 @@ export const getInstitutionStudents = async (req: Request, res: Response) => {
   try {
     const { id: institutionId } = req.params;
     const students = await User.find({ institutions: institutionId }).select(
-      "-password"
+      "-password",
     );
     res.json(students);
   } catch (err) {
@@ -186,7 +190,7 @@ export const getInstitutionTheses = async (req: Request, res: Response) => {
     const { id: institutionId } = req.params;
     const theses = await Thesis.find({ institution: institutionId }).populate(
       "uploadedBy",
-      "name lastname email"
+      "name lastname email",
     );
     res.json(theses);
   } catch (err) {
@@ -209,7 +213,10 @@ export const getInstitutionTheses = async (req: Request, res: Response) => {
  *   institutionKey?: string      // opcional: si en tu array guardas un string específico
  * }
  */
-export const setStudentInstitutionStatus = async (req: AuthRequest, res: Response) => {
+export const setStudentInstitutionStatus = async (
+  req: AuthRequest,
+  res: Response,
+) => {
   try {
     if (!req.institution) {
       return res.status(401).json({ message: "No autorizado (institución)" });
@@ -219,7 +226,9 @@ export const setStudentInstitutionStatus = async (req: AuthRequest, res: Respons
 
     // Solo puede gestionar su propia institución
     if (req.institution._id.toString() !== institutionId) {
-      return res.status(403).json({ message: "No puedes gestionar esta institución" });
+      return res
+        .status(403)
+        .json({ message: "No puedes gestionar esta institución" });
     }
 
     const { userId, status, email, institutionKey } = req.body as {
@@ -235,7 +244,8 @@ export const setStudentInstitutionStatus = async (req: AuthRequest, res: Respons
     }
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    if (!user)
+      return res.status(404).json({ message: "Usuario no encontrado" });
 
     // Cómo identificas la institución dentro del array:
     // - por institutionKey (si tu frontend lo manda)
@@ -250,7 +260,7 @@ export const setStudentInstitutionStatus = async (req: AuthRequest, res: Respons
     user.educationalEmails = user.educationalEmails || [];
 
     const idx = user.educationalEmails.findIndex((e) =>
-      keyCandidates.includes(String(e.institution || "").trim())
+      keyCandidates.includes(String(e.institution || "").trim()),
     );
 
     if (idx >= 0) {
@@ -268,7 +278,10 @@ export const setStudentInstitutionStatus = async (req: AuthRequest, res: Respons
     }
 
     await user.save();
-    return res.json({ message: "Estado actualizado", educationalEmails: user.educationalEmails });
+    return res.json({
+      message: "Estado actualizado",
+      educationalEmails: user.educationalEmails,
+    });
   } catch (err) {
     console.error("Error setStudentInstitutionStatus", err);
     return res.status(500).json({ message: "Error del servidor" });
