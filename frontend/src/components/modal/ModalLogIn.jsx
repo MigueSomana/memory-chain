@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { saveAuthSession } from "../../utils/authSession";
+import { saveAuthSession, touchAuthSession } from "../../utils/authSession";
 import { useToast } from "../../utils/toast";
 import {
   Mail,
@@ -162,10 +162,11 @@ const ModalLogin = ({
         password,
       });
 
-      const { token, user, institution } = response.data;
+      const { token, user, institution } = response.data || {};
 
-      if (user) {
+      if (user && token) {
         saveAuthSession({ token, role: user.role, actor: "user", user });
+        touchAuthSession(); // ✅ extra safety: arranca contador ya mismo
 
         showToast({
           message: `Welcome back, ${user?.name || "User"} ✅`,
@@ -178,13 +179,14 @@ const ModalLogin = ({
         return;
       }
 
-      if (institution) {
+      if (institution && token) {
         saveAuthSession({
           token,
           role: institution.role || "INSTITUTION",
           actor: "institution",
           institution,
         });
+        touchAuthSession(); // ✅ extra safety
 
         showToast({
           message: `Welcome back, ${institution?.name || "Institution"} ✅`,
@@ -203,6 +205,7 @@ const ModalLogin = ({
         icon: OctagonAlert,
         duration: 2200,
       });
+      setLoading(false);
     } catch (error) {
       console.error(error);
       showToast({

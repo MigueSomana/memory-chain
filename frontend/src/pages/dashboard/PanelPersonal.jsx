@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { getAuthToken, getIdUser } from "../../utils/authSession";
+import * as Auth from "../../utils/authSession";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import {
   BookCheck,
@@ -22,6 +22,54 @@ const prettyStatus = (key) => {
   if (key === "REJECTED") return "Rejected";
   return "Pending";
 };
+
+// ===================== AUTH RESOLVER (compat con authSession nuevo) =====================
+function resolveAuthSession(mod) {
+  const m = mod || {};
+
+  // session puede venir como objeto o función
+  const session =
+    (typeof m.getSession === "function" ? m.getSession() : null) ||
+    (typeof m.getAuthSession === "function" ? m.getAuthSession() : null) ||
+    (typeof m.getSessionData === "function" ? m.getSessionData() : null) ||
+    m.session ||
+    m.authSession ||
+    null;
+
+  const token =
+    (typeof m.getAuthToken === "function" ? m.getAuthToken() : null) ||
+    (typeof m.getToken === "function" ? m.getToken() : null) ||
+    (typeof m.getAccessToken === "function" ? m.getAccessToken() : null) ||
+    session?.token ||
+    session?.accessToken ||
+    session?.jwt ||
+    session?.authToken ||
+    "";
+
+  const user =
+    (typeof m.getAuthUser === "function" ? m.getAuthUser() : null) ||
+    (typeof m.getUser === "function" ? m.getUser() : null) ||
+    session?.user ||
+    session?.profile ||
+    session?.account ||
+    null;
+
+  const userId =
+    (typeof m.getIdUser === "function" ? m.getIdUser() : null) ||
+    (typeof m.getUserId === "function" ? m.getUserId() : null) ||
+    user?._id ||
+    user?.id ||
+    session?.userId ||
+    session?.uid ||
+    "";
+
+  return {
+    token: String(token || ""),
+    userId: String(userId || ""),
+    user,
+    session,
+  };
+}
 
 // ===================== Helpers de IDs (robusto) =====================
 function getAnyId(v) {
@@ -115,8 +163,9 @@ const DashDropdown = ({ value, options, onChange, width = 190 }) => {
 };
 
 const PanelPersonal = () => {
-  const token = useMemo(() => getAuthToken(), []);
-  const userId = useMemo(() => getIdUser(), []);
+  const auth = useMemo(() => resolveAuthSession(Auth), []);
+  const token = auth.token;
+  const userId = auth.userId;
 
   const [theses, setTheses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -143,9 +192,7 @@ const PanelPersonal = () => {
           return;
         }
 
-        const headers = token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses`,
@@ -183,8 +230,7 @@ const PanelPersonal = () => {
   );
 
   const independentCount = useMemo(
-    () =>
-      theses.filter((t) => !String(getInstitutionName(t) || "").trim()).length,
+    () => theses.filter((t) => !String(getInstitutionName(t) || "").trim()).length,
     [theses],
   );
 
@@ -275,8 +321,7 @@ const PanelPersonal = () => {
       .reduce((acc, t) => acc + safeNum(t.likes), 0);
 
     const final = [...top3];
-    if (othersSum > 0)
-      final.push({ key: "OTHERS", name: "Others", value: othersSum });
+    if (othersSum > 0) final.push({ key: "OTHERS", name: "Others", value: othersSum });
     return final;
   }, [thesesSortedByLikesDesc]);
 
@@ -287,9 +332,7 @@ const PanelPersonal = () => {
 
   const likesTableSorted = useMemo(() => {
     const dir = String(likesOrder || "DESC").toUpperCase();
-    const sorted = [...theses].sort(
-      (a, b) => safeNum(a.likes) - safeNum(b.likes),
-    );
+    const sorted = [...theses].sort((a, b) => safeNum(a.likes) - safeNum(b.likes));
     return dir === "ASC" ? sorted : sorted.reverse();
   }, [theses, likesOrder]);
 
@@ -340,11 +383,8 @@ const PanelPersonal = () => {
   const instTableTop4 = useMemo(() => instAgg.list.slice(0, 4), [instAgg.list]);
 
   const instDonutData = useMemo(() => {
-    // Gráfico: Top4 + Others + Independent (si existe)
     const top = instAgg.list.slice(0, 4);
-    const othersSum = instAgg.list
-      .slice(4)
-      .reduce((acc, x) => acc + safeNum(x.value), 0);
+    const othersSum = instAgg.list.slice(4).reduce((acc, x) => acc + safeNum(x.value), 0);
 
     const data = top.map((x) => ({
       key: `INST_${x.name}`,
@@ -352,8 +392,7 @@ const PanelPersonal = () => {
       value: safeNum(x.value),
     }));
 
-    if (othersSum > 0)
-      data.push({ key: "INST_OTHERS", name: "Others", value: othersSum });
+    if (othersSum > 0) data.push({ key: "INST_OTHERS", name: "Others", value: othersSum });
     if (instAgg.independent > 0)
       data.push({
         key: "INST_INDEPENDENT",
@@ -378,29 +417,16 @@ const PanelPersonal = () => {
     REJECTED: "#FF4D4D",
   };
 
-  const statusLegendColors = [
-    STATUS_COLORS.APPROVED,
-    STATUS_COLORS.PENDING,
-    STATUS_COLORS.REJECTED,
-  ];
+  const statusLegendColors = [STATUS_COLORS.APPROVED, STATUS_COLORS.PENDING, STATUS_COLORS.REJECTED];
 
   const LIKES_COLORS = ["#20C997", "#0d6efd", "#6f42c1", "#adb5bd"];
 
-  // ✅ NUEVO: palette para instituciones (Top + Others + Independent)
-  const INST_COLORS = [
-    "#20C997",
-    "#0d6efd",
-    "#6f42c1",
-    "#F5C542",
-    "#adb5bd",
-    "#495057",
-  ];
+  const INST_COLORS = ["#20C997", "#0d6efd", "#6f42c1", "#F5C542", "#adb5bd", "#495057"];
 
   // =========================
   // Render: loading/error base
   // =========================
-  if (loading)
-    return <div className="container py-3 text-muted">Loading dashboard…</div>;
+  if (loading) return <div className="container py-3 text-muted">Loading dashboard…</div>;
 
   if (loadError) {
     return (
@@ -453,9 +479,7 @@ const PanelPersonal = () => {
       <div className="mcDashHead">
         <div className="mcDashHeadLeft md-fix">
           <div className="mcDashHeadTitle">
-            <span className="mcDashHeadIcon">
-              {Icon ? <Icon size={18} /> : null}
-            </span>
+            <span className="mcDashHeadIcon">{Icon ? <Icon size={18} /> : null}</span>
             <span className="mcDashHeadText">{title}</span>
           </div>
         </div>
@@ -467,7 +491,7 @@ const PanelPersonal = () => {
 
   const DonutWithLegend = ({ data, total, colors, centerLabel }) => {
     const safeTotal = safeNum(total);
-    const hideLegend = safeTotal === 0; // ✅ si todo es 0, no mostrar leyenda
+    const hideLegend = safeTotal === 0;
 
     return (
       <div className="mcDonutStack">
@@ -487,10 +511,7 @@ const PanelPersonal = () => {
                   stroke="transparent"
                 >
                   {data.map((entry, idx) => (
-                    <Cell
-                      key={entry.key || entry.name || idx}
-                      fill={colors[idx] || "#adb5bd"}
-                    />
+                    <Cell key={entry.key || entry.name || idx} fill={colors[idx] || "#adb5bd"} />
                   ))}
                 </Pie>
 
@@ -501,11 +522,7 @@ const PanelPersonal = () => {
                   y="50%"
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  style={{
-                    fontSize: 22,
-                    fontWeight: 900,
-                    fill: "rgba(255,255,255,.92)",
-                  }}
+                  style={{ fontSize: 22, fontWeight: 900, fill: "rgba(255,255,255,.92)" }}
                 >
                   {safeTotal}
                 </text>
@@ -529,27 +546,18 @@ const PanelPersonal = () => {
           )}
         </div>
 
-        {/* ✅ Leyenda SOLO si hay data real */}
         {!hideLegend && (
           <div className="mcLegendBox">
             <div className="mcLegendList">
               {(data || []).map((d, idx) => (
                 <div className="mcLegendRow2" key={d.key || `${d.name}-${idx}`}>
                   <div className="mcLegendLeft2" title={d.name}>
-                    <span
-                      className="mcDot"
-                      style={{ background: colors[idx] || "#adb5bd" }}
-                    />
-                    <span className="mcLegendName">
-                      {trimLabel(d.name, 26)}
-                    </span>
+                    <span className="mcDot" style={{ background: colors[idx] || "#adb5bd" }} />
+                    <span className="mcLegendName">{trimLabel(d.name, 26)}</span>
                   </div>
 
                   <div className="mcLegendRight2">
-                    {safeNum(d.value)}{" "}
-                    <span className="mcLegendPct">
-                      ({pct(d.value, safeTotal)}%)
-                    </span>
+                    {safeNum(d.value)} <span className="mcLegendPct">({pct(d.value, safeTotal)}%)</span>
                   </div>
                 </div>
               ))}
@@ -560,7 +568,6 @@ const PanelPersonal = () => {
     );
   };
 
-  // ✅ Dropdown options
   const STATUS_FILTER_OPTIONS = [
     { value: "ALL", label: "All statuses" },
     { value: "APPROVED", label: "Approved" },
@@ -577,21 +584,9 @@ const PanelPersonal = () => {
     <div className="mcDashWrap">
       {/* ======= METRICS GRID ======= */}
       <div className="mcTilesGrid">
-        <MetricCard
-          title="Research independent"
-          icon={Binoculars}
-          value={independentCount}
-        />
-        <MetricCard
-          title="Total Thesis"
-          icon={BookMarked}
-          value={totalTheses}
-        />
-        <MetricCard
-          title="Verified Thesis"
-          icon={BookCheck}
-          value={approvedTheses}
-        />
+        <MetricCard title="Research independent" icon={Binoculars} value={independentCount} />
+        <MetricCard title="Total Thesis" icon={BookMarked} value={totalTheses} />
+        <MetricCard title="Verified Thesis" icon={BookCheck} value={approvedTheses} />
         <MetricCard title="Total Likes" icon={BookHeart} value={totalLikes} />
       </div>
 
@@ -620,9 +615,7 @@ const PanelPersonal = () => {
               />
               <Pager
                 onPrev={() => setStatusPage((p) => Math.max(1, p - 1))}
-                onNext={() =>
-                  setStatusPage((p) => Math.min(statusTotalPages, p + 1))
-                }
+                onNext={() => setStatusPage((p) => Math.min(statusTotalPages, p + 1))}
                 canPrev={statusCanPrev}
                 canNext={statusCanNext}
               />
@@ -676,15 +669,9 @@ const PanelPersonal = () => {
           <div className="mcFoot mcFoot--split">
             <span>
               Showing{" "}
-              {statusTableSorted.length === 0
-                ? 0
-                : (statusCurrentPage - 1) * statusPageSize + 1}{" "}
-              –{" "}
-              {Math.min(
-                statusCurrentPage * statusPageSize,
-                statusTableSorted.length,
-              )}{" "}
-              of {statusTableSorted.length}
+              {statusTableSorted.length === 0 ? 0 : (statusCurrentPage - 1) * statusPageSize + 1} –{" "}
+              {Math.min(statusCurrentPage * statusPageSize, statusTableSorted.length)} of{" "}
+              {statusTableSorted.length}
             </span>
           </div>
         </DashCard>
@@ -715,9 +702,7 @@ const PanelPersonal = () => {
               />
               <Pager
                 onPrev={() => setLikesPage((p) => Math.max(1, p - 1))}
-                onNext={() =>
-                  setLikesPage((p) => Math.min(likesTotalPages, p + 1))
-                }
+                onNext={() => setLikesPage((p) => Math.min(likesTotalPages, p + 1))}
                 canPrev={likesCanPrev}
                 canNext={likesCanNext}
               />
@@ -742,16 +727,13 @@ const PanelPersonal = () => {
                 ) : (
                   likesPageItems.map((t) => {
                     const instLine = getInstitutionUI(t).line;
-
                     return (
                       <tr key={t._id}>
                         <td title={t.title || ""}>
                           <div className="mcTitleCell">{t.title || "—"}</div>
                           <div className="mcSubCell">{instLine}</div>
                         </td>
-                        <td className="text-end mcNumCell">
-                          {safeNum(t.likes)}
-                        </td>
+                        <td className="text-end mcNumCell">{safeNum(t.likes)}</td>
                       </tr>
                     );
                   })
@@ -763,21 +745,15 @@ const PanelPersonal = () => {
           <div className="mcFoot mcFoot--split">
             <span>
               Showing{" "}
-              {likesTableSorted.length === 0
-                ? 0
-                : (likesCurrentPage - 1) * likesPageSize + 1}{" "}
-              –{" "}
-              {Math.min(
-                likesCurrentPage * likesPageSize,
-                likesTableSorted.length,
-              )}{" "}
-              of {likesTableSorted.length}
+              {likesTableSorted.length === 0 ? 0 : (likesCurrentPage - 1) * likesPageSize + 1} –{" "}
+              {Math.min(likesCurrentPage * likesPageSize, likesTableSorted.length)} of{" "}
+              {likesTableSorted.length}
             </span>
           </div>
         </DashCard>
       </div>
 
-      {/* ======= NUEVO: INSTITUTIONS (Donut + Top4 Table) ======= */}
+      {/* ======= INSTITUTIONS (Donut + Top4 Table) ======= */}
       <div className="mcDashGrid2">
         <DashCard title="Theses by Institution" icon={Building2}>
           <DonutWithLegend
@@ -793,10 +769,7 @@ const PanelPersonal = () => {
           icon={Building2}
           className="mcDashCard--table"
           right={
-            <div
-              className="mcDashMiniTag"
-              title="Top 4 institutions + independent"
-            >
+            <div className="mcDashMiniTag" title="Top 4 institutions + independent">
               Showing top 4
             </div>
           }
@@ -824,21 +797,16 @@ const PanelPersonal = () => {
                           <div className="mcTitleCell">{row.name}</div>
                           <div className="mcSubCell">Academic institution</div>
                         </td>
-                        <td className="text-end mcNumCell">
-                          {safeNum(row.value)}
-                        </td>
+                        <td className="text-end mcNumCell">{safeNum(row.value)}</td>
                       </tr>
                     ))}
 
-                    {/* Independent siempre separado */}
                     <tr>
                       <td title="Independent Research">
                         <div className="mcTitleCell">Independent</div>
                         <div className="mcSubCell">No institution</div>
                       </td>
-                      <td className="text-end mcNumCell">
-                        {safeNum(instAgg.independent)}
-                      </td>
+                      <td className="text-end mcNumCell">{safeNum(instAgg.independent)}</td>
                     </tr>
                   </>
                 )}
@@ -849,15 +817,9 @@ const PanelPersonal = () => {
           <div className="mcFoot mcFoot--split">
             <span>
               Showing{" "}
-              {statusTableSorted.length === 0
-                ? 0
-                : (statusCurrentPage - 1) * statusPageSize + 1}{" "}
-              –{" "}
-              {Math.min(
-                statusCurrentPage * statusPageSize,
-                statusTableSorted.length,
-              )}{" "}
-              of {statusTableSorted.length}
+              {statusTableSorted.length === 0 ? 0 : (statusCurrentPage - 1) * statusPageSize + 1} –{" "}
+              {Math.min(statusCurrentPage * statusPageSize, statusTableSorted.length)} of{" "}
+              {statusTableSorted.length}
             </span>
           </div>
         </DashCard>

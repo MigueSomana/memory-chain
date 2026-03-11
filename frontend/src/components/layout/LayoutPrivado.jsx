@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BackIcon, SupportIcon } from "../../utils/icons";
-import { BookMarked, University,Upload, CircleArrowLeft } from "lucide-react";
+import { BookMarked, University, Upload, CircleArrowLeft } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const Segmented = ({ options, value, onChange }) => (
@@ -56,7 +56,7 @@ const LayoutPrivado = ({
 }) => {
   const [uncontrolledKey, setUncontrolledKey] = useState(defaultKey);
   const activeKey = controlledKey ?? uncontrolledKey;
-const navigate = useNavigate();
+  const navigate = useNavigate();
   const handleChange = (key) => {
     if (onChange) onChange(key);
     else setUncontrolledKey(key);
@@ -84,13 +84,13 @@ const navigate = useNavigate();
 
             {showBack && (
               <button
-  type="button"
-  className="btn btn-outline-memory d-flex align-items-center gap-2"
-  onClick={() => navigate(-1)}
->
-  <CircleArrowLeft size={18} />
-  Back
-</button>
+                type="button"
+                className="btn btn-outline-memory d-flex align-items-center gap-2"
+                onClick={() => navigate(-1)}
+              >
+                <CircleArrowLeft size={18} />
+                Back
+              </button>
             )}
             {showUp && (
               <NavLink
@@ -120,15 +120,6 @@ const navigate = useNavigate();
           {typeof children === "function" ? children(activeKey) : children}
         </div>
       </main>
-
-      <button
-        type="button"
-        className="mcSupportBtn"
-        title="Contact support"
-        onClick={() => alert("Demo: Contact support")}
-      >
-        {SupportIcon}
-      </button>
     </div>
   );
 };

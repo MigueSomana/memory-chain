@@ -1,6 +1,10 @@
-import React, { useRef, useState, useEffect, useMemo } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
-import { getAuthToken } from "../../utils/authSession";
+import {
+  getAuthToken,
+  getAuthHeaders,
+  enforceSessionLifetime,
+} from "../../utils/authSession";
 import { useToast } from "../../utils/toast";
 import {
   Camera,
@@ -18,12 +22,10 @@ import {
   BookMarked,
   BadgeCheck,
   OctagonAlert,
-  Wallet,
 } from "lucide-react";
 
 // ===================== CONFIG =====================
-const API_BASE_URL = "http://localhost:4000/api";
-const token = getAuthToken();
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 const TYPE_OPTIONS = [
   { value: "UNIVERSITY", label: "University" },
@@ -93,7 +95,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
   const [type, setType] = useState("");
   const [email, setEmail] = useState("");
 
-  // ✅ Wallet (nuevo, igual que perfil de student)
+  // ✅ Wallet
   const [wallet, setWallet] = useState("");
 
   // Domains
@@ -178,9 +180,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
   // Errors
   const [errors, setErrors] = useState({});
 
-  // ✅ Stats calculadas según tu regla:
-  // - Theses: todas las tesis con institution = esta institución AND status = APPROVED
-  // - Students: users que tengan a la institución y su status para esa institución = APPROVED
+  // Stats
   const [approvedThesisCount, setApprovedThesisCount] = useState(null);
   const [approvedStudentsCount, setApprovedStudentsCount] = useState(null);
 
@@ -190,7 +190,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (!el) return;
 
     el.style.height = "auto";
-    const max = 220; // px
+    const max = 220;
     const next = Math.min(el.scrollHeight, max);
     el.style.height = `${next}px`;
     el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
@@ -206,7 +206,15 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
 
     const fetchInstitution = async () => {
       try {
-        if (!token) {
+        const expired = enforceSessionLifetime();
+        if (expired) {
+          setLoadError("Session expired due to inactivity. Please log in again.");
+          setLoading(false);
+          return;
+        }
+
+        const tokenNow = getAuthToken();
+        if (!tokenNow) {
           setLoadError("No auth token found. Please log in again.");
           setLoading(false);
           return;
@@ -215,7 +223,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
         // Extract institutionId from JWT (best-effort)
         let institutionId = null;
         try {
-          const [, payloadB64] = token.split(".");
+          const [, payloadB64] = tokenNow.split(".");
           const payloadJson = JSON.parse(atob(payloadB64));
           institutionId =
             payloadJson.institutionId ||
@@ -233,8 +241,8 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
         }
 
         const res = await axios.get(
-          `${API_BASE_URL}/institutions/${institutionId}`,
-          { headers: { Authorization: `Bearer ${token}` } },
+          `${API_BASE_URL}/api/institutions/${institutionId}`,
+          { headers: getAuthHeaders() },
         );
 
         setInitialData(res.data);
@@ -280,10 +288,13 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
   // ===================== FETCH APPROVED COUNTS =====================
   const fetchApprovedCounts = async (institutionId) => {
     try {
-      // 1) Theses aprobadas de la institución (usa tus routes: GET /theses/institution/:idInstitution)
+      const expired = enforceSessionLifetime();
+      if (expired) return;
+
+      // 1) Theses aprobadas de la institución
       const thesesRes = await axios.get(
-        `${API_BASE_URL}/theses/institution/${institutionId}`,
-        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+        `${API_BASE_URL}/api/theses/institution/${institutionId}`,
+        { headers: getAuthHeaders() },
       );
 
       const thesesList = Array.isArray(thesesRes.data)
@@ -300,17 +311,11 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
 
       setApprovedThesisCount(approvedTheses.length);
 
-      // 2) Students aprobados para esa institución:
-      //    Intento endpoints comunes (no me diste tu route de users):
-      //    - GET /users (y filtramos en front)
-      //    - fallback: GET /users/institution/:id (si existe)
-      //
-      //    Regla: user.educationalEmails[{institution, status}] con status APPROVED
-      //           (y que tenga esa institución)
+      // 2) Students aprobados (best-effort)
       let usersList = [];
       try {
-        const usersRes = await axios.get(`${API_BASE_URL}/users`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const usersRes = await axios.get(`${API_BASE_URL}/api/users`, {
+          headers: getAuthHeaders(),
         });
 
         usersList = Array.isArray(usersRes.data)
@@ -321,11 +326,11 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
               ? usersRes.data.users
               : [];
       } catch (e1) {
-        // fallback típico
+        console.log(e1);
         try {
           const usersRes2 = await axios.get(
-            `${API_BASE_URL}/users/institution/${institutionId}`,
-            { headers: { Authorization: `Bearer ${token}` } },
+            `${API_BASE_URL}/api/users/institution/${institutionId}`,
+            { headers: getAuthHeaders() },
           );
           usersList = Array.isArray(usersRes2.data)
             ? usersRes2.data
@@ -335,6 +340,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
                 ? usersRes2.data.users
                 : [];
         } catch (e2) {
+          console.log(e2);
           usersList = [];
         }
       }
@@ -414,6 +420,18 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
   // ===================== SUBMIT =====================
   const handleSubmit = async (ev) => {
     ev.preventDefault();
+
+    const expired = enforceSessionLifetime();
+    if (expired) {
+      showToast({
+        message: "Session expired due to inactivity. Please log in again.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2600,
+      });
+      return;
+    }
+
     if (!validate()) return;
 
     if (!initialData?._id) {
@@ -427,7 +445,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     }
 
     try {
-      if (!token) {
+      if (!getAuthToken()) {
         showToast({
           message: "No auth token found. Please log in again.",
           type: "error",
@@ -460,9 +478,9 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
       if (password) form.append("password", password);
 
       const res = await axios.put(
-        `${API_BASE_URL}/institutions/${initialData._id}`,
+        `${API_BASE_URL}/api/institutions/${initialData._id}`,
         form,
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: { ...getAuthHeaders() } },
       );
 
       showToast({
@@ -484,12 +502,12 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
       setPassword("");
       setConfirm("");
 
-      // refresca counts con reglas nuevas
       fetchApprovedCounts(updated._id);
     } catch (err) {
       console.error("Update institution error:", err?.response?.data || err);
       showToast({
-        message: err?.response?.data?.message || "Error updating institution profile.",
+        message:
+          err?.response?.data?.message || "Error updating institution profile.",
         type: "error",
         icon: OctagonAlert,
         duration: 2600,
@@ -503,9 +521,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
 
   const deptCount = departments.length;
 
-  // ✅ ahora el display de stats sale de nuestros counts
   const displayCount = (v) => (v === null || v === undefined ? "—" : String(v));
-
   const thesisCountDisplay = displayCount(approvedThesisCount);
   const studentsCountDisplay = displayCount(approvedStudentsCount);
 
@@ -532,7 +548,6 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
           </div>
 
           <div className="mcProfileHeroInner">
-            {/* left: logo/avatar */}
             <div className="mcProfileHeroLeft">
               <div className="mcAvatarWrap">
                 <div className="mcAvatar">
@@ -565,7 +580,6 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
               </div>
             </div>
 
-            {/* right: meta + stats */}
             <div className="mcProfileMeta">
               <h2 className="mcProfileName">{name || "—"}</h2>
 
@@ -617,7 +631,6 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
 
           <div className="mcPanelBody">
             <div className="row g-3">
-              {/* Email */}
               <div className="col-12">
                 <label className="form-label">Email</label>
                 <input
@@ -634,7 +647,6 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
                 )}
               </div>
 
-              {/* ✅ Wallet (igual que student profile) */}
               <div className="col-12">
                 <label className="form-label">Wallet</label>
                 <div className="input-group mcWizardInputGroup">
@@ -648,10 +660,8 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
                 </div>
               </div>
 
-              {/* Passwords */}
               <div className="col-md-6">
                 <label className="form-label">New password</label>
-
                 <div className="input-group mcWizardInputGroup">
                   <input
                     className={`form-control mcWizardInputGroupInput mcWizardKeyInput ${
@@ -682,7 +692,6 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
 
               <div className="col-md-6">
                 <label className="form-label">Confirm password</label>
-
                 <div className="input-group mcWizardInputGroup">
                   <input
                     className={`form-control mcWizardInputGroupInput mcWizardKeyInput ${

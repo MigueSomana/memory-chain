@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import axios from "axios";
 import ThesisSearch from "../search/ThesisSearch"; // ✅ ajusta el path real
 import ModalViewInstitution from "../../components/modal/ModalViewInstitution"; // ✅ ajusta el path real
+import { getAuthHeaders, enforceSessionLifetime, getAuthToken } from "../../utils/authSession";
 
 import {
   Funnel,
@@ -55,7 +56,9 @@ const InstitutionsSearch = () => {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("all");
   const [country, setCountry] = useState("all");
-  const [onlyMembers, setOnlyMembers] = useState(false);
+
+  // ✅ MEMBERSHIP FILTER: all | active | inactive
+  const [membershipFilter, setMembershipFilter] = useState("all");
 
   // Sort + pagination
   const [sortBy, setSortBy] = useState("name_az");
@@ -68,8 +71,29 @@ const InstitutionsSearch = () => {
   // Focus mode
   const [focusedInstitutionId, setFocusedInstitutionId] = useState(null);
 
-  // ✅ NEW: View modal selection
+  // View modal selection
   const [selectedInstitution, setSelectedInstitution] = useState(null);
+
+  // ✅ Auth sync (para que refresque cuando el token cambia / expira)
+  const [tokenSnapshot, setTokenSnapshot] = useState(() => getAuthToken());
+
+  useEffect(() => {
+    const sync = () => {
+      enforceSessionLifetime();
+      setTokenSnapshot(getAuthToken());
+    };
+
+    sync();
+    window.addEventListener("storage", sync);
+    document.addEventListener("visibilitychange", sync);
+    const t = window.setInterval(sync, 2000);
+
+    return () => {
+      window.removeEventListener("storage", sync);
+      document.removeEventListener("visibilitychange", sync);
+      window.clearInterval(t);
+    };
+  }, []);
 
   // ===================== LOAD INSTITUTIONS =====================
   useEffect(() => {
@@ -78,14 +102,11 @@ const InstitutionsSearch = () => {
         setLoading(true);
         setLoadError("");
 
-        const tokenLocal = localStorage.getItem("memorychain_token");
-        const headers = tokenLocal
-          ? { Authorization: `Bearer ${tokenLocal}` }
-          : undefined;
+        const headers = getAuthHeaders();
 
         const res = await axios.get(
           `${API_BASE_URL}/api/institutions`,
-          headers ? { headers } : undefined,
+          Object.keys(headers).length ? { headers } : undefined
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
@@ -100,20 +121,17 @@ const InstitutionsSearch = () => {
     };
 
     fetchInstitutions();
-  }, []);
+  }, [tokenSnapshot]);
 
   // ===================== LOAD THESES COUNTS =====================
   useEffect(() => {
     const fetchThesesAndBuildCounts = async () => {
       try {
-        const tokenLocal = localStorage.getItem("memorychain_token");
-        const headers = tokenLocal
-          ? { Authorization: `Bearer ${tokenLocal}` }
-          : undefined;
+        const headers = getAuthHeaders();
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses`,
-          headers ? { headers } : undefined,
+          Object.keys(headers).length ? { headers } : undefined
         );
 
         const theses = Array.isArray(res.data) ? res.data : [];
@@ -122,8 +140,6 @@ const InstitutionsSearch = () => {
         const normalizeStatus = (s) => String(s || "").toUpperCase();
 
         for (const thesis of theses) {
-          // ✅ Nuevo backend: contar todas las tesis de la institución
-          // Solo excluimos REJECTED
           const status = normalizeStatus(thesis?.status);
           if (status === "REJECTED") continue;
 
@@ -132,8 +148,8 @@ const InstitutionsSearch = () => {
             typeof instField === "string"
               ? instField
               : instField?._id
-                ? String(instField._id)
-                : null;
+              ? String(instField._id)
+              : null;
 
           if (!instId) continue;
           counts[instId] = (counts[instId] || 0) + 1;
@@ -147,7 +163,7 @@ const InstitutionsSearch = () => {
     };
 
     fetchThesesAndBuildCounts();
-  }, []);
+  }, [tokenSnapshot]);
 
   // ===================== OPTIONS =====================
   const countryOptions = useMemo(() => {
@@ -186,11 +202,16 @@ const InstitutionsSearch = () => {
         selectedCountry === "all" ||
         countryVal.toLowerCase() === selectedCountry;
 
-      const matchesMember = !onlyMembers || isMemberVal;
+      const matchesMembership =
+        membershipFilter === "all"
+          ? true
+          : membershipFilter === "active"
+          ? isMemberVal
+          : !isMemberVal;
 
-      return matchesQ && matchesType && matchesCountry && matchesMember;
+      return matchesQ && matchesType && matchesCountry && matchesMembership;
     });
-  }, [institutions, query, type, country, onlyMembers]);
+  }, [institutions, query, type, country, membershipFilter]);
 
   // ===================== ORDERED =====================
   const filteredOrdered = useMemo(() => {
@@ -233,40 +254,35 @@ const InstitutionsSearch = () => {
   const end = start + pageSize;
 
   const institutionsToRender = useMemo(() => {
-    // ✅ En focus, solo mostramos la barra + ThesisSearch debajo (no cards)
     if (focusedInstitutionId) return [];
     return filteredOrdered.slice(start, end);
   }, [filteredOrdered, focusedInstitutionId, start, end]);
 
   const pagesArray = useMemo(
     () => Array.from({ length: totalPages }, (_, i) => i + 1),
-    [totalPages],
+    [totalPages]
   );
 
   const go = (p) => setPage(p);
 
   const handleToggleFocus = (id) => {
     setFocusedInstitutionId((current) =>
-      current && String(current) === String(id) ? null : String(id),
+      current && String(current) === String(id) ? null : String(id)
     );
   };
 
   const focusedInstitution = useMemo(() => {
     if (!focusedInstitutionId) return null;
     return (
-      institutions.find(
-        (x) => String(x._id) === String(focusedInstitutionId),
-      ) || null
+      institutions.find((x) => String(x._id) === String(focusedInstitutionId)) ||
+      null
     );
   }, [focusedInstitutionId, institutions]);
 
-  // ===================== ✅ NEW: HANDLE VIEW (OPEN MODAL) =====================
+  // ===================== HANDLE VIEW (OPEN MODAL) =====================
   const handleViewInstitution = async (instRow) => {
     try {
-      const tokenLocal = localStorage.getItem("memorychain_token");
-      const headers = tokenLocal
-        ? { Authorization: `Bearer ${tokenLocal}` }
-        : undefined;
+      const headers = getAuthHeaders();
 
       const id =
         typeof instRow === "string"
@@ -277,12 +293,11 @@ const InstitutionsSearch = () => {
 
       const res = await axios.get(
         `${API_BASE_URL}/api/institutions/${id}`,
-        headers ? { headers } : undefined,
+        Object.keys(headers).length ? { headers } : undefined
       );
 
       setSelectedInstitution(res.data || instRow || null);
 
-      // abrir modal bootstrap
       const el = document.getElementById("modalViewInstitution");
       if (el && window.bootstrap?.Modal) {
         const m = window.bootstrap.Modal.getOrCreateInstance(el);
@@ -290,8 +305,8 @@ const InstitutionsSearch = () => {
       }
     } catch (err) {
       console.error("Error loading institution for view:", err);
-      // fallback: abre con lo que tengas en el row
       setSelectedInstitution(instRow || null);
+
       const el = document.getElementById("modalViewInstitution");
       if (el && window.bootstrap?.Modal) {
         const m = window.bootstrap.Modal.getOrCreateInstance(el);
@@ -330,10 +345,9 @@ const InstitutionsSearch = () => {
   return (
     <div className="mcExploreWrap">
       <div className="mcExploreContainer">
-        {/* ✅ MODAL INSTANCE (montado una vez) */}
         <ModalViewInstitution institution={selectedInstitution} />
 
-        {/* ===================== FOCUS BAR + THESISSEARCH (LITERAL) ===================== */}
+        {/* ===================== FOCUS BAR + THESISSEARCH ===================== */}
         {focusedInstitutionId && focusedInstitution && (
           <>
             <div className="mcInstFocusBar">
@@ -358,7 +372,6 @@ const InstitutionsSearch = () => {
               </div>
 
               <div className="mcInstFocusActions">
-                {/* ✅ View (abre modal) */}
                 <button
                   className="mcIconBtn"
                   type="button"
@@ -391,10 +404,9 @@ const InstitutionsSearch = () => {
               </div>
             </div>
 
-            {/* ✅ Debajo: MISMA ventana ThesisSearch, LOCKED a esta institución */}
             <div className="mcFocusThesisWindow">
               <ThesisSearch
-                key={String(focusedInstitutionId)} // ✅ fuerza remount al cambiar de institución
+                key={String(focusedInstitutionId)}
                 lockedInstitutionId={String(focusedInstitution._id)}
                 lockedInstitutionName={focusedInstitution.name || "Institution"}
               />
@@ -572,10 +584,12 @@ const InstitutionsSearch = () => {
                     <div className="mcPills">
                       <button
                         type="button"
-                        className={`mcPill ${onlyMembers ? "is-active" : ""}`}
+                        className={`mcPill ${
+                          membershipFilter === "active" ? "is-active" : ""
+                        }`}
                         onClick={() => {
                           setPage(1);
-                          setOnlyMembers((v) => !v);
+                          setMembershipFilter("active");
                         }}
                       >
                         Only active
@@ -583,10 +597,25 @@ const InstitutionsSearch = () => {
 
                       <button
                         type="button"
-                        className={`mcPill ${!onlyMembers ? "is-active" : ""}`}
+                        className={`mcPill ${
+                          membershipFilter === "inactive" ? "is-active" : ""
+                        }`}
                         onClick={() => {
                           setPage(1);
-                          setOnlyMembers(false);
+                          setMembershipFilter("inactive");
+                        }}
+                      >
+                        Only inactive
+                      </button>
+
+                      <button
+                        type="button"
+                        className={`mcPill ${
+                          membershipFilter === "all" ? "is-active" : ""
+                        }`}
+                        onClick={() => {
+                          setPage(1);
+                          setMembershipFilter("all");
                         }}
                       >
                         All
@@ -603,7 +632,7 @@ const InstitutionsSearch = () => {
                         setQuery("");
                         setType("all");
                         setCountry("all");
-                        setOnlyMembers(false);
+                        setMembershipFilter("all");
                         setSortBy("name_az");
                         setPage(1);
                       }}
@@ -626,18 +655,13 @@ const InstitutionsSearch = () => {
                   const statusLabel = i.isMember ? "Active" : "Inactive";
 
                   return (
-                    <article
-                      key={rowKey}
-                      className={`mcCard mcInstCard ${tone}`}
-                    >
+                    <article key={rowKey} className={`mcCard mcInstCard ${tone}`}>
                       <div className="mcCardTop">
                         <div className="mcStatus">
                           <span className={`mcStatusDot ${tone}`} />
                           <span className="mcStatusLabel">{statusLabel}</span>
                         </div>
-                        <div className="mcYear">
-                          {i.country || "—"}
-                        </div>
+                        <div className="mcYear">{i.country || "—"}</div>
                       </div>
 
                       <div className="mcCardBody">
@@ -673,38 +697,29 @@ const InstitutionsSearch = () => {
                               </div>
                             )}
                           </span>
+
                           <div className="mcCardBody mcCardBodyMember">
                             <h3 className="mcCardTitle" title={i.name}>
                               {i.name}
                             </h3>
-                            <div
-                              className="mcCardAuthors mcMetaRow"
-                              title={i.country || ""}
-                            >
+
+                            <div className="mcCardAuthors mcMetaRow" title={i.country || ""}>
                               <span className="mcMetaIcon" aria-hidden="true">
                                 <MapPinned size={18} />
                               </span>
-                              <span className="mcMetaText">
-                                {i.country || "—"}
-                              </span>
+                              <span className="mcMetaText">{i.country || "—"}</span>
                             </div>
+
                             <div className="mcMemberEmailInline">
-                              <div
-                                className="mcCardAuthors mcMetaRow"
-                                title={formatType(i.type)}
-                              >
+                              <div className="mcCardAuthors mcMetaRow" title={formatType(i.type)}>
                                 <span className="mcMetaIcon" aria-hidden="true">
                                   <University size={18} />
                                 </span>
-                                <span className="mcMetaText">
-                                  {formatType(i.type) || "—"}
-                                </span>
+                                <span className="mcMetaText">{formatType(i.type) || "—"}</span>
                               </div>
                             </div>
                           </div>
                         </div>
-
-                        <div className="mcCardDivider" />
 
                         <div className="mcCardFooter">
                           <div className="mcMetrics">
@@ -718,7 +733,6 @@ const InstitutionsSearch = () => {
                           </div>
 
                           <div className="mcActions">
-                            {/* ✅ MODIFICADO: ahora abre el ModalViewInstitution */}
                             <button
                               type="button"
                               className="mcIconBtn"
@@ -775,9 +789,7 @@ const InstitutionsSearch = () => {
                   {pagesArray.map((p) => (
                     <button
                       key={`p-${p}`}
-                      className={`mcPagerNum ${
-                        p === currentPage ? "is-active" : ""
-                      }`}
+                      className={`mcPagerNum ${p === currentPage ? "is-active" : ""}`}
                       type="button"
                       onClick={() => go(p)}
                     >

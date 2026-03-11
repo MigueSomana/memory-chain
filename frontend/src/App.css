@@ -10,6 +10,15 @@ body {
   background-color: #0f0f0f;
 }
 
+html, body {
+  scrollbar-width: none;      /* Firefox */
+  -ms-overflow-style: none;   /* IE/Edge legacy */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;              /* Chrome/Safari/Edge */
+}
 /* ===================== TOKENS (SINGLE SOURCE OF TRUTH) ===================== */
 :root {
   --mc-bg: #0f0f0f;
@@ -469,9 +478,6 @@ body {
   font-size: 1.5rem;
   line-height: 1;
   color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .mcTopbarActions {
@@ -921,6 +927,9 @@ body {
 
 .mcCardBody {
   padding: 16px 16px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  height: 90%;
 }
 .mcCardBodyMember {
   padding: 12px 16px 12px 16px !important;
@@ -932,9 +941,6 @@ body {
   line-height: 1.2;
   color: #fff;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .mcCardAuthors {
@@ -942,7 +948,6 @@ body {
   font-weight: 500;
   font-size: 0.8rem;
   margin-bottom: 0.35rem;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -979,6 +984,8 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .mcTag {
@@ -991,6 +998,9 @@ body {
   color: var(--mc-text);
   font-weight: 500;
   font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mcTagMuted {
@@ -1011,7 +1021,7 @@ body {
   justify-content: space-between;
   gap: 12px;
   font-size: 0.8rem;
-  margin: -7px 0px;
+  margin-top: auto;
 }
 
 .mcMetrics {
@@ -5880,4 +5890,46 @@ textarea.form-control.mcProfileTextarea {
   text-align: center;
   position: relative;
   width: 100%;
+}
+/* =========================
+   FORCE TRIM (TITLE + TAGS)
+   Pegar al FINAL del CSS
+   ========================= */
+
+
+
+/* 2) KEYWORDS: una sola línea en total */
+.mcCard .mcCardBody .mcTags{
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  min-width: 0 !important; /* clave en contenedores flex */
+}
+
+/* cada tag debe poder encogerse y cortar */
+.mcCard .mcCardBody .mcTags .mcTag{
+  display: inline-block !important;
+  flex: 0 1 auto !important;   /* permite shrink */
+  min-width: 0 !important;     /* permite ellipsis dentro de flex */
+  max-width: 180px !important; /* para que el ellipsis ocurra */
+
+  overflow: hidden !important;
+  white-space: nowrap !important;
+}
+
+/* si quieres que el +N siempre se vea */
+.mcCard .mcCardBody .mcTags .mcTagMuted{
+  flex: 0 0 auto !important;
+  max-width: none !important;
+}
+.title-fix {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+
+  /* mejora visual */
+  text-overflow: ellipsis;
+  word-break: break-word;
 }

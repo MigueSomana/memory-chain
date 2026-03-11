@@ -1,11 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
-import {
-  getAuthInstitution,
-  getIdInstitution,
-  getAuthToken,
-} from "../../utils/authSession";
+import * as Auth from "../../utils/authSession";
 import {
   BookCheck,
   Heart,
@@ -59,6 +55,53 @@ const inc = (obj, key, by = 1) => {
   if (!k) return;
   obj[k] = safeNum(obj[k]) + safeNum(by);
 };
+
+// ===================== AUTH RESOLVER (compat con authSession nuevo) =====================
+function resolveAuthSession(mod) {
+  const m = mod || {};
+
+  const session =
+    (typeof m.getSession === "function" ? m.getSession() : null) ||
+    (typeof m.getAuthSession === "function" ? m.getAuthSession() : null) ||
+    (typeof m.getSessionData === "function" ? m.getSessionData() : null) ||
+    m.session ||
+    m.authSession ||
+    null;
+
+  const token =
+    (typeof m.getAuthToken === "function" ? m.getAuthToken() : null) ||
+    (typeof m.getToken === "function" ? m.getToken() : null) ||
+    (typeof m.getAccessToken === "function" ? m.getAccessToken() : null) ||
+    session?.token ||
+    session?.accessToken ||
+    session?.jwt ||
+    session?.authToken ||
+    "";
+
+  const institution =
+    (typeof m.getAuthInstitution === "function" ? m.getAuthInstitution() : null) ||
+    (typeof m.getInstitution === "function" ? m.getInstitution() : null) ||
+    session?.institution ||
+    session?.inst ||
+    session?.org ||
+    null;
+
+  const institutionId =
+    (typeof m.getIdInstitution === "function" ? m.getIdInstitution() : null) ||
+    (typeof m.getInstitutionId === "function" ? m.getInstitutionId() : null) ||
+    institution?._id ||
+    institution?.id ||
+    session?.institutionId ||
+    session?.instId ||
+    "";
+
+  return {
+    token: String(token || ""),
+    institutionId: String(institutionId || ""),
+    institution,
+    session,
+  };
+}
 
 // ===================== HELPERS ROBUSTOS =====================
 function getAnyId(v) {
@@ -119,9 +162,10 @@ const DashDropdown = ({ value, options, onChange, width = 190, disabled }) => {
 };
 
 const PanelUniversity = () => {
-  const token = useMemo(() => getAuthToken(), []);
-  const sessionInstitution = useMemo(() => getAuthInstitution(), []);
-  const institutionId = useMemo(() => getIdInstitution(), []);
+  const auth = useMemo(() => resolveAuthSession(Auth), []);
+  const token = auth.token;
+  const institutionId = auth.institutionId;
+  const sessionInstitution = auth.institution;
 
   const [institution, setInstitution] = useState(sessionInstitution || null);
   const [theses, setTheses] = useState([]);
@@ -149,7 +193,6 @@ const PanelUniversity = () => {
   const [deptPage, setDeptPage] = useState(1);
   const deptPageSize = 5;
 
-  // ✅ estado “bloqueado”
   const isLocked = memberChecked && !isMember;
 
   // =========================
@@ -172,9 +215,7 @@ const PanelUniversity = () => {
 
         if (!active && institutionId) {
           try {
-            const res = await axios.get(
-              `${API_BASE_URL}/api/institutions/${institutionId}`,
-            );
+            const res = await axios.get(`${API_BASE_URL}/api/institutions/${institutionId}`);
             const inst = res.data || null;
             setInstitution(inst);
 
@@ -208,9 +249,7 @@ const PanelUniversity = () => {
     const fetchInstitutionIfNeeded = async () => {
       if (institution?.email || !institutionId) return;
       try {
-        const res = await axios.get(
-          `${API_BASE_URL}/api/institutions/${institutionId}`,
-        );
+        const res = await axios.get(`${API_BASE_URL}/api/institutions/${institutionId}`);
         setInstitution(res.data || null);
       } catch (e) {
         console.error("Error fetching institution:", e);
@@ -231,7 +270,6 @@ const PanelUniversity = () => {
       }
       if (!memberChecked) return;
 
-      // ✅ si está inactivo: NO fetch, pero UI debe mostrarse con data vacía
       if (!isMember) {
         setTheses([]);
         setLoadError("");
@@ -243,9 +281,7 @@ const PanelUniversity = () => {
         setLoading(true);
         setLoadError("");
 
-        const headers = token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined;
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses/institution/${institutionId}`,
@@ -255,18 +291,12 @@ const PanelUniversity = () => {
         const data = Array.isArray(res.data) ? res.data : [];
         setTheses(data);
       } catch (err) {
-        console.error(
-          "Dashboard fetch error:",
-          err?.response?.status,
-          err?.response?.data || err?.message,
-        );
+        console.error("Dashboard fetch error:", err?.response?.status, err?.response?.data || err?.message);
 
         const msg =
           err?.response?.data?.message ||
           err?.response?.data?.error ||
-          (err?.response?.status
-            ? `Request failed (${err.response.status})`
-            : "Network error");
+          (err?.response?.status ? `Request failed (${err.response.status})` : "Network error");
 
         setLoadError(msg);
         setTheses([]);
@@ -290,10 +320,9 @@ const PanelUniversity = () => {
       }
 
       try {
-        const res = await axios.get(
-          `${API_BASE_URL}/api/institutions/${institutionId}/students`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
+        const res = await axios.get(`${API_BASE_URL}/api/institutions/${institutionId}/students`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = Array.isArray(res.data) ? res.data : [];
         setStudents(data);
       } catch (e) {
@@ -334,20 +363,11 @@ const PanelUniversity = () => {
     [thesesAP],
   );
 
-  const totalLikes = useMemo(
-    () => thesesAP.reduce((acc, t) => acc + safeNum(t.likes), 0),
-    [thesesAP],
-  );
+  const totalLikes = useMemo(() => thesesAP.reduce((acc, t) => acc + safeNum(t.likes), 0), [thesesAP]);
 
-  const verificationRate = useMemo(
-    () => pct(approvedTheses, thesesAP.length),
-    [approvedTheses, thesesAP.length],
-  );
+  const verificationRate = useMemo(() => pct(approvedTheses, thesesAP.length), [approvedTheses, thesesAP.length]);
 
-  const rejectedRate = useMemo(
-    () => pct(rejectedTheses, totalTheses),
-    [rejectedTheses, totalTheses],
-  );
+  const rejectedRate = useMemo(() => pct(rejectedTheses, totalTheses), [rejectedTheses, totalTheses]);
 
   const avgVerificationDays = useMemo(() => {
     const decided = theses.filter((t) => normalizeStatus(t.status) === "APPROVED");
@@ -368,7 +388,9 @@ const PanelUniversity = () => {
   // ✅ DONUT 1: STATUS (incluye rejected)
   // =========================
   const statusCounts = useMemo(() => {
-    let approved = 0, pending = 0, rejected = 0;
+    let approved = 0,
+      pending = 0,
+      rejected = 0;
 
     theses.forEach((t) => {
       const st = normalizeStatus(t.status);
@@ -438,10 +460,9 @@ const PanelUniversity = () => {
     return dir === "ASC" ? sorted : sorted.reverse();
   }, [thesesAP, likesOrder]);
 
-  const likesTotalPages = useMemo(
-    () => Math.max(1, Math.ceil(likesTableSorted.length / likesPageSize)),
-    [likesTableSorted.length],
-  );
+  const likesTotalPages = useMemo(() => Math.max(1, Math.ceil(likesTableSorted.length / likesPageSize)), [
+    likesTableSorted.length,
+  ]);
 
   const likesCurrentPage = Math.min(Math.max(1, likesPage), likesTotalPages);
 
@@ -483,10 +504,7 @@ const PanelUniversity = () => {
     return final;
   }, [likesSortedForDonut]);
 
-  const likesThesisDonutTotal = useMemo(
-    () => likesTableSorted.length,
-    [likesTableSorted.length],
-  );
+  const likesThesisDonutTotal = useMemo(() => likesTableSorted.length, [likesTableSorted.length]);
 
   // =========================
   // ✅ STUDENTS (thesesAP)
@@ -524,8 +542,7 @@ const PanelUniversity = () => {
       if (typeof a0 === "string") {
         inc(counts, a0, 1);
       } else {
-        const key =
-          a0?.email || [a0?.name, a0?.lastname].filter(Boolean).join(" ").trim();
+        const key = a0?.email || [a0?.name, a0?.lastname].filter(Boolean).join(" ").trim();
         if (key) inc(counts, key, 1);
       }
     });
@@ -559,10 +576,9 @@ const PanelUniversity = () => {
     return final;
   }, [studentSortedDesc]);
 
-  const studentDonutTotal = useMemo(
-    () => studentDonutData.reduce((acc, d) => acc + safeNum(d.value), 0),
-    [studentDonutData],
-  );
+  const studentDonutTotal = useMemo(() => studentDonutData.reduce((acc, d) => acc + safeNum(d.value), 0), [
+    studentDonutData,
+  ]);
 
   const studentTableSorted = useMemo(() => {
     const dir = String(studentOrder || "DESC").toUpperCase();
@@ -627,10 +643,7 @@ const PanelUniversity = () => {
     return final;
   }, [deptSortedDesc]);
 
-  const deptDonutTotal = useMemo(
-    () => deptDonutData.reduce((acc, d) => acc + safeNum(d.value), 0),
-    [deptDonutData],
-  );
+  const deptDonutTotal = useMemo(() => deptDonutData.reduce((acc, d) => acc + safeNum(d.value), 0), [deptDonutData]);
 
   const deptTableSorted = useMemo(() => {
     const dir = String(deptOrder || "DESC").toUpperCase();
@@ -638,10 +651,9 @@ const PanelUniversity = () => {
     return dir === "ASC" ? sorted : sorted.reverse();
   }, [deptRows, deptOrder]);
 
-  const deptTotalPages = useMemo(
-    () => Math.max(1, Math.ceil(deptTableSorted.length / deptPageSize)),
-    [deptTableSorted.length],
-  );
+  const deptTotalPages = useMemo(() => Math.max(1, Math.ceil(deptTableSorted.length / deptPageSize)), [
+    deptTableSorted.length,
+  ]);
 
   const deptCurrentPage = Math.min(Math.max(1, deptPage), deptTotalPages);
 
@@ -668,19 +680,12 @@ const PanelUniversity = () => {
     REJECTED: "#FF4D4D",
   };
 
-  const statusLegendColors = [
-    STATUS_COLORS.APPROVED,
-    STATUS_COLORS.PENDING,
-    STATUS_COLORS.REJECTED,
-  ];
+  const statusLegendColors = [STATUS_COLORS.APPROVED, STATUS_COLORS.PENDING, STATUS_COLORS.REJECTED];
 
   const LIKES_COLORS = ["#20C997", "#0d6efd", "#6f42c1", "#adb5bd"];
   const STUDENT_COLORS = ["#0dcaf0", "#20C997", "#6f42c1", "#adb5bd"];
   const DEPT_COLORS = ["#fd7e14", "#0d6efd", "#20C997", "#adb5bd"];
 
-  // =========================
-  // Render: loading/error base
-  // =========================
   if (!memberChecked) {
     return <div className="container py-3 text-muted">Checking membership…</div>;
   }
@@ -705,7 +710,6 @@ const PanelUniversity = () => {
     </div>
   );
 
-  // ✅ si está activo, respetamos loading/error como antes
   if (!isLocked) {
     if (loading) return <div className="container py-3 text-muted">Loading dashboard…</div>;
 
@@ -719,9 +723,6 @@ const PanelUniversity = () => {
     }
   }
 
-  // =========================
-  // ✅ UI components
-  // =========================
   const MetricCard = ({ title, icon: Icon, value }) => (
     <div className="mcTile">
       <div className="mcTileTop">
@@ -794,10 +795,7 @@ const PanelUniversity = () => {
                   stroke="transparent"
                 >
                   {data.map((entry, idx) => (
-                    <Cell
-                      key={entry.key || entry.name || idx}
-                      fill={colors[idx] || "#adb5bd"}
-                    />
+                    <Cell key={entry.key || entry.name || idx} fill={colors[idx] || "#adb5bd"} />
                   ))}
                 </Pie>
 
@@ -843,8 +841,7 @@ const PanelUniversity = () => {
                   </div>
 
                   <div className="mcLegendRight2">
-                    {safeNum(d.value)}{" "}
-                    <span className="mcLegendPct">({pct(d.value, safeTotal)}%)</span>
+                    {safeNum(d.value)} <span className="mcLegendPct">({pct(d.value, safeTotal)}%)</span>
                   </div>
                 </div>
               ))}
@@ -876,14 +873,13 @@ const PanelUniversity = () => {
     { value: "DESC", label: "Theses: High → Low" },
     { value: "ASC", label: "Theses: Low → High" },
   ];
-;
 
   return (
     <div className="mcDashWrap">
       <MembershipBanner />
 
       {/* ======= METRICS GRID (SIEMPRE visible) ======= */}
-      <div >
+      <div>
         <div className="mcTilesGrid">
           <MetricCard title="Total Theses" icon={BookMarked} value={totalTheses} />
           <MetricCard title="Verified Theses" icon={BookCheck} value={approvedTheses} />
@@ -900,16 +896,10 @@ const PanelUniversity = () => {
       </div>
 
       {/* ======= PRIMERAS 2 SECCIONES SIEMPRE visibles ======= */}
-      <div >
-        {/* STATUS (Donut + Table) */}
+      <div>
         <div className="mcDashGrid2">
           <DashCard title="Thesis Status" icon={ChartPie}>
-            <DonutWithLegend
-              data={statusDonutData}
-              total={statusDonutTotal}
-              colors={statusLegendColors}
-              centerLabel="Total"
-            />
+            <DonutWithLegend data={statusDonutData} total={statusDonutTotal} colors={statusLegendColors} centerLabel="Total" />
           </DashCard>
 
           <DashCard
@@ -957,8 +947,8 @@ const PanelUniversity = () => {
                         st === "APPROVED"
                           ? "mcPill mcPill--green"
                           : st === "REJECTED"
-                          ? "mcPill mcPill--red"
-                          : "mcPill mcPill--yellow";
+                            ? "mcPill mcPill--red"
+                            : "mcPill mcPill--yellow";
 
                       return (
                         <tr key={t._id}>
@@ -980,17 +970,13 @@ const PanelUniversity = () => {
             <div className="mcFoot mcFoot--split">
               <span>
                 Showing{" "}
-                {statusTableSorted.length === 0
-                  ? 0
-                  : (statusCurrentPage - 1) * statusPageSize + 1}{" "}
-                – {Math.min(statusCurrentPage * statusPageSize, statusTableSorted.length)} of{" "}
-                {statusTableSorted.length}
+                {statusTableSorted.length === 0 ? 0 : (statusCurrentPage - 1) * statusPageSize + 1} –{" "}
+                {Math.min(statusCurrentPage * statusPageSize, statusTableSorted.length)} of {statusTableSorted.length}
               </span>
             </div>
           </DashCard>
         </div>
 
-        {/* LIKES (Donut + Table) */}
         <div className="mcDashGrid2">
           <DashCard title="Likes Distribution" icon={Heart}>
             <DonutWithLegend
@@ -1007,13 +993,7 @@ const PanelUniversity = () => {
             className="mcDashCard--table"
             right={
               <>
-                <DashDropdown
-                  value={likesOrder}
-                  options={LIKES_ORDER_OPTIONS}
-                  onChange={setLikesOrder}
-                  width={210}
-                  disabled={isLocked}
-                />
+                <DashDropdown value={likesOrder} options={LIKES_ORDER_OPTIONS} onChange={setLikesOrder} width={210} disabled={isLocked} />
                 <Pager
                   onPrev={() => setLikesPage((p) => Math.max(1, p - 1))}
                   onNext={() => setLikesPage((p) => Math.min(likesTotalPages, p + 1))}
@@ -1057,29 +1037,20 @@ const PanelUniversity = () => {
             <div className="mcFoot mcFoot--split">
               <span>
                 Showing{" "}
-                {likesTableSorted.length === 0
-                  ? 0
-                  : (likesCurrentPage - 1) * likesPageSize + 1}{" "}
-                – {Math.min(likesCurrentPage * likesPageSize, likesTableSorted.length)} of{" "}
-                {likesTableSorted.length}
+                {likesTableSorted.length === 0 ? 0 : (likesCurrentPage - 1) * likesPageSize + 1} –{" "}
+                {Math.min(likesCurrentPage * likesPageSize, likesTableSorted.length)} of {likesTableSorted.length}
               </span>
             </div>
           </DashCard>
         </div>
       </div>
 
-      {/* ======= SOLO SI ACTIVO: resto del dashboard ======= */}
       {isLocked ? null : (
         <>
           {/* STUDENTS */}
           <div className="mcDashGrid2">
             <DashCard title="Students Distribution" icon={User}>
-              <DonutWithLegend
-                data={studentDonutData}
-                total={studentDonutTotal}
-                colors={STUDENT_COLORS}
-                centerLabel="Total Theses"
-              />
+              <DonutWithLegend data={studentDonutData} total={studentDonutTotal} colors={STUDENT_COLORS} centerLabel="Total Theses" />
             </DashCard>
 
             <DashCard
@@ -1088,12 +1059,7 @@ const PanelUniversity = () => {
               className="mcDashCard--table"
               right={
                 <>
-                  <DashDropdown
-                    value={studentOrder}
-                    options={STUDENT_ORDER_OPTIONS}
-                    onChange={setStudentOrder}
-                    width={220}
-                  />
+                  <DashDropdown value={studentOrder} options={STUDENT_ORDER_OPTIONS} onChange={setStudentOrder} width={220} />
                   <Pager
                     onPrev={() => setStudentPage((p) => Math.max(1, p - 1))}
                     onNext={() => setStudentPage((p) => Math.min(studentTotalPages, p + 1))}
@@ -1123,9 +1089,7 @@ const PanelUniversity = () => {
                         <tr key={row.key}>
                           <td title={row.name || ""}>
                             <div className="mcTitleCell">{row.name || "—"}</div>
-                            <div className="mcSubCell">
-                              {institution?.name ? `Students of ${institution.name}` : ""}
-                            </div>
+                            <div className="mcSubCell">{institution?.name ? `Students of ${institution.name}` : ""}</div>
                           </td>
                           <td className="text-end mcNumCell">{safeNum(row.value)}</td>
                         </tr>
@@ -1138,11 +1102,8 @@ const PanelUniversity = () => {
               <div className="mcFoot mcFoot--split">
                 <span>
                   Showing{" "}
-                  {studentTableSorted.length === 0
-                    ? 0
-                    : (studentCurrentPage - 1) * studentPageSize + 1}{" "}
-                  – {Math.min(studentCurrentPage * studentPageSize, studentTableSorted.length)} of{" "}
-                  {studentTableSorted.length}
+                  {studentTableSorted.length === 0 ? 0 : (studentCurrentPage - 1) * studentPageSize + 1} –{" "}
+                  {Math.min(studentCurrentPage * studentPageSize, studentTableSorted.length)} of {studentTableSorted.length}
                 </span>
               </div>
             </DashCard>
@@ -1151,12 +1112,7 @@ const PanelUniversity = () => {
           {/* DEPARTMENTS */}
           <div className="mcDashGrid2">
             <DashCard title="Departments Distribution" icon={Layers}>
-              <DonutWithLegend
-                data={deptDonutData}
-                total={deptDonutTotal}
-                colors={DEPT_COLORS}
-                centerLabel="Total Theses"
-              />
+              <DonutWithLegend data={deptDonutData} total={deptDonutTotal} colors={DEPT_COLORS} centerLabel="Total Theses" />
             </DashCard>
 
             <DashCard
@@ -1165,12 +1121,7 @@ const PanelUniversity = () => {
               className="mcDashCard--table"
               right={
                 <>
-                  <DashDropdown
-                    value={deptOrder}
-                    options={DEPT_ORDER_OPTIONS}
-                    onChange={setDeptOrder}
-                    width={220}
-                  />
+                  <DashDropdown value={deptOrder} options={DEPT_ORDER_OPTIONS} onChange={setDeptOrder} width={220} />
                   <Pager
                     onPrev={() => setDeptPage((p) => Math.max(1, p - 1))}
                     onNext={() => setDeptPage((p) => Math.min(deptTotalPages, p + 1))}
@@ -1200,9 +1151,7 @@ const PanelUniversity = () => {
                         <tr key={row.key}>
                           <td title={row.name || ""}>
                             <div className="mcTitleCell">{row.name || "—"}</div>
-                            <div className="mcSubCell">
-                              {institution?.name ? `Departments of ${institution.name}` : ""}
-                            </div>
+                            <div className="mcSubCell">{institution?.name ? `Departments of ${institution.name}` : ""}</div>
                           </td>
                           <td className="text-end mcNumCell">{safeNum(row.value)}</td>
                         </tr>
@@ -1215,11 +1164,8 @@ const PanelUniversity = () => {
               <div className="mcFoot mcFoot--split">
                 <span>
                   Showing{" "}
-                  {deptTableSorted.length === 0
-                    ? 0
-                    : (deptCurrentPage - 1) * deptPageSize + 1}{" "}
-                  – {Math.min(deptCurrentPage * deptPageSize, deptTableSorted.length)} of{" "}
-                  {deptTableSorted.length}
+                  {deptTableSorted.length === 0 ? 0 : (deptCurrentPage - 1) * deptPageSize + 1} –{" "}
+                  {Math.min(deptCurrentPage * deptPageSize, deptTableSorted.length)} of {deptTableSorted.length}
                 </span>
               </div>
             </DashCard>

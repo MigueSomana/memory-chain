@@ -94,14 +94,10 @@ const compactWithInitials = (raw) => {
 
 const formatAuthorCard = (a) => {
   if (!a) return "";
-  if (typeof a === "string") {
-    // si te llega "Apellido Nombre", lo dejamos tal cual (o podrías parsear si quieres)
-    return a.trim();
-  }
+  if (typeof a === "string") return a.trim();
   const last = compactWithInitials(a.lastname);
   const name = compactWithInitials(a.name);
-  const out = `${last} ${name}`.trim();
-  return out;
+  return `${last} ${name}`.trim();
 };
 
 const getTimeForSort = (t) => {
@@ -128,11 +124,10 @@ const getInstitutionId = (inst) => {
   return null;
 };
 
-// ✅ Status UI con Independiente (mismo criterio que ThesisSearch final)
+// ✅ Status UI con Independiente
 const statusUi = (raw, isIndependent) => {
   const s = normalizeStatus(raw);
 
-  // Independiente: neutro por defecto, si está APPROVED -> verde (certified)
   if (isIndependent) {
     if (s === "APPROVED")
       return { label: "Independent Research", tone: "certified" };
@@ -147,8 +142,7 @@ const statusUi = (raw, isIndependent) => {
 
 const safeDegreeLabel = (deg) => {
   const d = String(deg || "").trim();
-  if (!d) return "";
-  return d;
+  return d || "";
 };
 
 const buildAuthorsSearchString = (authors) => {
@@ -239,21 +233,21 @@ function buildThesisApa7Citation_ThesisSearchStyle(thesis) {
     degreeRaw.includes("phd") || degreeRaw.includes("doctor")
       ? "Doctoral dissertation"
       : degreeRaw.includes("master")
-        ? "Master’s thesis"
-        : "Bachelor’s thesis";
+      ? "Master’s thesis"
+      : "Bachelor’s thesis";
 
   const instName =
     typeof thesis?.institution === "object" && thesis?.institution
       ? thesis.institution.name || ""
       : "";
 
-  const url = `http://localhost:3000/view/${thesis?._id}`;
+  const url = `${window.location.origin}/view/${thesis?._id}`;
   const bracket = instName ? `[${thesisType}, ${instName}]` : `[${thesisType}]`;
   const base = `${authors} (${year}). ${title} ${bracket}`;
   return url ? `${base}. ${url}` : `${base}.`;
 }
 
-// ===================== COMPONENT: LikedThesesSearch (UI = ThesisSearch) =====================
+// ===================== COMPONENT =====================
 const LikedThesesSearch = () => {
   const { showToast } = useToast();
 
@@ -276,10 +270,8 @@ const LikedThesesSearch = () => {
   const [minYear, setMinYear] = useState(1980);
   const [maxYear, setMaxYear] = useState(now);
 
-  // ✅ institutionFilter por ID
   const [institutionFilter, setInstitutionFilter] = useState("all");
 
-  // ✅ status filter incluye INDEPENDENT
   // all | APPROVED | PENDING | INDEPENDENT
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -305,14 +297,19 @@ const LikedThesesSearch = () => {
         }
 
         const headers = { Authorization: `Bearer ${token}` };
-        const res = await axios.get(
-          `${API_BASE_URL}/api/users/me/liked-theses`,
-          {
-            headers,
-          },
-        );
+        const res = await axios.get(`${API_BASE_URL}/api/users/me/liked-theses`, {
+          headers,
+        });
 
-        const data = Array.isArray(res.data) ? res.data : [];
+        // ✅ robust shape: array OR {theses:[...]} OR {data:[...]}
+        const raw = res?.data;
+        const data = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.theses)
+          ? raw.theses
+          : Array.isArray(raw?.data)
+          ? raw.data
+          : [];
 
         let currentUserId = null;
         try {
@@ -328,20 +325,20 @@ const LikedThesesSearch = () => {
         const mapped = data.map((t) => {
           const likesCount = t.likes ?? 0;
 
+          // en liked list, por defecto true, pero si viene likedBy lo verificamos
           const userLiked =
             Array.isArray(t.likedBy) && currentUserId
-              ? t.likedBy.some(
-                  (u) => String(u?._id ?? u) === String(currentUserId),
-                )
+              ? t.likedBy.some((u) => String(u?._id ?? u) === String(currentUserId))
               : true;
 
           const derivedYear = getYearFromThesis(t);
+
           return {
             ...t,
             likes: likesCount,
             userLiked,
             derivedYear,
-            quotes: t.quotes ?? 0, // ✅ nuevo backend
+            quotes: t.quotes ?? 0,
           };
         });
 
@@ -349,7 +346,7 @@ const LikedThesesSearch = () => {
 
         const likedMap = {};
         mapped.forEach((t) => {
-          likedMap[t._id] = true;
+          if (t?._id) likedMap[t._id] = true;
         });
         setLiked(likedMap);
       } catch (err) {
@@ -375,7 +372,7 @@ const LikedThesesSearch = () => {
 
         const res = await axios.get(
           `${API_BASE_URL}/api/institutions`,
-          headers ? { headers } : undefined,
+          headers ? { headers } : undefined
         );
 
         const data = Array.isArray(res.data) ? res.data : [];
@@ -389,7 +386,7 @@ const LikedThesesSearch = () => {
     fetchInstitutions();
   }, []);
 
-  // ===================== Institution options (ID + Name) =====================
+  // ===================== Institution options =====================
   const institutionOptions = useMemo(() => {
     const mapped = (institutions || [])
       .map((i) => ({
@@ -404,7 +401,7 @@ const LikedThesesSearch = () => {
     }
 
     const unique = Array.from(byId.values()).sort((a, b) =>
-      a.name.localeCompare(b.name),
+      a.name.localeCompare(b.name)
     );
 
     return [{ id: "all", name: "All Institutions" }, ...unique];
@@ -457,8 +454,12 @@ const LikedThesesSearch = () => {
         keywordsSearch.some((k) => k.includes(q)) ||
         (instName || "").toLowerCase().includes(q);
 
+      // ✅ language más tolerante (si backend manda "English", etc.)
+      const tLang = String(t.language || "").toLowerCase();
       const matchesLang =
-        language === "all" || (t.language || "").toLowerCase() === language;
+        language === "all" ||
+        tLang === String(language).toLowerCase() ||
+        tLang.startsWith(String(language).toLowerCase()); // "en" match "english"
 
       const matchesDegree =
         degree === "all" || String(t.degree || "") === degree;
@@ -467,30 +468,25 @@ const LikedThesesSearch = () => {
         ? Number(t.derivedYear)
         : getYearFromThesis(t);
 
-      const inYearRange =
-        !Number.isNaN(yearNum) &&
-        yearNum >= Number(minYear) &&
-        yearNum <= Number(maxYear);
+      // ✅ FIX: si no hay año, NO lo excluyas (pasa el filtro)
+      const inYearRange = Number.isNaN(yearNum)
+        ? true
+        : yearNum >= Number(minYear) && yearNum <= Number(maxYear);
 
-      // ✅ Status filter con INDEPENDENT (mismo criterio)
+      // ✅ FIX: statusFilter "all" = todo (except REJECTED)
       let matchesStatus = true;
       if (selectedStatus === "INDEPENDENT") {
         matchesStatus = isIndependent;
       } else if (selectedStatus === "ALL") {
-        matchesStatus =
-          isIndependent || status === "APPROVED" || status === "PENDING";
-      } else if (
-        selectedStatus === "APPROVED" ||
-        selectedStatus === "PENDING"
-      ) {
+        matchesStatus = true;
+      } else if (selectedStatus === "APPROVED" || selectedStatus === "PENDING") {
         matchesStatus = !isIndependent && status === selectedStatus;
       } else {
-        matchesStatus = false;
+        // si meten algo raro, no filtres agresivo:
+        matchesStatus = true;
       }
 
-      const matchesInstitution = selectedInstId
-        ? instId === selectedInstId
-        : true;
+      const matchesInstitution = selectedInstId ? instId === selectedInstId : true;
 
       return (
         matchesInstitution &&
@@ -565,12 +561,12 @@ const LikedThesesSearch = () => {
 
   const pageItems = useMemo(
     () => filteredOrdered.slice(start, end),
-    [filteredOrdered, start, end],
+    [filteredOrdered, start, end]
   );
 
   const pagesArray = useMemo(
     () => Array.from({ length: totalPages }, (_, i) => i + 1),
-    [totalPages],
+    [totalPages]
   );
 
   const go = (p) => setPage(p);
@@ -589,13 +585,10 @@ const LikedThesesSearch = () => {
     modal?.show();
   };
 
-  // ===================== Cite (Clipboard + quotes counter + toast) =====================
+  // ===================== Cite =====================
   const handleQuote = async (thesis) => {
     try {
-      const citation = buildThesisApa7Citation_ThesisSearchStyle(
-        thesis,
-        gateway,
-      );
+      const citation = buildThesisApa7Citation_ThesisSearchStyle(thesis, gateway);
       const ok = await copyToClipboard(citation);
 
       if (!ok) {
@@ -610,10 +603,10 @@ const LikedThesesSearch = () => {
         duration: 2200,
       });
 
-      // ✅ increment quotes en backend
+      // increment quotes en backend (si tu ruta la requiere con auth, agrega headers)
       try {
         const resp = await axios.post(
-          `${API_BASE_URL}/api/theses/${thesis._id}/quote`,
+          `${API_BASE_URL}/api/theses/${thesis._id}/quote`
         );
         const updatedThesis = resp?.data?.thesis;
 
@@ -622,27 +615,26 @@ const LikedThesesSearch = () => {
             prev.map((t) =>
               String(t._id) === String(updatedThesis._id)
                 ? { ...t, quotes: updatedThesis.quotes ?? (t.quotes ?? 0) + 1 }
-                : t,
-            ),
+                : t
+            )
           );
         } else {
           setTheses((prev) =>
             prev.map((t) =>
               String(t._id) === String(thesis._id)
                 ? { ...t, quotes: (t.quotes ?? 0) + 1 }
-                : t,
-            ),
+                : t
+            )
           );
         }
       } catch (e) {
         console.error("Error incrementing quote count:", e);
-        // fallback local
         setTheses((prev) =>
           prev.map((t) =>
             String(t._id) === String(thesis._id)
               ? { ...t, quotes: (t.quotes ?? 0) + 1 }
-              : t,
-          ),
+              : t
+          )
         );
       }
     } catch (e) {
@@ -651,7 +643,7 @@ const LikedThesesSearch = () => {
     }
   };
 
-  // ===================== Like toggle (toast + remove from list when unlike) =====================
+  // ===================== Like toggle =====================
   const handleToggleLike = async (id) => {
     if (!token) return;
 
@@ -661,9 +653,7 @@ const LikedThesesSearch = () => {
       const res = await axios.post(
         `${API_BASE_URL}/api/theses/${id}/like`,
         null,
-        {
-          headers,
-        },
+        { headers }
       );
 
       const { thesis, liked: isLiked } = res.data || {};
@@ -679,7 +669,7 @@ const LikedThesesSearch = () => {
       // Si ya no está liked => removemos del listado
       if (!isLiked) {
         setTheses((prev) =>
-          prev.filter((t) => String(t._id) !== String(thesis._id)),
+          prev.filter((t) => String(t._id) !== String(thesis._id))
         );
         setLiked((prev) => {
           const next = { ...prev };
@@ -689,7 +679,7 @@ const LikedThesesSearch = () => {
         return;
       }
 
-      // Si volvió a liked (raro aquí, pero robusto)
+      // Si volvió a liked
       setTheses((prev) =>
         prev.map((t) => {
           if (String(t._id) !== String(thesis._id)) return t;
@@ -709,7 +699,7 @@ const LikedThesesSearch = () => {
                 : preservedInstitution,
             department: thesis.department ?? preservedDepartment,
           };
-        }),
+        })
       );
 
       setLiked((prev) => ({ ...prev, [id]: true }));
@@ -739,7 +729,7 @@ const LikedThesesSearch = () => {
     );
   }
 
-  // Labels (dropdown)
+  // Labels
   const languageLabel =
     language === "all" ? "All Languages" : String(language).toUpperCase();
 
@@ -749,9 +739,8 @@ const LikedThesesSearch = () => {
   const instLabel =
     institutionFilter === "all"
       ? "All Institutions"
-      : institutionOptions.find(
-          (x) => String(x.id) === String(institutionFilter),
-        )?.name || "All Institutions";
+      : institutionOptions.find((x) => String(x.id) === String(institutionFilter))
+          ?.name || "All Institutions";
 
   // ===================== RENDER =====================
   return (
@@ -806,9 +795,7 @@ const LikedThesesSearch = () => {
               <span className="mcSortIcon" aria-hidden="true">
                 {activeSortOption.icon}
               </span>
-              <span className="mcSortLabelDesktop">
-                {activeSortOption.label}
-              </span>
+              <span className="mcSortLabelDesktop">{activeSortOption.label}</span>
             </button>
 
             <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
@@ -923,22 +910,20 @@ const LikedThesesSearch = () => {
                     </button>
 
                     <ul className="dropdown-menu mcDropdownMenu w-100">
-                      {["all", "en", "es", "fr", "pt", "ch", "ko", "ru"].map(
-                        (l) => (
-                          <li key={l}>
-                            <button
-                              type="button"
-                              className={`dropdown-item ${language === l ? "active" : ""}`}
-                              onClick={() => {
-                                setPage(1);
-                                setLanguage(l);
-                              }}
-                            >
-                              {l === "all" ? "All Languages" : l.toUpperCase()}
-                            </button>
-                          </li>
-                        ),
-                      )}
+                      {["all", "en", "es", "fr", "pt", "ch", "ko", "ru"].map((l) => (
+                        <li key={l}>
+                          <button
+                            type="button"
+                            className={`dropdown-item ${language === l ? "active" : ""}`}
+                            onClick={() => {
+                              setPage(1);
+                              setLanguage(l);
+                            }}
+                          >
+                            {l === "all" ? "All Languages" : l.toUpperCase()}
+                          </button>
+                        </li>
+                      ))}
                     </ul>
                   </div>
                 </div>
@@ -1071,9 +1056,7 @@ const LikedThesesSearch = () => {
                         <span className={`mcStatusDot ${sUI.tone}`} />
                         <span className="mcStatusLabel">{sUI.label}</span>
                       </div>
-                      <div className="mcYear">
-                        {Number.isNaN(year) ? "—" : year}
-                      </div>
+                      <div className="mcYear">{Number.isNaN(year) ? "—" : year}</div>
                     </div>
 
                     <div className="mcCardBody">
@@ -1081,10 +1064,7 @@ const LikedThesesSearch = () => {
                         {t.title}
                       </h3>
 
-                      <div
-                        className="mcCardAuthors mcMetaRow"
-                        title={authorsText}
-                      >
+                      <div className="mcCardAuthors mcMetaRow" title={authorsText}>
                         <span className="mcMetaIcon" aria-hidden="true">
                           <UserPen size={18} />
                         </span>
@@ -1109,19 +1089,14 @@ const LikedThesesSearch = () => {
                           <span className="mcMetaIcon" aria-hidden="true">
                             <GraduationCap size={18} />
                           </span>
-                          <span className="mcMetaText">
-                            {degreeText || "—"}
-                          </span>
+                          <span className="mcMetaText">{degreeText || "—"}</span>
                         </div>
                       </div>
 
                       {Array.isArray(t.keywords) && t.keywords.length > 0 && (
                         <div className="mcTags">
                           {t.keywords.slice(0, 3).map((k, kidx) => (
-                            <span
-                              key={`${rowKey}-kw-${kidx}`}
-                              className="mcTag"
-                            >
+                            <span key={`${rowKey}-kw-${kidx}`} className="mcTag">
                               {k}
                             </span>
                           ))}
@@ -1138,10 +1113,7 @@ const LikedThesesSearch = () => {
                       <div className="mcCardFooter">
                         <div className="mcMetrics">
                           <span className="mcMetric">
-                            <span
-                              className="mcMetricIcon fix1"
-                              aria-hidden="true"
-                            >
+                            <span className="mcMetricIcon fix1" aria-hidden="true">
                               <TextQuote size={18} />
                             </span>
                             <span className="mcMetricVal">{citedCount}</span>
@@ -1149,10 +1121,7 @@ const LikedThesesSearch = () => {
                           </span>
 
                           <span className="mcMetric">
-                            <span
-                              className="mcMetricIcon fix1"
-                              aria-hidden="true"
-                            >
+                            <span className="mcMetricIcon fix1" aria-hidden="true">
                               <Heart size={18} />
                             </span>
                             <span className="mcMetricVal">{t.likes ?? 0}</span>
@@ -1186,11 +1155,8 @@ const LikedThesesSearch = () => {
                               title={isLiked ? "Unlike" : "Like"}
                               onClick={() => handleToggleLike(t._id)}
                             >
-                              {isLiked ? (
-                                <HeartPlus size={18} />
-                              ) : (
-                                <HeartMinus size={18} />
-                              )}
+                              {/* ✅ FIX icon lógica */}
+                              {isLiked ? <HeartMinus size={18} /> : <HeartPlus size={18} />}
                             </button>
                           )}
                         </div>

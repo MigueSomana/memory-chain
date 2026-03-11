@@ -1,5 +1,9 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { getAuthRole, getAuthToken } from "../../utils/authSession";
+import {
+  getAuthActor,
+  getAuthRole,
+  getAuthToken,
+} from "../../utils/authSession";
 import ModalViewThesis from "../../components/modal/ModalViewThesis";
 import axios from "axios";
 import { useToast } from "../../utils/toast";
@@ -23,14 +27,12 @@ import {
   ArrowUpNarrowWide,
   UserPen,
   BadgeCheck,
+  OctagonAlert,
 } from "lucide-react";
 
 // ===================== Configuración base =====================
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
-
-const role = getAuthRole();
-const token = getAuthToken();
 
 // ===================== Opciones de ordenamiento =====================
 const SORT_OPTIONS = [
@@ -54,9 +56,10 @@ const SORT_OPTIONS = [
 const getInstitutionName = (thesis) => {
   const inst = thesis?.institution;
   if (!inst) return "";
-  if (typeof inst === "string") return inst; // ojo: a veces es id
+  if (typeof inst === "string") return inst; // a veces es id
   return inst?.name || "";
 };
+
 const words = (s) =>
   String(s || "")
     .trim()
@@ -79,17 +82,12 @@ const compactWithInitials = (raw) => {
 
 const formatAuthorCard = (a) => {
   if (!a) return "";
-  if (typeof a === "string") {
-    // si te llega "Apellido Nombre", lo dejamos tal cual (o podrías parsear si quieres)
-    return a.trim();
-  }
+  if (typeof a === "string") return a.trim();
   const last = compactWithInitials(a.lastname);
   const name = compactWithInitials(a.name);
-  const out = `${last} ${name}`.trim();
-  return out;
+  return `${last} ${name}`.trim();
 };
 
-// ✅ id real de la institución para filtrar bien (string | {_id, name})
 const getInstitutionId = (inst) => {
   if (!inst) return null;
   if (typeof inst === "string") return String(inst);
@@ -150,15 +148,12 @@ const getTimeForSort = (t) => {
   return 0;
 };
 
-// ✅ Status UI con Independiente
 const statusUi = (raw, isIndependent) => {
   const s = normalizeStatus(raw);
 
-  // Independiente: por defecto neutro, si está APPROVED -> verde
   if (isIndependent) {
-    if (s === "APPROVED") {
+    if (s === "APPROVED")
       return { label: "Independent Research", tone: "certified" };
-    }
     return { label: "Independent Research", tone: "neutral" };
   }
 
@@ -170,18 +165,54 @@ const statusUi = (raw, isIndependent) => {
 
 const safeDegreeLabel = (deg) => {
   const d = String(deg || "").trim();
-  if (!d) return "";
-  return d;
+  return d || "";
 };
 
 // ===================== Componente =====================
-// ✅ recibe lock desde InstitutionsSearch
 const ThesisSearch = ({
   lockedInstitutionId = null,
   lockedInstitutionName = "",
 }) => {
   const lockedId = lockedInstitutionId ? String(lockedInstitutionId) : null;
   const isLockedInstitution = !!lockedId;
+
+  const { showToast } = useToast();
+
+  // ✅ auth reactivo con nuevo authSession.ts
+  const [auth, setAuth] = useState(() => ({
+    role: getAuthRole(),
+    token: getAuthToken(),
+    actor: getAuthActor(),
+  }));
+
+  useEffect(() => {
+    const sync = () =>
+      setAuth({
+        role: getAuthRole(),
+        token: getAuthToken(),
+        actor: getAuthActor(),
+      });
+
+    sync();
+
+    // cambios entre pestañas
+    window.addEventListener("storage", sync);
+
+    // fallback (misma pestaña)
+    const t = window.setInterval(sync, 800);
+
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.clearInterval(t);
+    };
+  }, []);
+
+  const role = auth.role;
+  const token = auth.token;
+  const actor = auth.actor;
+
+  // ✅ SOLO USERS pueden dar like
+  const canLike = Boolean(token) && actor === "user";
 
   // ---------- Estado principal ----------
   const [theses, setTheses] = useState([]);
@@ -192,7 +223,6 @@ const ThesisSearch = ({
   // ---------- Estados de carga/errores ----------
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const { showToast } = useToast();
 
   // ---------- Búsqueda + Filtros ----------
   const [query, setQuery] = useState("");
@@ -203,12 +233,7 @@ const ThesisSearch = ({
   const [minYear, setMinYear] = useState(1980);
   const [maxYear, setMaxYear] = useState(now);
 
-  // ✅ si está locked, forzamos institución por id internamente
-  // (este state solo aplica cuando NO está locked)
   const [institutionFilter, setInstitutionFilter] = useState("all");
-
-  // ✅ status filter incluye "independent"
-  // all | APPROVED | PENDING | INDEPENDENT
   const [statusFilter, setStatusFilter] = useState("all");
 
   // ---------- Orden + Paginación ----------
@@ -219,12 +244,11 @@ const ThesisSearch = ({
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  // ✅ cuando cambia el lock, resetea filtros que podrían dejarte en 0 resultados
   useEffect(() => {
     setPage(1);
     if (lockedId) {
-      setInstitutionFilter("all"); // no se usa, pero neutro
-      setStatusFilter("all"); // ✅ evita quedar pegado en INDEPENDENT en focus
+      setInstitutionFilter("all");
+      setStatusFilter("all");
     }
   }, [lockedId]);
 
@@ -244,23 +268,35 @@ const ThesisSearch = ({
 
         const data = Array.isArray(res.data) ? res.data : [];
 
-        let currentUserId = null;
+        // ✅ detecta actor actual desde authSession actor
+        let currentActorId = null;
         try {
-          const rawUser = localStorage.getItem("memorychain_user");
-          if (rawUser) {
-            const parsed = JSON.parse(rawUser);
-            currentUserId = parsed?._id || parsed?.id || null;
+          if (actor === "institution") {
+            const rawInst = localStorage.getItem("memorychain_institution");
+            if (rawInst) {
+              const parsed = JSON.parse(rawInst);
+              currentActorId = parsed?._id || parsed?.id || null;
+            }
+          } else if (actor === "user") {
+            const rawUser = localStorage.getItem("memorychain_user");
+            if (rawUser) {
+              const parsed = JSON.parse(rawUser);
+              currentActorId = parsed?._id || parsed?.id || null;
+            }
           }
         } catch (e) {
-          console.warn("No se pudo parsear memorychain_user", e);
+          console.warn("No se pudo parsear actor en localStorage", e);
         }
 
         const mapped = data.map((t) => {
           const likesCount = t.likes ?? 0;
 
-          const userLiked =
-            Array.isArray(t.likedBy) && currentUserId
-              ? t.likedBy.some((u) => String(u?._id ?? u) === String(currentUserId))
+          // ✅ likedBy puede venir como array de ids u objetos
+          const actorLiked =
+            Array.isArray(t.likedBy) && currentActorId
+              ? t.likedBy.some(
+                  (u) => String(u?._id ?? u) === String(currentActorId)
+                )
               : false;
 
           const derivedYear = getYearFromThesis(t);
@@ -268,9 +304,9 @@ const ThesisSearch = ({
           return {
             ...t,
             likes: likesCount,
-            userLiked,
+            userLiked: actorLiked,
             derivedYear,
-            quotes: t.quotes ?? 0, // ✅ nuevo backend
+            quotes: t.quotes ?? 0,
           };
         });
 
@@ -290,8 +326,9 @@ const ThesisSearch = ({
       }
     };
 
+    // ✅ refetch cuando cambia sesión (token/role/actor)
     fetchTheses();
-  }, []);
+  }, [token, role, actor]);
 
   // ===================== Carga: instituciones (para filtro) =====================
   useEffect(() => {
@@ -319,7 +356,6 @@ const ThesisSearch = ({
   }, []);
 
   // ===================== Opciones del filtro institución =====================
-  // ✅ ahora devolvemos {id, name} para que el filtro normal sea por ID también
   const institutionOptions = useMemo(() => {
     const mapped = institutions
       .map((i) => ({
@@ -336,7 +372,6 @@ const ThesisSearch = ({
     const unique = Array.from(byId.values()).sort((a, b) =>
       a.name.localeCompare(b.name)
     );
-
     return [{ id: "all", name: "All Institutions" }, ...unique];
   }, [institutions]);
 
@@ -345,7 +380,6 @@ const ThesisSearch = ({
     const q = query.trim().toLowerCase();
     const selectedStatus = normalizeStatus(statusFilter);
 
-    // ✅ institución seleccionada (cuando NO locked)
     const selectedInstId =
       !isLockedInstitution && institutionFilter !== "all"
         ? String(institutionFilter)
@@ -354,7 +388,6 @@ const ThesisSearch = ({
     return theses.filter((t) => {
       const status = normalizeStatus(t.status);
 
-      // ocultar REJECTED SIEMPRE
       if (status === "REJECTED") return false;
 
       const instId = getInstitutionId(t.institution);
@@ -376,9 +409,7 @@ const ThesisSearch = ({
 
       const matchesLang =
         language === "all" || (t.language || "").toLowerCase() === language;
-
-      const matchesDegree =
-        degree === "all" || String(t.degree || "") === degree;
+      const matchesDegree = degree === "all" || String(t.degree || "") === degree;
 
       const yearNum = Number.isFinite(Number(t.derivedYear))
         ? Number(t.derivedYear)
@@ -389,28 +420,18 @@ const ThesisSearch = ({
         yearNum >= Number(minYear) &&
         yearNum <= Number(maxYear);
 
-      // ✅ Status filter con "INDEPENDENT"
-      // - INDEPENDENT: solo tesis sin institución
-      // - APPROVED/PENDING: solo tesis CON institución (independientes no responden)
-      // - ALL: (APPROVED/PENDING con institución) + (independientes)
       let matchesStatus = true;
 
       if (selectedStatus === "INDEPENDENT") {
-        // si está locked, este filtro no debería existir,
-        // pero por seguridad: en locked no devolvemos nada independiente
         matchesStatus = !isLockedInstitution && isIndependent;
       } else if (selectedStatus === "ALL") {
-        matchesStatus =
-          isIndependent || status === "APPROVED" || status === "PENDING";
+        matchesStatus = isIndependent || status === "APPROVED" || status === "PENDING";
       } else if (selectedStatus === "APPROVED" || selectedStatus === "PENDING") {
         matchesStatus = !isIndependent && status === selectedStatus;
       } else {
         matchesStatus = false;
       }
 
-      // ✅ FILTRADO REAL POR INSTITUTION:
-      // - si está locked => SOLO esas tesis
-      // - si no => aplica el dropdown (por id) o all
       const matchesInstitution = isLockedInstitution
         ? instId === lockedId
         : selectedInstId
@@ -578,7 +599,6 @@ const ThesisSearch = ({
     const authors = formatAuthorsAPA(thesis?.authors);
     const y = getYearFromThesis(thesis);
     const year = Number.isNaN(y) ? "n.d." : String(y);
-
     const title = toTitleCaseSentenceCase(thesis?.title || "Untitled thesis");
 
     const degreeRaw = String(thesis?.degree || "").toLowerCase();
@@ -595,7 +615,9 @@ const ThesisSearch = ({
         : "";
 
     const url = `http://localhost:3000/view/${thesis._id}`;
-    const bracket = instName ? `[${thesisType}, ${instName}]` : `[${thesisType}]`;
+    const bracket = instName
+      ? `[${thesisType}, ${instName}]`
+      : `[${thesisType}]`;
     const base = `${authors} (${year}). ${title} ${bracket}`;
     return url ? `${base}. ${url}` : `${base}.`;
   }
@@ -613,7 +635,6 @@ const ThesisSearch = ({
           duration: 2200,
         });
 
-        // ✅ increment quotes en backend
         try {
           const resp = await axios.post(
             `${API_BASE_URL}/api/theses/${thesis._id}/quote`
@@ -624,7 +645,10 @@ const ThesisSearch = ({
             setTheses((prev) =>
               prev.map((t) =>
                 String(t._id) === String(updatedThesis._id)
-                  ? { ...t, quotes: updatedThesis.quotes ?? (t.quotes ?? 0) + 1 }
+                  ? {
+                      ...t,
+                      quotes: updatedThesis.quotes ?? (t.quotes ?? 0) + 1,
+                    }
                   : t
               )
             );
@@ -639,7 +663,6 @@ const ThesisSearch = ({
           }
         } catch (e) {
           console.error("Error incrementing quote count:", e);
-          // fallback local
           setTheses((prev) =>
             prev.map((t) =>
               String(t._id) === String(thesis._id)
@@ -659,7 +682,15 @@ const ThesisSearch = ({
 
   // ===================== Acción: Like =====================
   const handleToggleLike = async (id) => {
-    if (!token) return;
+    if (!token || actor !== "user") {
+      showToast({
+        message: "Log in as a user to like theses.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2200,
+      });
+      return;
+    }
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
@@ -705,6 +736,12 @@ const ThesisSearch = ({
       });
     } catch (err) {
       console.error("Error toggling like:", err);
+      showToast({
+        message: err?.response?.data?.message || "Could not toggle like.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2200,
+      });
     }
   };
 
@@ -729,10 +766,8 @@ const ThesisSearch = ({
     );
   }
 
-  // labels para dropdown
   const languageLabel =
     language === "all" ? "All Languages" : String(language).toUpperCase();
-
   const degreeLabel =
     degree === "all" ? "All Degrees" : String(degree || "All Degrees");
 
@@ -853,12 +888,9 @@ const ThesisSearch = ({
                     {[
                       { key: "APPROVED", label: "Certified" },
                       { key: "PENDING", label: "Pending" },
-
-                      // ✅ NO mostrar Independent cuando está locked (focus por institución)
                       ...(!isLockedInstitution
                         ? [{ key: "INDEPENDENT", label: "Independent" }]
                         : []),
-
                       { key: "all", label: "All" },
                     ].map((s) => (
                       <button
@@ -1078,8 +1110,8 @@ const ThesisSearch = ({
                 const sUI = statusUi(t.status, isIndependent);
 
                 const authorsText = Array.isArray(t.authors)
-  ? t.authors.map(formatAuthorCard).filter(Boolean).join(", ")
-  : "";
+                  ? t.authors.map(formatAuthorCard).filter(Boolean).join(", ")
+                  : "";
 
                 const degreeText = safeDegreeLabel(t.degree);
                 const citedCount = Number(t.quotes ?? 0);
@@ -1129,16 +1161,17 @@ const ThesisSearch = ({
                           <span className="mcMetaIcon" aria-hidden="true">
                             <GraduationCap size={18} />
                           </span>
-                          <span className="mcMetaText">
-                            {degreeText || "—"}
-                          </span>
+                          <span className="mcMetaText">{degreeText || "—"}</span>
                         </div>
                       </div>
 
                       {Array.isArray(t.keywords) && t.keywords.length > 0 && (
                         <div className="mcTags">
                           {t.keywords.slice(0, 3).map((k, kidx) => (
-                            <span key={`${rowKey}-kw-${kidx}`} className="mcTag">
+                            <span
+                              key={`${rowKey}-kw-${kidx}`}
+                              className="mcTag"
+                            >
                               {k}
                             </span>
                           ))}
@@ -1149,8 +1182,6 @@ const ThesisSearch = ({
                           )}
                         </div>
                       )}
-
-                      <div className="mcCardDivider" />
 
                       <div className="mcCardFooter">
                         <div className="mcMetrics">
@@ -1196,7 +1227,8 @@ const ThesisSearch = ({
                             <Quote size={18} />
                           </button>
 
-                          {role !== "INSTITUTION" && (
+                          {/* ✅ Like SOLO para user */}
+                          {canLike && (
                             <button
                               type="button"
                               className={`mcIconBtn ${
@@ -1206,9 +1238,9 @@ const ThesisSearch = ({
                               onClick={() => handleToggleLike(t._id)}
                             >
                               {isLiked ? (
-                                <HeartPlus size={18} />
-                              ) : (
                                 <HeartMinus size={18} />
+                              ) : (
+                                <HeartPlus size={18} />
                               )}
                             </button>
                           )}

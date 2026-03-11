@@ -1,7 +1,11 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import { getAuthToken } from "../../utils/authSession";
-import { useToast } from "../../utils/toast";
 import axios from "axios";
+import {
+  getAuthToken,
+  getAuthHeaders,
+  enforceSessionLifetime,
+} from "../../utils/authSession";
+import { useToast } from "../../utils/toast";
 import {
   University,
   UserRoundCog,
@@ -20,12 +24,10 @@ import {
   BadgeCheck,
   Clock3,
   OctagonAlert,
-  Wallet,
 } from "lucide-react";
 
 // ===================== CONFIG =====================
-const API_BASE_URL = "http://localhost:4000/api";
-const token = getAuthToken();
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const normalizeStatus = (s) =>
@@ -49,17 +51,13 @@ const StatusPill = ({ status }) => {
     label = "Rejected";
     cls = "mcSheetStatus mcSheetStatus--rejected";
     Icon = OctagonAlert;
-  } else {
-    label = "Pending";
-    cls = "mcSheetStatus mcSheetStatus--pending";
-    Icon = Clock3;
   }
 
   return (
     <div className={cls} title={label}>
       <span className="mcSheetStatusText">{label}</span>
       <span className="mcSheetStatusIcon">
-        <Icon size={12} />
+        <Icon size={18} />
       </span>
     </div>
   );
@@ -114,7 +112,6 @@ const FormProfile = () => {
   const [name, setName] = useState("");
   const [lastname, setLastname] = useState("");
   const [email, setEmail] = useState("");
-  const [wallet, setWallet] = useState("");
 
   // Stats (desde tesis)
   const [thesisCount, setThesisCount] = useState(0);
@@ -156,7 +153,7 @@ const FormProfile = () => {
   // Instituciones
   const [institutions, setInstitutions] = useState([]);
 
-  // Mapas separados para email + status (status default PENDING)
+  // Mapas separados para email + status
   const [institutionEmails, setInstitutionEmails] = useState({});
   const [institutionEmailStatus, setInstitutionEmailStatus] = useState({});
 
@@ -189,14 +186,14 @@ const FormProfile = () => {
     return ids;
   }, [initialData]);
 
-  // ===================== THESIS STATS (usa GET /theses) =====================
+  // ===================== THESIS STATS =====================
   const fetchMyThesesAndStats = async (user) => {
     try {
       const myId = user?._id;
       if (!myId) return;
 
-      const r = await axios.get(`${API_BASE_URL}/theses`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      const r = await axios.get(`${API_BASE_URL}/api/theses`, {
+        headers: getAuthHeaders(),
       });
 
       const list = Array.isArray(r.data)
@@ -207,22 +204,13 @@ const FormProfile = () => {
             ? r.data.theses
             : [];
 
-      // ✅ Cuenta tesis donde el user es:
-      // - author (string / obj) o authors[]
-      // - uploadBy / uploadby / uploadedBy / uploader (string / obj)
-      // - (y mantiene fallbacks antiguos por compatibilidad)
       const isMine = (t) => {
         const candidates = [
-          // antiguos / genéricos
           t?.user,
           t?.createdBy,
           t?.idUser,
           t?.owner,
-
-          // author directo
           t?.author,
-
-          // uploader variants (lo que pediste)
           t?.uploadBy,
           t?.uploadby,
           t?.uploadedBy,
@@ -235,12 +223,10 @@ const FormProfile = () => {
           if (typeof c === "object" && c?._id === myId) return true;
         }
 
-        // authors array
         if (Array.isArray(t?.authors)) {
           if (t.authors.some((a) => a === myId || a?._id === myId)) return true;
         }
 
-        // a veces author puede venir como array (por si acaso)
         if (Array.isArray(t?.author)) {
           if (t.author.some((a) => a === myId || a?._id === myId)) return true;
         }
@@ -285,18 +271,28 @@ const FormProfile = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        if (!token) {
+        // ✅ Expira por inactividad (8h) con tu nuevo authSession.ts
+        const expired = enforceSessionLifetime();
+        if (expired) {
+          setLoadError("Session expired due to inactivity. Please log in again.");
+          setLoading(false);
+          return;
+        }
+
+        // ✅ token siempre dinámico
+        const tokenNow = getAuthToken();
+        if (!tokenNow) {
           setLoadError("No auth token found. Please log in again.");
           setLoading(false);
           return;
         }
 
         const [userRes, instRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/users/me`, {
-            headers: { Authorization: `Bearer ${token}` },
+          axios.get(`${API_BASE_URL}/api/users/me`, {
+            headers: getAuthHeaders(),
           }),
-          axios.get(`${API_BASE_URL}/institutions`, {
-            headers: { Authorization: `Bearer ${token}` },
+          axios.get(`${API_BASE_URL}/api/institutions`, {
+            headers: getAuthHeaders(),
           }),
         ]);
 
@@ -310,9 +306,7 @@ const FormProfile = () => {
         setName(user.name || "");
         setLastname(user.lastname || "");
         setEmail(user.email || "");
-        setWallet(user.wallet || "");
 
-        // educationalEmails -> emailMap + statusMap
         const eduEmails = user.educationalEmails || [];
         const emailMap = {};
         const statusMap = {};
@@ -332,7 +326,6 @@ const FormProfile = () => {
         setInstitutionEmails(emailMap);
         setInstitutionEmailStatus(statusMap);
 
-        // instituciones del usuario (derivadas de educationalEmails para tu UI actual)
         const instIdsFromEdu = eduEmails
           .map((e) =>
             typeof e?.institution === "string"
@@ -347,7 +340,6 @@ const FormProfile = () => {
 
         setInstitutions(userInsts);
 
-        // Stats desde tesis
         fetchMyThesesAndStats(user);
 
         setLoading(false);
@@ -378,13 +370,11 @@ const FormProfile = () => {
       return [...prev, opt];
     });
 
-    // Al añadir: status PENDING por defecto
     setInstitutionEmailStatus((prev) => ({
       ...prev,
       [opt._id]: "PENDING",
     }));
 
-    // Email vacío por defecto (si no existe)
     setInstitutionEmails((prev) => ({
       ...prev,
       [opt._id]: prev[opt._id] ?? "",
@@ -413,7 +403,6 @@ const FormProfile = () => {
     setEditingInstitutionId((prev) => (prev === id ? "" : prev));
   };
 
-  // Si se modifica email -> vuelve a PENDING automáticamente
   const handleInstitutionEmailChange = (instId, value) => {
     setInstitutionEmails((prev) => ({ ...prev, [instId]: value }));
     setInstitutionEmailStatus((prev) => ({ ...prev, [instId]: "PENDING" }));
@@ -515,6 +504,17 @@ const FormProfile = () => {
   const handleSubmit = async (ev) => {
     ev.preventDefault();
 
+    const expired = enforceSessionLifetime();
+    if (expired) {
+      showToast({
+        message: "Session expired due to inactivity. Please log in again.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2600,
+      });
+      return;
+    }
+
     if (!validateBasic()) return;
     if (!validateInstitutionEmails()) return;
 
@@ -529,7 +529,7 @@ const FormProfile = () => {
     }
 
     try {
-      if (!token) {
+      if (!getAuthToken()) {
         showToast({
           message: "No auth token found. Please log in again.",
           type: "error",
@@ -546,14 +546,12 @@ const FormProfile = () => {
       form.append("name", name.trim());
       form.append("lastname", lastname.trim());
       form.append("email", email.trim().toLowerCase());
-      form.append("wallet", (wallet || "").trim());
 
       if (password) form.append("password", password);
 
       const currentInstIds = institutions.map((i) => i._id);
       form.append("institutions", JSON.stringify(currentInstIds));
 
-      // Payload educativo: incluye status; si no hay status -> PENDING
       const educationalEmailsPayload = Object.entries(institutionEmails)
         .map(([instId, eduEmailRaw]) => ({
           institution: instId,
@@ -569,8 +567,8 @@ const FormProfile = () => {
         JSON.stringify(educationalEmailsPayload),
       );
 
-      const res = await axios.put(`${API_BASE_URL}/users/me`, form, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await axios.put(`${API_BASE_URL}/api/users/me`, form, {
+        headers: { ...getAuthHeaders() },
       });
 
       showToast({
@@ -583,7 +581,6 @@ const FormProfile = () => {
       const updatedUser = res.data;
       setInitialData(updatedUser);
 
-      // refresca stats también
       fetchMyThesesAndStats(updatedUser);
 
       if (updatedUser.imgUrl) {
@@ -592,7 +589,6 @@ const FormProfile = () => {
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
 
-      // Rehidrata status/email por si el backend actualizó (APPROVED/REJECTED/etc)
       const eduEmails = updatedUser.educationalEmails || [];
       const emailMap = {};
       const statusMap = {};
@@ -754,19 +750,6 @@ const FormProfile = () => {
                 )}
               </div>
 
-              <div className="col-12">
-                <label className="form-label">Wallet</label>
-                <div className="input-group mcWizardInputGroup">
-                  <input
-                    className="form-control mcProfileInput"
-                    type="text"
-                    value={wallet}
-                    onChange={(e) => setWallet(e.target.value)}
-                    placeholder="0x..."
-                  />
-                </div>
-              </div>
-
               <div className="col-md-6">
                 <label className="form-label">New password</label>
 
@@ -827,9 +810,7 @@ const FormProfile = () => {
                 </div>
 
                 {errors.confirm && (
-                  <div className="invalid-feedback d-block">
-                    {errors.confirm}
-                  </div>
+                  <div className="invalid-feedback d-block">{errors.confirm}</div>
                 )}
               </div>
             </div>
@@ -855,7 +836,7 @@ const FormProfile = () => {
                 <span className="mcAddBtnIcon" aria-hidden="true">
                   <SquarePlus size={18} />
                 </span>
-                <span className="mcAddBtnText">Add</span>
+                <span className="mcAddBtnText">Add Institution</span>
               </button>
             </div>
           </div>
@@ -973,7 +954,7 @@ const FormProfile = () => {
                             className="mcAffEditBtn"
                             onClick={() =>
                               setEditingInstitutionId((prev) =>
-                                prev === instId ? "" : instId,
+                                prev === instId ? "" : prev,
                               )
                             }
                             title={isEditing ? "Close" : "Edit"}

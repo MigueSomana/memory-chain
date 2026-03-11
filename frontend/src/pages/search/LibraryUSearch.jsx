@@ -714,7 +714,7 @@ const LibraryUSearch = () => {
                   </div>
 
                   <div className="mcCardBody">
-                    <h3 className="mcCardTitle" title={t.title}>
+                    <h3 className="mcCardTitle title-fix" title={t.title}>
                       {t.title}
                     </h3>
 
@@ -771,8 +771,6 @@ const LibraryUSearch = () => {
                         {copiedId === String(t._id) ? <Check size={16} /> : <Copy size={16} />}
                       </button>
                     </div>
-
-                    <div className="mcCardDivider" />
 
                     <div className="mcCardFooter">
                       <div className="mcMetrics">
