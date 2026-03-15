@@ -1,7 +1,11 @@
 import React, { useMemo, useState, useEffect } from "react";
 import NavbarReal from "../../components/navbar/NavbarReal";
 import Layout from "../../components/layout/LayoutPrivado";
-import { getAuthRole, getAuthToken } from "../../utils/authSession";
+import {
+  getAuthActor,
+  getAuthRole,
+  getAuthToken,
+} from "../../utils/authSession";
 import ModalViewThesis from "../../components/modal/ModalViewThesis";
 import axios from "axios";
 import { useToast } from "../../utils/toast";
@@ -25,16 +29,14 @@ import {
   ArrowUpNarrowWide,
   UserPen,
   BadgeCheck,
+  OctagonAlert,
 } from "lucide-react";
 
 // ===================== CONFIG GLOBAL =====================
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
 
-const role = getAuthRole();
-const token = getAuthToken();
-
-// ===================== SORT OPTIONS (idéntico a ThesisSearch) =====================
+// ===================== SORT OPTIONS =====================
 const SORT_OPTIONS = [
   { key: "recent", label: "Most recent", icon: <ArrowDown01 size={18} /> },
   { key: "oldest", label: "Oldest", icon: <ArrowUp10 size={18} /> },
@@ -61,6 +63,7 @@ const getYearFromThesis = (t) => {
     const y = dt.getFullYear();
     if (!Number.isNaN(y) && y > 0) return y;
   }
+
   const yLegacy = Number(t?.year);
   if (Number.isFinite(yLegacy) && yLegacy > 0) return yLegacy;
 
@@ -69,6 +72,7 @@ const getYearFromThesis = (t) => {
     const y = dt.getFullYear();
     if (!Number.isNaN(y) && y > 0) return y;
   }
+
   return NaN;
 };
 
@@ -95,6 +99,7 @@ const compactWithInitials = (raw) => {
 const formatAuthorCard = (a) => {
   if (!a) return "";
   if (typeof a === "string") return a.trim();
+
   const last = compactWithInitials(a.lastname);
   const name = compactWithInitials(a.name);
   return `${last} ${name}`.trim();
@@ -105,15 +110,18 @@ const getTimeForSort = (t) => {
     const ms = new Date(t.date).getTime();
     if (!Number.isNaN(ms)) return ms;
   }
+
   if (t?.createdAt) {
     const ms = new Date(t.createdAt).getTime();
     if (!Number.isNaN(ms)) return ms;
   }
+
   const y = Number(t?.year);
   if (Number.isFinite(y) && y > 0) {
     const ms = new Date(`${y}-01-01T00:00:00.000Z`).getTime();
     if (!Number.isNaN(ms)) return ms;
   }
+
   return 0;
 };
 
@@ -124,13 +132,13 @@ const getInstitutionId = (inst) => {
   return null;
 };
 
-// ✅ Status UI con Independiente
 const statusUi = (raw, isIndependent) => {
   const s = normalizeStatus(raw);
 
   if (isIndependent) {
-    if (s === "APPROVED")
+    if (s === "APPROVED") {
       return { label: "Independent Research", tone: "certified" };
+    }
     return { label: "Independent Research", tone: "neutral" };
   }
 
@@ -147,6 +155,7 @@ const safeDegreeLabel = (deg) => {
 
 const buildAuthorsSearchString = (authors) => {
   if (!Array.isArray(authors)) return "";
+
   return authors
     .map((a) => {
       if (typeof a === "string") return a;
@@ -244,12 +253,45 @@ function buildThesisApa7Citation_ThesisSearchStyle(thesis) {
   const url = `${window.location.origin}/view/${thesis?._id}`;
   const bracket = instName ? `[${thesisType}, ${instName}]` : `[${thesisType}]`;
   const base = `${authors} (${year}). ${title} ${bracket}`;
+
   return url ? `${base}. ${url}` : `${base}.`;
 }
 
 // ===================== COMPONENT =====================
 const LikedThesesSearch = () => {
   const { showToast } = useToast();
+
+  // ===================== AUTH REACTIVO =====================
+  const [auth, setAuth] = useState(() => ({
+    role: getAuthRole(),
+    token: getAuthToken(),
+    actor: getAuthActor(),
+  }));
+
+  useEffect(() => {
+    const sync = () => {
+      setAuth({
+        role: getAuthRole(),
+        token: getAuthToken(),
+        actor: getAuthActor(),
+      });
+    };
+
+    sync();
+
+    window.addEventListener("storage", sync);
+    const t = window.setInterval(sync, 800);
+
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.clearInterval(t);
+    };
+  }, []);
+
+  const role = auth.role;
+  const token = auth.token;
+  const actor = auth.actor;
+  const canLike = Boolean(token) && actor === "user";
 
   // Data
   const [theses, setTheses] = useState([]);
@@ -271,8 +313,6 @@ const LikedThesesSearch = () => {
   const [maxYear, setMaxYear] = useState(now);
 
   const [institutionFilter, setInstitutionFilter] = useState("all");
-
-  // all | APPROVED | PENDING | INDEPENDENT
   const [statusFilter, setStatusFilter] = useState("all");
 
   // Sort + pagination
@@ -290,18 +330,19 @@ const LikedThesesSearch = () => {
         setLoading(true);
         setLoadError("");
 
-        if (!token) {
+        if (!token || actor !== "user") {
           setTheses([]);
-          setLoadError("You must be logged in to view your liked theses.");
+          setLiked({});
+          setLoadError("You must be logged in as a user to view your liked theses.");
           return;
         }
 
         const headers = { Authorization: `Bearer ${token}` };
+
         const res = await axios.get(`${API_BASE_URL}/api/users/me/liked-theses`, {
           headers,
         });
 
-        // ✅ robust shape: array OR {theses:[...]} OR {data:[...]}
         const raw = res?.data;
         const data = Array.isArray(raw)
           ? raw
@@ -325,7 +366,6 @@ const LikedThesesSearch = () => {
         const mapped = data.map((t) => {
           const likesCount = t.likes ?? 0;
 
-          // en liked list, por defecto true, pero si viene likedBy lo verificamos
           const userLiked =
             Array.isArray(t.likedBy) && currentUserId
               ? t.likedBy.some((u) => String(u?._id ?? u) === String(currentUserId))
@@ -346,26 +386,30 @@ const LikedThesesSearch = () => {
 
         const likedMap = {};
         mapped.forEach((t) => {
-          if (t?._id) likedMap[t._id] = true;
+          if (t?._id) likedMap[t._id] = !!t.userLiked;
         });
         setLiked(likedMap);
       } catch (err) {
         console.error("Error loading liked theses:", err);
-        setLoadError("Error loading liked theses. Please try again later.");
+        setLoadError(
+          err?.response?.data?.message ||
+            "Error loading liked theses. Please try again later."
+        );
         setTheses([]);
+        setLiked({});
       } finally {
         setLoading(false);
       }
     };
 
     fetchMyLikes();
-  }, []);
+  }, [token, actor, role]);
 
-  // ===================== LOAD: Institutions (para dropdown) =====================
+  // ===================== LOAD: Institutions =====================
   useEffect(() => {
     const fetchInstitutions = async () => {
       try {
-        const tokenLocal = localStorage.getItem("memorychain_token");
+        const tokenLocal = getAuthToken();
         const headers = tokenLocal
           ? { Authorization: `Bearer ${tokenLocal}` }
           : undefined;
@@ -384,7 +428,7 @@ const LikedThesesSearch = () => {
     };
 
     fetchInstitutions();
-  }, []);
+  }, [token]);
 
   // ===================== Institution options =====================
   const institutionOptions = useMemo(() => {
@@ -429,7 +473,6 @@ const LikedThesesSearch = () => {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const selectedStatus = normalizeStatus(statusFilter);
-
     const selectedInstId =
       institutionFilter !== "all" ? String(institutionFilter) : null;
 
@@ -454,12 +497,11 @@ const LikedThesesSearch = () => {
         keywordsSearch.some((k) => k.includes(q)) ||
         (instName || "").toLowerCase().includes(q);
 
-      // ✅ language más tolerante (si backend manda "English", etc.)
       const tLang = String(t.language || "").toLowerCase();
       const matchesLang =
         language === "all" ||
         tLang === String(language).toLowerCase() ||
-        tLang.startsWith(String(language).toLowerCase()); // "en" match "english"
+        tLang.startsWith(String(language).toLowerCase());
 
       const matchesDegree =
         degree === "all" || String(t.degree || "") === degree;
@@ -468,12 +510,10 @@ const LikedThesesSearch = () => {
         ? Number(t.derivedYear)
         : getYearFromThesis(t);
 
-      // ✅ FIX: si no hay año, NO lo excluyas (pasa el filtro)
       const inYearRange = Number.isNaN(yearNum)
         ? true
         : yearNum >= Number(minYear) && yearNum <= Number(maxYear);
 
-      // ✅ FIX: statusFilter "all" = todo (except REJECTED)
       let matchesStatus = true;
       if (selectedStatus === "INDEPENDENT") {
         matchesStatus = isIndependent;
@@ -482,7 +522,6 @@ const LikedThesesSearch = () => {
       } else if (selectedStatus === "APPROVED" || selectedStatus === "PENDING") {
         matchesStatus = !isIndependent && status === selectedStatus;
       } else {
-        // si meten algo raro, no filtres agresivo:
         matchesStatus = true;
       }
 
@@ -582,6 +621,7 @@ const LikedThesesSearch = () => {
       backdrop: "static",
       keyboard: false,
     });
+
     modal?.show();
   };
 
@@ -603,11 +643,11 @@ const LikedThesesSearch = () => {
         duration: 2200,
       });
 
-      // increment quotes en backend (si tu ruta la requiere con auth, agrega headers)
       try {
         const resp = await axios.post(
           `${API_BASE_URL}/api/theses/${thesis._id}/quote`
         );
+
         const updatedThesis = resp?.data?.thesis;
 
         if (updatedThesis?._id) {
@@ -645,7 +685,15 @@ const LikedThesesSearch = () => {
 
   // ===================== Like toggle =====================
   const handleToggleLike = async (id) => {
-    if (!token) return;
+    if (!token || actor !== "user") {
+      showToast({
+        message: "Log in as a user to manage liked theses.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2200,
+      });
+      return;
+    }
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
@@ -666,20 +714,20 @@ const LikedThesesSearch = () => {
         duration: 2000,
       });
 
-      // Si ya no está liked => removemos del listado
       if (!isLiked) {
         setTheses((prev) =>
           prev.filter((t) => String(t._id) !== String(thesis._id))
         );
+
         setLiked((prev) => {
           const next = { ...prev };
           delete next[id];
           return next;
         });
+
         return;
       }
 
-      // Si volvió a liked
       setTheses((prev) =>
         prev.map((t) => {
           if (String(t._id) !== String(thesis._id)) return t;
@@ -705,6 +753,14 @@ const LikedThesesSearch = () => {
       setLiked((prev) => ({ ...prev, [id]: true }));
     } catch (err) {
       console.error("Error toggling like:", err);
+
+      showToast({
+        message:
+          err?.response?.data?.message || "Could not update like status.",
+        type: "error",
+        icon: OctagonAlert,
+        duration: 2200,
+      });
     }
   };
 
@@ -729,7 +785,6 @@ const LikedThesesSearch = () => {
     );
   }
 
-  // Labels
   const languageLabel =
     language === "all" ? "All Languages" : String(language).toUpperCase();
 
@@ -748,7 +803,6 @@ const LikedThesesSearch = () => {
       <ModalViewThesis thesis={selectedForView} />
 
       <div className="mcExploreContainer">
-        {/* ===== TOP ROW ===== */}
         <div className="mcTopRow">
           <div className="mcSearch">
             <span className="mcSearchIcon" aria-hidden="true">
@@ -817,9 +871,7 @@ const LikedThesesSearch = () => {
           </div>
         </div>
 
-        {/* ===== GRID ===== */}
         <div className="mcExploreGrid">
-          {/* Filters */}
           <aside className="mcFilters">
             <div className="mcFiltersCard">
               <div className="mcFiltersHead">
@@ -832,7 +884,6 @@ const LikedThesesSearch = () => {
               </div>
 
               <div className="mcFiltersBody">
-                {/* Status */}
                 <div className="mcField">
                   <div className="mcFieldLabel">Status</div>
                   <div className="mcPills">
@@ -857,7 +908,6 @@ const LikedThesesSearch = () => {
                   </div>
                 </div>
 
-                {/* Year range */}
                 <div className="mcField">
                   <div className="mcFieldLabel">
                     Year Range:{" "}
@@ -894,7 +944,6 @@ const LikedThesesSearch = () => {
                   </div>
                 </div>
 
-                {/* Language */}
                 <div className="mcField">
                   <div className="mcFieldLabel">Language</div>
 
@@ -928,7 +977,6 @@ const LikedThesesSearch = () => {
                   </div>
                 </div>
 
-                {/* Degree */}
                 <div className="mcField">
                   <div className="mcFieldLabel">Academic Degree</div>
 
@@ -962,7 +1010,6 @@ const LikedThesesSearch = () => {
                   </div>
                 </div>
 
-                {/* Institution */}
                 <div className="mcField">
                   <div className="mcFieldLabel">Institution</div>
 
@@ -1000,7 +1047,6 @@ const LikedThesesSearch = () => {
                   </div>
                 </div>
 
-                {/* Clear */}
                 <div className="mcFiltersActions">
                   <button
                     className="mcClearBtn"
@@ -1024,7 +1070,6 @@ const LikedThesesSearch = () => {
             </div>
           </aside>
 
-          {/* Results */}
           <section className="mcResults">
             <div className="mcCardsGrid">
               {pageItems.map((t, idx) => {
@@ -1060,7 +1105,7 @@ const LikedThesesSearch = () => {
                     </div>
 
                     <div className="mcCardBody">
-                      <h3 className="mcCardTitle" title={t.title}>
+                      <h3 className="mcCardTitle title-fix" title={t.title}>
                         {t.title}
                       </h3>
 
@@ -1148,15 +1193,18 @@ const LikedThesesSearch = () => {
                             <Quote size={18} />
                           </button>
 
-                          {role !== "INSTITUTION" && (
+                          {canLike && (
                             <button
                               type="button"
                               className={`mcIconBtn ${isLiked ? "is-liked" : ""}`}
                               title={isLiked ? "Unlike" : "Like"}
                               onClick={() => handleToggleLike(t._id)}
                             >
-                              {/* ✅ FIX icon lógica */}
-                              {isLiked ? <HeartMinus size={18} /> : <HeartPlus size={18} />}
+                              {isLiked ? (
+                                <HeartMinus size={18} />
+                              ) : (
+                                <HeartPlus size={18} />
+                              )}
                             </button>
                           )}
                         </div>
@@ -1171,7 +1219,6 @@ const LikedThesesSearch = () => {
               )}
             </div>
 
-            {/* Pagination */}
             <div className="mcPager">
               <button
                 className="mcPagerBtn"
@@ -1211,14 +1258,14 @@ const LikedThesesSearch = () => {
   );
 };
 
-// ===================== PAGE: ListLike =====================
+// ===================== PAGE =====================
 const ListLike = () => {
   return (
     <div className="d-flex" style={{ minHeight: "100vh" }}>
       <NavbarReal />
 
       <div className="flex-grow-1">
-        <Layout showBackDashboard title="My Like List" icon={<Heart />}>
+        <Layout showBackDashboard title="Like List" icon={<Heart />}>
           <LikedThesesSearch />
         </Layout>
       </div>
