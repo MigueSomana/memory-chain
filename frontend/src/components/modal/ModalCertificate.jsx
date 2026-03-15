@@ -3,11 +3,11 @@ import axios from "axios";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
-import CertificateTemplate from "../../utils/certificateTemplate";
+import CertificateTemplate from "../../utils/CertificateTemplate";
 import { useToast } from "../../utils/toast";
 import {
   Fingerprint,
-  BadgeCheck,
+  BadgeCheck, 
   Clock3,
   OctagonAlert,
   CircleX,
