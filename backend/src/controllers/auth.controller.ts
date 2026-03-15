@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import { User } from "../models/user.model";
 import { UserRole } from "../models/types";
 import { Institution } from "../models/institution.model";
 import {
   assertAddressWithFunds,
   assertPrivateKeyWithFunds,
 } from "../services/wallet.validation";
+import { User, type IEmailEducational, type AccountStatus } from "../models/user.model";
 
 type TokenType = "USER" | "INSTITUTION";
 
@@ -18,15 +18,16 @@ interface JwtPayload {
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-function normalizeEducationalEmails(input: any) {
+function normalizeEducationalEmails(input: any): IEmailEducational[] {
   if (!Array.isArray(input)) return [];
+
   return input
-    .map((e) => ({
+    .map((e): IEmailEducational => ({
       institution: String(e?.institution ?? "").trim(),
       email: e?.email ? String(e.email).trim() : undefined,
       status:
-        e?.status && ["PENDING", "APPROVED", "REJECTED"].includes(String(e.status))
-          ? String(e.status)
+        e?.status && ["PENDING", "APPROVED", "REJECTED"].includes(String(e.status).toUpperCase())
+          ? (String(e.status).toUpperCase() as AccountStatus)
           : "PENDING",
     }))
     .filter((e) => e.institution.length > 0);

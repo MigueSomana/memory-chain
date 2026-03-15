@@ -21,6 +21,11 @@ function safeJsonParse<T>(value: unknown): T | undefined {
   }
 }
 
+function getSingleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
 // Devuelve todos los usuarios (sin password) + imgUrl
 export async function getAllUsers(_req: Request, res: Response) {
   const users = await User.find().select("-password");
@@ -50,11 +55,11 @@ export async function getMe(req: AuthRequest, res: Response) {
 
 export async function getUserBasicById(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = getSingleParam(req.params.id);
 
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "ID de usuario inválido" });
-    }
+if (!mongoose.Types.ObjectId.isValid(id)) {
+  return res.status(400).json({ message: "ID de usuario inválido" });
+}
 
     const user = await User.findById(id).select("name lastname");
 
@@ -195,10 +200,11 @@ export async function setUserEducationalStatus(req: AuthRequest, res: Response) 
       return res.status(401).json({ message: "No autorizado" });
     }
 
-    const { id } = req.params; // userId a modificar
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "ID de usuario inválido" });
-    }
+    const id = getSingleParam(req.params.id);
+
+if (!mongoose.Types.ObjectId.isValid(id)) {
+  return res.status(400).json({ message: "ID de usuario inválido" });
+}
 
     const institutionId = String(req.body?.institutionId ?? "").trim();
     const statusRaw = String(req.body?.status ?? "").trim().toUpperCase();

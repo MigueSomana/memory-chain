@@ -1,5 +1,5 @@
-// ModalCertificate.jsx
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useEffect } from "react";
+import axios from "axios";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
@@ -22,6 +22,8 @@ import {
   Database,
   Check,
 } from "lucide-react";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const safeStr = (v) => String(v ?? "").trim();
 const normalizeStatus = (s) => safeStr(s).toUpperCase();
@@ -149,11 +151,75 @@ function ModalCertificate({ thesis, certificate }) {
     );
   }, [certificate, thesis]);
 
-  const certifiedAt = useMemo(() => formatDateShort(certifiedAtRaw), [certifiedAtRaw]);
+  const certifiedAt = useMemo(
+    () => formatDateShort(certifiedAtRaw),
+    [certifiedAtRaw]
+  );
 
   const certStatus = useMemo(() => {
     return certificate?.status || thesis?.status || "PENDING";
   }, [certificate, thesis]);
+
+  /* ================= INSTITUTION FETCH ================= */
+
+  const institutionId = useMemo(() => {
+    return (
+      thesis?.institution?._id ||
+      thesis?.institution?.id ||
+      thesis?.institution ||
+      thesis?.mongo?.institution?._id ||
+      thesis?.mongo?.institution?.id ||
+      thesis?.mongo?.institution ||
+      certificate?.mongo?.institution?._id ||
+      certificate?.mongo?.institution?.id ||
+      certificate?.mongo?.institution ||
+      certificate?.institution?._id ||
+      certificate?.institution?.id ||
+      certificate?.institution ||
+      ""
+    );
+  }, [thesis, certificate]);
+
+  const [institutionData, setInstitutionData] = useState(null);
+  const [isLoadingInstitution, setIsLoadingInstitution] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchInstitution = async () => {
+      if (!institutionId || typeof institutionId !== "string") {
+        setInstitutionData(null);
+        return;
+      }
+
+      try {
+        setIsLoadingInstitution(true);
+
+        const { data } = await axios.get(
+          `${API_BASE_URL}/api/institutions/${institutionId}`
+        );
+
+        if (!isMounted) return;
+
+        setInstitutionData(data?.institution || data || null);
+      } catch (error) {
+        console.warn("Could not fetch institution data", error);
+        if (isMounted) {
+          setInstitutionData(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingInstitution(false);
+        }
+      }
+    };
+
+    fetchInstitution();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [institutionId]);
 
   /* ================= STATE ================= */
   const [copiedField, setCopiedField] = useState(null);
@@ -198,7 +264,6 @@ function ModalCertificate({ thesis, certificate }) {
 
   /* ================= DOWNLOAD ================= */
   const handleDownloadCertificate = async () => {
-    // ✅ toast inmediato al click
     showToast({
       message: "La descarga del certificado está iniciando…",
       type: "success",
@@ -236,7 +301,6 @@ function ModalCertificate({ thesis, certificate }) {
       });
       setQrDataUrl(qr);
 
-      // deja que el template se renderice con el QR
       await new Promise((r) => setTimeout(r, 80));
 
       const node = hiddenWrapRef.current?.querySelector("#mc-certificate");
@@ -336,13 +400,21 @@ function ModalCertificate({ thesis, certificate }) {
 
                       <button
                         type="button"
-                        className={`mcHashCopyBtn ${copiedField === "tx" ? "is-copied" : ""}`}
-                        onClick={() => handleCopy(txHash, "tx", "Transaction hash copied")}
+                        className={`mcHashCopyBtn ${
+                          copiedField === "tx" ? "is-copied" : ""
+                        }`}
+                        onClick={() =>
+                          handleCopy(txHash, "tx", "Transaction hash copied")
+                        }
                         title="Copy transaction hash"
                         aria-label="Copy transaction hash"
                         disabled={!txHash}
                       >
-                        {copiedField === "tx" ? <Check size={12} /> : <Copy size={12} />}
+                        {copiedField === "tx" ? (
+                          <Check size={12} />
+                        ) : (
+                          <Copy size={12} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -365,13 +437,21 @@ function ModalCertificate({ thesis, certificate }) {
 
                       <button
                         type="button"
-                        className={`mcHashCopyBtn ${copiedField === "file" ? "is-copied" : ""}`}
-                        onClick={() => handleCopy(fileHash, "file", "File hash copied")}
+                        className={`mcHashCopyBtn ${
+                          copiedField === "file" ? "is-copied" : ""
+                        }`}
+                        onClick={() =>
+                          handleCopy(fileHash, "file", "File hash copied")
+                        }
                         title="Copy file hash"
                         aria-label="Copy file hash"
                         disabled={!fileHash}
                       >
-                        {copiedField === "file" ? <Check size={12} /> : <Copy size={12} />}
+                        {copiedField === "file" ? (
+                          <Check size={12} />
+                        ) : (
+                          <Copy size={12} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -384,13 +464,21 @@ function ModalCertificate({ thesis, certificate }) {
                     <div className="mcSheetKvValueId mcUserIdRow">
                       <button
                         type="button"
-                        className={`mcHashCopyBtn ${copiedField === "ipfs" ? "is-copied" : ""}`}
-                        onClick={() => handleCopy(ipfsCid, "ipfs", "IPFS CID copied")}
+                        className={`mcHashCopyBtn ${
+                          copiedField === "ipfs" ? "is-copied" : ""
+                        }`}
+                        onClick={() =>
+                          handleCopy(ipfsCid, "ipfs", "IPFS CID copied")
+                        }
                         title="Copy IPFS CID"
                         aria-label="Copy IPFS CID"
                         disabled={!ipfsCid}
                       >
-                        {copiedField === "ipfs" ? <Check size={12} /> : <Copy size={12} />}
+                        {copiedField === "ipfs" ? (
+                          <Check size={12} />
+                        ) : (
+                          <Copy size={12} />
+                        )}
                       </button>
                       <span title={ipfsCid}>{trimHash(ipfsCid)}</span>
                     </div>
@@ -426,8 +514,14 @@ function ModalCertificate({ thesis, certificate }) {
                     type="button"
                     className="btn btn-memory d-flex align-items-center gap-2"
                     onClick={handleDownloadCertificate}
-                    disabled={isGenerating}
-                    title={isGenerating ? "Generating..." : "Download certificate"}
+                    disabled={isGenerating || isLoadingInstitution}
+                    title={
+                      isGenerating
+                        ? "Generating..."
+                        : isLoadingInstitution
+                        ? "Loading institution..."
+                        : "Download certificate"
+                    }
                   >
                     <Download size={18} />
                     Download
@@ -451,7 +545,12 @@ function ModalCertificate({ thesis, certificate }) {
           pointerEvents: "none",
         }}
       >
-        <CertificateTemplate thesis={thesis} certificate={certificate} qrDataUrl={qrDataUrl} />
+        <CertificateTemplate
+          thesis={thesis}
+          certificate={certificate}
+          institution={institutionData}
+          qrDataUrl={qrDataUrl}
+        />
       </div>
     </>
   );

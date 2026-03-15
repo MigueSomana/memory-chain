@@ -1,5 +1,5 @@
 import React from "react";
-import isologo from "../assets/isologo.png";
+import isologo from "../assets/logocontraste.png";
 import background from "../assets/background.png";
 import MC from "../assets/MC.png";
 import PO from "../assets/PO.png";
@@ -244,9 +244,6 @@ export default function CertificateTemplate({
                     width: 180,
                     height: 180,
                     objectFit: "contain",
-                    borderRadius: 36,
-                    background: "rgba(255,255,255,.75)",
-                    border: "3px solid rgba(15,23,42,.10)",
                     padding: 18,
                   }}
                   crossOrigin="anonymous"
@@ -310,9 +307,6 @@ export default function CertificateTemplate({
                   width: 180,
                   height: 180,
                   objectFit: "contain",
-                  borderRadius: 36,
-                  background: "rgba(255,255,255,.75)",
-                  border: "3px solid rgba(15,23,42,.10)",
                   padding: 18,
                 }}
               />

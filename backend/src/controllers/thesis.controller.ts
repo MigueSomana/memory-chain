@@ -7,9 +7,7 @@ import { uploadPdfBufferToPinata } from "../services/pinata.service";
 import mongoose, { Types } from "mongoose";
 import { ethers } from "ethers";
 import abi from "../blockchain/ThesisCertification.abi.json";
-import {
-  assertPrivateKeyWithFunds,
-} from "../services/wallet.validation"; // ✅ NUEVO (helper)
+import { assertPrivateKeyWithFunds } from "../services/wallet.validation"; // ✅ NUEVO (helper)
 
 // Helpers tipados para evitar any
 type AnyRecord = Record<string, unknown>;
@@ -24,6 +22,11 @@ function parseMaybeJson<T>(v: unknown, fallback: T): T {
     }
   }
   return (v as T) ?? fallback;
+}
+
+function getSingleParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
 }
 
 function toOptionalTrimmedString(v: unknown): string | undefined {
@@ -46,7 +49,11 @@ function isValidObjectId(v: unknown): boolean {
 // ============================
 // DTO Autores/Tutores
 // ============================
-type AuthorDTO = { _id?: Types.ObjectId | string; name: string; lastname: string };
+type AuthorDTO = {
+  _id?: Types.ObjectId | string;
+  name: string;
+  lastname: string;
+};
 
 function isAuthorDTO(x: unknown): x is AuthorDTO {
   if (!x || typeof x !== "object") return false;
@@ -55,7 +62,7 @@ function isAuthorDTO(x: unknown): x is AuthorDTO {
 }
 
 function normalizeAuthors(
-  input: unknown
+  input: unknown,
 ): Array<{ _id?: Types.ObjectId; name: string; lastname: string }> {
   const arr = parseMaybeJson<unknown[]>(input, []);
   const filtered = arr.filter(isAuthorDTO);
@@ -80,7 +87,7 @@ function normalizeAuthors(
 // Fuerza que el autor principal tenga el _id del creador
 function forcePrimaryAuthorId(
   authors: Array<{ _id?: Types.ObjectId; name: string; lastname: string }>,
-  ownerId: Types.ObjectId
+  ownerId: Types.ObjectId,
 ) {
   if (!authors.length) return authors;
   const first = authors[0];
@@ -111,19 +118,21 @@ function isPrivateKey(pk?: string) {
  * - Validar que exista y que tenga fondos
  */
 async function certifyOnChainDynamic(params: {
-  fileHash: string;          // ✅ KEY del mapping on-chain
+  fileHash: string; // ✅ KEY del mapping on-chain
   thesisId: string;
   authorIds: string[];
   institutionId: string;
   ipfsCid: string;
-  signerPrivateKey: string;  // ✅ OBLIGATORIA (institución)
+  signerPrivateKey: string; // ✅ OBLIGATORIA (institución)
 }) {
   const provider = new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID);
 
   const signerKey = params.signerPrivateKey?.trim();
 
   if (!isPrivateKey(signerKey)) {
-    throw new Error("Wallet de institución inválida: debe ser PRIVATE KEY 0x...");
+    throw new Error(
+      "Wallet de institución inválida: debe ser PRIVATE KEY 0x...",
+    );
   }
 
   // ✅ valida fondos (gas)
@@ -137,7 +146,7 @@ async function certifyOnChainDynamic(params: {
     params.thesisId,
     params.authorIds,
     params.institutionId,
-    params.ipfsCid
+    params.ipfsCid,
   );
 
   const receipt = await tx.wait();
@@ -167,9 +176,9 @@ export async function getAllTheses(_req: Request, res: Response) {
 
 export async function getThesesByInstitutionId(req: Request, res: Response) {
   try {
-    const { idInstitution } = req.params;
+    const idInstitution = getSingleParam(req.params.idInstitution);
 
-    if (!idInstitution || !idInstitution.match(/^[0-9a-fA-F]{24}$/)) {
+    if (!/^[0-9a-fA-F]{24}$/.test(idInstitution)) {
       return res.status(400).json({ message: "ID de institución inválido" });
     }
 
@@ -186,9 +195,9 @@ export async function getThesesByInstitutionId(req: Request, res: Response) {
 
 export async function getThesisById(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = getSingleParam(req.params.id);
 
-    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
       return res.status(400).json({ message: "ID de tesis inválido" });
     }
 
@@ -196,7 +205,8 @@ export async function getThesisById(req: Request, res: Response) {
       .populate("uploadedBy", "name lastname")
       .populate("institution", "name");
 
-    if (!thesis) return res.status(404).json({ message: "Tesis no encontrada" });
+    if (!thesis)
+      return res.status(404).json({ message: "Tesis no encontrada" });
 
     return res.json(thesis);
   } catch (err) {
@@ -209,7 +219,8 @@ export async function getThesisById(req: Request, res: Response) {
 export async function createThesis(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "No autorizado" });
-    if (!req.file) return res.status(400).json({ message: "Archivo PDF requerido" });
+    if (!req.file)
+      return res.status(400).json({ message: "Archivo PDF requerido" });
 
     const body = req.body?.data
       ? parseMaybeJson<AnyRecord>(req.body.data, {})
@@ -257,11 +268,13 @@ export async function createThesis(req: AuthRequest, res: Response) {
 
     const { cid, fileHash } = await uploadPdfBufferToPinata(
       req.file.buffer,
-      req.file.originalname
+      req.file.originalname,
     );
 
     // ✅ regla de status según si hay institución
-    const initialStatus: CertificationStatus = institution ? "PENDING" : "NOT_CERTIFIED";
+    const initialStatus: CertificationStatus = institution
+      ? "PENDING"
+      : "NOT_CERTIFIED";
 
     const thesis = await Thesis.create({
       title,
@@ -288,7 +301,9 @@ export async function createThesis(req: AuthRequest, res: Response) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error al crear tesis";
     console.error("❌ ERROR createThesis:", err);
-    return res.status(500).json({ message: "Error al crear tesis", error: message });
+    return res
+      .status(500)
+      .json({ message: "Error al crear tesis", error: message });
   }
 }
 
@@ -307,13 +322,14 @@ export async function updateThesis(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "No autorizado" });
 
-    const { id } = req.params;
-    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
+    const id = getSingleParam(req.params.id);
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
       return res.status(400).json({ message: "ID de tesis inválido" });
     }
 
     const thesis = await Thesis.findById(id);
-    if (!thesis) return res.status(404).json({ message: "Tesis no encontrada" });
+    if (!thesis)
+      return res.status(404).json({ message: "Tesis no encontrada" });
 
     if (thesis.uploadedBy?.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "No puedes editar esta tesis" });
@@ -327,10 +343,14 @@ export async function updateThesis(req: AuthRequest, res: Response) {
     const $set: Record<string, unknown> = {};
     const $unset: Record<string, unknown> = {};
 
-    if (body.title !== undefined) $set.title = toRequiredTrimmedString(body.title);
-    if (body.summary !== undefined) $set.summary = toRequiredTrimmedString(body.summary);
-    if (body.language !== undefined) $set.language = toRequiredTrimmedString(body.language);
-    if (body.degree !== undefined) $set.degree = toRequiredTrimmedString(body.degree);
+    if (body.title !== undefined)
+      $set.title = toRequiredTrimmedString(body.title);
+    if (body.summary !== undefined)
+      $set.summary = toRequiredTrimmedString(body.summary);
+    if (body.language !== undefined)
+      $set.language = toRequiredTrimmedString(body.language);
+    if (body.degree !== undefined)
+      $set.degree = toRequiredTrimmedString(body.degree);
 
     // field
     if (body.field !== undefined) {
@@ -375,7 +395,9 @@ export async function updateThesis(req: AuthRequest, res: Response) {
     if (body.authors !== undefined) {
       let a = normalizeAuthors(body.authors);
       if (a.length === 0) {
-        return res.status(400).json({ message: "Debe haber al menos un autor" });
+        return res
+          .status(400)
+          .json({ message: "Debe haber al menos un autor" });
       }
       const ownerId = thesis.uploadedBy as Types.ObjectId;
       a = forcePrimaryAuthorId(a, ownerId);
@@ -396,7 +418,7 @@ export async function updateThesis(req: AuthRequest, res: Response) {
     if (req.file) {
       const { cid, fileHash } = await uploadPdfBufferToPinata(
         req.file.buffer,
-        req.file.originalname
+        req.file.originalname,
       );
       $set.ipfsCid = cid;
       $set.fileHash = fileHash;
@@ -407,8 +429,8 @@ export async function updateThesis(req: AuthRequest, res: Response) {
       "institution" in $set
         ? ($set.institution as Types.ObjectId)
         : "institution" in $unset
-        ? undefined
-        : (thesis.institution as Types.ObjectId | undefined);
+          ? undefined
+          : (thesis.institution as Types.ObjectId | undefined);
 
     $set.status = finalInstitution ? "PENDING" : "NOT_CERTIFIED";
 
@@ -440,10 +462,9 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
       return res.status(401).json({ message: "No autorizado" });
     }
 
-    const { id } = req.params;
     const { status } = req.body as { status: CertificationStatus };
-
-    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
+    const id = getSingleParam(req.params.id);
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
       return res.status(400).json({ message: "ID de tesis inválido" });
     }
 
@@ -452,12 +473,14 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
     }
 
     const thesis = await Thesis.findById(id);
-    if (!thesis) return res.status(404).json({ message: "Tesis no encontrada" });
+    if (!thesis)
+      return res.status(404).json({ message: "Tesis no encontrada" });
 
     // sin institución no se certifica
     if (!thesis.institution) {
       return res.status(400).json({
-        message: "Esta tesis no tiene institución asociada; no se puede certificar.",
+        message:
+          "Esta tesis no tiene institución asociada; no se puede certificar.",
       });
     }
 
@@ -465,7 +488,7 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
 
     if (req.user?.institutions) {
       const isMember = req.user.institutions.some(
-        (instId) => instId.toString() === thesis.institution!.toString()
+        (instId) => instId.toString() === thesis.institution!.toString(),
       );
       if (isMember) canCertify = true;
     }
@@ -477,7 +500,9 @@ export async function setThesisStatus(req: AuthRequest, res: Response) {
     }
 
     if (!canCertify) {
-      return res.status(403).json({ message: "No puedes certificar esta tesis" });
+      return res
+        .status(403)
+        .json({ message: "No puedes certificar esta tesis" });
     }
 
     thesis.status = status;
@@ -545,20 +570,24 @@ export async function toggleLikeThesis(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "No autorizado" });
 
-    const { id } = req.params;
-    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
+    const id = getSingleParam(req.params.id);
+if (!/^[0-9a-fA-F]{24}$/.test(id)) {
       return res.status(400).json({ message: "ID de tesis inválido" });
     }
 
     const thesis = await Thesis.findById(id);
-    if (!thesis) return res.status(404).json({ message: "Tesis no encontrada" });
+    if (!thesis)
+      return res.status(404).json({ message: "Tesis no encontrada" });
 
     const user = await User.findById(req.user._id);
-    if (!user) return res.status(401).json({ message: "Usuario no encontrado" });
+    if (!user)
+      return res.status(401).json({ message: "Usuario no encontrado" });
 
     const userIdStr = req.user._id.toString();
 
-    const alreadyLikedUser = user.likedTheses.some((tId) => tId.toString() === id);
+    const alreadyLikedUser = user.likedTheses.some(
+      (tId) => tId.toString() === id,
+    );
     const alreadyLikedThesis =
       Array.isArray(thesis.likedBy) &&
       thesis.likedBy.some((uId) => uId.toString() === userIdStr);
@@ -566,8 +595,12 @@ export async function toggleLikeThesis(req: AuthRequest, res: Response) {
     const alreadyLiked = alreadyLikedUser || alreadyLikedThesis;
 
     if (alreadyLiked) {
-      user.likedTheses = user.likedTheses.filter((tId) => tId.toString() !== id);
-      thesis.likedBy = (thesis.likedBy || []).filter((uId) => uId.toString() !== userIdStr);
+      user.likedTheses = user.likedTheses.filter(
+        (tId) => tId.toString() !== id,
+      );
+      thesis.likedBy = (thesis.likedBy || []).filter(
+        (uId) => uId.toString() !== userIdStr,
+      );
       thesis.likes = Math.max((thesis.likes || 0) - 1, 0);
     } else {
       user.likedTheses.push(thesis._id);
@@ -594,18 +627,19 @@ export async function toggleLikeThesis(req: AuthRequest, res: Response) {
  */
 export async function incrementQuoteThesis(req: Request, res: Response) {
   try {
-    const { id } = req.params;
-    if (!id || !id.match(/^[0-9a-fA-F]{24}$/)) {
+    const id = getSingleParam(req.params.id);
+if (!/^[0-9a-fA-F]{24}$/.test(id)) {
       return res.status(400).json({ message: "ID de tesis inválido" });
     }
 
     const updated = await Thesis.findByIdAndUpdate(
       id,
       { $inc: { quotes: 1 } },
-      { new: true }
+      { new: true },
     );
 
-    if (!updated) return res.status(404).json({ message: "Tesis no encontrada" });
+    if (!updated)
+      return res.status(404).json({ message: "Tesis no encontrada" });
 
     return res.json({ thesis: updated, quoted: true });
   } catch (err) {
