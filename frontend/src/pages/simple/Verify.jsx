@@ -33,7 +33,7 @@ const gateway = import.meta.env.VITE_PINATA_GATEWAY_DOMAIN;
 const safeStr = (v) => String(v ?? "").trim();
 const norm = (v) => safeStr(v).toLowerCase();
 
-/* ===================== CLIPBOARD (igual que tus otras vistas) ===================== */
+/* ===================== CLIPBOARD ===================== */
 async function copyToClipboard(text) {
   try {
     if (!text) return false;
@@ -53,7 +53,26 @@ async function copyToClipboard(text) {
   }
 }
 
-/* ===================== PDF VIEWER (MINI, NO CONTROLS) ===================== */
+/* ===================== CLOSE ACTIVE MODAL ===================== */
+function closeOpenVerifyModal() {
+  const openModal = document.querySelector(".modal.fade.show");
+  if (!openModal) return;
+
+  const instance = window.bootstrap?.Modal?.getInstance(openModal);
+  if (instance) {
+    instance.hide();
+  } else {
+    openModal.classList.remove("show");
+    openModal.setAttribute("aria-hidden", "true");
+    openModal.style.display = "none";
+  }
+
+  document.body.classList.remove("modal-open");
+  document.body.style.removeProperty("padding-right");
+  document.querySelectorAll(".modal-backdrop").forEach((b) => b.remove());
+}
+
+/* ===================== PDF VIEWER ===================== */
 function SinglePdfViewer({ url, height = 720 }) {
   const [numPages, setNumPages] = useState(0);
   const FIXED_SCALE = 0.7;
@@ -117,8 +136,6 @@ const Verify = () => {
 
   const [certLoading, setCertLoading] = useState(false);
   const [certError, setCertError] = useState("");
-
-  // ✅ feedback visual de copy (misma dinámica que LibraryPSearch)
   const [copiedKey, setCopiedKey] = useState(null);
 
   const isTypingRef = useRef(false);
@@ -167,7 +184,6 @@ const Verify = () => {
     return ShieldCheck;
   }, [statusKey]);
 
-  // ✅ tone usando tus clases (approved/pending/rejected/unknown)
   const pillTone = useMemo(() => {
     if (statusKey === "APPROVED") return "approved";
     if (statusKey === "PENDING") return "pending";
@@ -206,9 +222,6 @@ const Verify = () => {
     modal?.show();
   };
 
-  // ✅ COPIAR con:
-  // - MISMA clase/botón visual (mcHashCopyBtn + check)
-  // - TOAST como ThesisSearch (useToast)
   const handleCopy = async (key, value, label = "Copied") => {
     const text = safeStr(value);
     const ok = await copyToClipboard(text);
@@ -294,7 +307,6 @@ const Verify = () => {
     navigate("/verify", { replace: true });
   };
 
-  // Deep-link /verify/:id
   useEffect(() => {
     const loadById = async () => {
       if (!id) return;
@@ -323,7 +335,6 @@ const Verify = () => {
           setHashInput(thesis?.fileHash || thesis?.txHash || "");
         }
 
-        // precarga opcional — si falla no importa
         try {
           const certRes = await axios.get(
             `${API_BASE_URL}/api/certificates/thesis/${thesis._id}`,
@@ -345,6 +356,8 @@ const Verify = () => {
   }, [id]);
 
   const doSearch = async () => {
+    closeOpenVerifyModal();
+
     const q = safeStr(hashInput);
 
     if (!q) {
@@ -392,7 +405,6 @@ const Verify = () => {
       setCertificateData(null);
       navigate(`/verify/${thesis._id}`, { replace: true });
 
-      // precarga opcional
       try {
         const certRes = await axios.get(
           `${API_BASE_URL}/api/certificates/thesis/${thesis._id}`,
@@ -458,9 +470,7 @@ const Verify = () => {
   return (
     <div className="mcVerify2Wrap">
       <div className="mcVerify2Grid">
-        {/* LEFT */}
         <aside className="mcVerify2Left">
-          {/* STEP 1 */}
           <section className="mcVerify2StepCard">
             <div className="mcVerify2StepHead">
               <div className="mcVerify2StepText">
@@ -504,9 +514,7 @@ const Verify = () => {
             ) : null}
           </section>
 
-          {/* STEP 2 */}
           <section className="mcVerify2StepCard mcVerify2StepCard--status">
-            {/* pill top-right */}
             {hasSearched && selectedThesis ? (
               <div className="mcVerify2StatusCorner">
                 <span className={`mcSheetStatus mcSheetStatus--${pillTone}`}>
@@ -527,10 +535,8 @@ const Verify = () => {
               </div>
             </div>
 
-            {/* Meta SOLO si APPROVED */}
             {showApprovedMeta ? (
               <div className="mcVerify2Meta">
-                {/* Thesis ID */}
                 <div className="mcVerify2MetaRow">
                   <span className="mcVerify2MetaKey">Thesis ID</span>
                   <span className="mcVerify2Mono">{selectedThesis?._id || "—"}</span>
@@ -554,7 +560,6 @@ const Verify = () => {
                   </button>
                 </div>
 
-                {/* File hash */}
                 <div className="mcVerify2MetaRow">
                   <span className="mcVerify2MetaKey">File hash</span>
                   <span className="mcVerify2Mono">
@@ -580,7 +585,6 @@ const Verify = () => {
                   </button>
                 </div>
 
-                {/* Transaction */}
                 <div className="mcVerify2MetaRow">
                   <span className="mcVerify2MetaKey">Transaction</span>
                   <span className="mcVerify2Mono">
@@ -606,7 +610,6 @@ const Verify = () => {
                   </button>
                 </div>
 
-                {/* IPFS CID */}
                 <div className="mcVerify2MetaRow">
                   <span className="mcVerify2MetaKey">IPFS CID</span>
                   <span className="mcVerify2Mono">
@@ -642,7 +645,6 @@ const Verify = () => {
               </div>
             )}
 
-            {/* acciones centradas */}
             <div className="mcVerify2Actions mcVerify2Actions--center">
               {canShowCertificateBtn ? (
                 <button
@@ -679,7 +681,6 @@ const Verify = () => {
           </section>
         </aside>
 
-        {/* RIGHT */}
         <section className={`mcVerify2Right mcVerify2Right--${panelTone}`}>
           {!loading && !selectedThesis && !errorMsg ? (
             <div className="mcVerify2RightInner">

@@ -43,6 +43,12 @@ function hideModal(id) {
   return true;
 }
 
+function forceFullPageReload() {
+  const url = new URL(window.location.href);
+  url.searchParams.set("_refresh", Date.now().toString());
+  window.location.replace(url.toString());
+}
+
 const ModalUpgradePlan = () => {
   const { showToast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState("free");
@@ -190,8 +196,8 @@ const ModalUpgradePlan = () => {
       });
 
       setTimeout(() => {
-        window.location.reload();
-      }, 600);
+        forceFullPageReload();
+      }, 500);
     } catch (error) {
       console.error("Upgrade plan error:", error);
       showToast({
