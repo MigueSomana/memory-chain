@@ -6218,3 +6218,24 @@ textarea.form-control.mcProfileTextarea {
 .mcSheetChips--scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(32, 201, 151, 0.52);
 }
+@media (max-width: 767.98px) {
+  .mcHomeNavInner {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: 10px;
+  }
+
+  .mcHomeBrand {
+    justify-self: start;
+  }
+
+  .mcHomeNavLinks {
+    display: none;
+  }
+
+  .mcHomeLoginBtn {
+    justify-self: start;
+    margin-left: 0 !important;
+    align-self: flex-start;
+  }
+}
