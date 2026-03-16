@@ -155,8 +155,8 @@ const ModalRegister = ({
     const loginEl = document.getElementById(loginModalId);
     if (!loginEl) {
       showToast({
-        message: `No encuentro el modal "${loginModalId}" en el DOM. Asegúrate de renderizar <ModalLogin />.`,
-        type: "error",
+        message: `Modal not found`,
+        type: "info",
         icon: OctagonAlert,
         duration: 3000,
       });
@@ -188,8 +188,8 @@ const ModalRegister = ({
     const instEl = document.getElementById(institutionRegisterModalId);
     if (!instEl) {
       showToast({
-        message: `No encuentro el modal "${institutionRegisterModalId}" en el DOM. Asegúrate de renderizar <ModalRegisterInstitution />.`,
-        type: "error",
+        message: `Modal not found`,
+        type: "info",
         icon: OctagonAlert,
         duration: 3000,
       });
@@ -228,7 +228,7 @@ const ModalRegister = ({
     if (!ok) {
       showToast({
         message: "Please fix the highlighted fields.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });
@@ -248,7 +248,7 @@ const ModalRegister = ({
       await axios.post(`${API_BASE_URL}/api/auth/register`, payload);
 
       showToast({
-        message: "Account created ✅",
+        message: "Account created",
         type: "success",
         icon: Check,
         duration: 1800,
@@ -276,7 +276,7 @@ const ModalRegister = ({
         message:
           err?.response?.data?.message ||
           "Registration failed. Please try again.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2600,
       });

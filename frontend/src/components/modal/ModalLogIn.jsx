@@ -92,8 +92,8 @@ const ModalLogin = ({
     const regEl = document.getElementById(registerModalId);
     if (!regEl) {
       showToast({
-        message: `No encuentro el modal "${registerModalId}" en el DOM. Asegúrate de renderizar <ModalRegister /> en esta vista.`,
-        type: "error",
+        message: `Modal not found`,
+        type: "info",
         icon: OctagonAlert,
         duration: 3000,
       });
@@ -110,8 +110,8 @@ const ModalLogin = ({
       const ok = showModal(registerModalId);
       if (!ok) {
         showToast({
-          message: "No pude abrir Register. Revisa el id del modal.",
-          type: "error",
+          message: "Modal not found",
+          type: "info",
           icon: OctagonAlert,
           duration: 2400,
         });
@@ -169,7 +169,7 @@ const ModalLogin = ({
         touchAuthSession(); // ✅ extra safety: arranca contador ya mismo
 
         showToast({
-          message: `Welcome back, ${user?.name || "User"} ✅`,
+          message: `Welcome back, ${user?.name || "User"}`,
           type: "success",
           icon: CheckCircle2,
           duration: 1400,
@@ -189,7 +189,7 @@ const ModalLogin = ({
         touchAuthSession(); // ✅ extra safety
 
         showToast({
-          message: `Welcome back, ${institution?.name || "Institution"} ✅`,
+          message: `Welcome back, ${institution?.name || "Institution"}`,
           type: "success",
           icon: CheckCircle2,
           duration: 1400,
@@ -200,8 +200,8 @@ const ModalLogin = ({
       }
 
       showToast({
-        message: "Respuesta de login inválida.",
-        type: "error",
+        message: "Invalid login response",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });
@@ -211,8 +211,8 @@ const ModalLogin = ({
       showToast({
         message:
           error.response?.data?.message ||
-          "Login no exitoso. Verifica tus credenciales.",
-        type: "error",
+          "Login failed",
+        type: "info",
         icon: OctagonAlert,
         duration: 2400,
       });

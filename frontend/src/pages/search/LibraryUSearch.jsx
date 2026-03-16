@@ -355,7 +355,7 @@ const LibraryUSearch = () => {
     if (!ok) {
       showToast({
         message: "Could not copy to clipboard",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });
@@ -421,7 +421,7 @@ const LibraryUSearch = () => {
 
       showToast({
         message: msg,
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2400,
       });
@@ -453,7 +453,7 @@ const LibraryUSearch = () => {
       console.error("Error incrementing quotes:", err);
       showToast({
         message: "Failed to add quote",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });
@@ -497,7 +497,7 @@ const LibraryUSearch = () => {
         openCertificateModal();
         showToast({
           message: msg,
-          type: "error",
+          type: "info",
           icon: OctagonAlert,
           duration: 2400,
         });
@@ -507,7 +507,7 @@ const LibraryUSearch = () => {
       setCertificateData(null);
       showToast({
         message: msg,
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2400,
       });

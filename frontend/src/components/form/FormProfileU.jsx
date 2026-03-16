@@ -63,7 +63,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (!/image\/(png|jpe?g|webp|svg\+xml)/.test(file.type)) {
       showToast({
         message: "Unsupported logo format. Use PNG/JPG/WebP/SVG.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2600,
       });
@@ -72,7 +72,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (file.size > 4 * 1024 * 1024) {
       showToast({
         message: "Logo must be less than 4MB.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2600,
       });
@@ -170,7 +170,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     } catch {
       showToast({
         message: "Could not copy the institution ID.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2400,
       });
@@ -365,7 +365,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
       console.error(err);
       showToast({
         message: "Could not load institution stats.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2400,
       });
@@ -408,7 +408,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (Object.keys(e).length > 0) {
       showToast({
         message: Object.values(e)[0],
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2600,
       });
@@ -425,7 +425,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (expired) {
       showToast({
         message: "Session expired due to inactivity. Please log in again.",
-        type: "error",
+        type: "danger",
         icon: OctagonAlert,
         duration: 2600,
       });
@@ -437,7 +437,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
     if (!initialData?._id) {
       showToast({
         message: "Institution data not loaded yet.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2400,
       });
@@ -448,7 +448,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
       if (!getAuthToken()) {
         showToast({
           message: "No auth token found. Please log in again.",
-          type: "error",
+          type: "danger",
           icon: OctagonAlert,
           duration: 2400,
         });
@@ -508,7 +508,7 @@ const FormProfileU = ({ initialData: initialDataProp }) => {
       showToast({
         message:
           err?.response?.data?.message || "Error updating institution profile.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2600,
       });

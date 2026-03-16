@@ -216,7 +216,7 @@ const Verify = () => {
     if (!ok) {
       showToast({
         message: "Could not copy to clipboard",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });
@@ -257,7 +257,7 @@ const Verify = () => {
         setCertError("Certificate not available yet.");
         showToast({
           message: "Certificate not available yet",
-          type: "error",
+          type: "info",
           icon: OctagonAlert,
           duration: 2200,
         });
@@ -272,7 +272,7 @@ const Verify = () => {
       setCertError("No se pudo obtener el certificado.");
       showToast({
         message: "No se pudo obtener el certificado",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });

@@ -86,7 +86,7 @@ const FormProfile = () => {
     if (!/image\/(png|jpe?g|webp)/.test(file.type)) {
       showToast({
         message: "Unsupported image format. Use PNG/JPG/WebP.",
-        type: "danger",
+        type: "info",
         icon: OctagonAlert,
         duration: 2600,
       });
@@ -95,7 +95,7 @@ const FormProfile = () => {
     if (file.size > 3 * 1024 * 1024) {
       showToast({
         message: "Image must be less than 3MB.",
-        type: "warning",
+        type: "info",
         icon: OctagonAlert,
         duration: 2600,
       });
@@ -137,7 +137,7 @@ const FormProfile = () => {
     } catch {
       showToast({
         message: "Could not copy the user ID.",
-        type: "danger",
+        type: "info",
         icon: OctagonAlert,
         duration: 2400,
       });
@@ -260,7 +260,7 @@ const FormProfile = () => {
       console.error(err);
       showToast({
         message: "Could not load thesis stats.",
-        type: "danger",
+        type: "info",
         icon: OctagonAlert,
         duration: 2400,
       });
@@ -443,7 +443,7 @@ const FormProfile = () => {
     if (Object.keys(e).length > 0) {
       showToast({
         message: Object.values(e)[0],
-        type: "danger",
+        type: "info",
         icon: OctagonAlert,
         duration: 2600,
       });
@@ -464,7 +464,7 @@ const FormProfile = () => {
       if (atIndex === -1) {
         showToast({
           message: `The institutional email "${eduEmail}" for "${institution.name}" is invalid.`,
-          type: "danger",
+          type: "info",
           icon: OctagonAlert,
           duration: 3000,
         });
@@ -479,7 +479,7 @@ const FormProfile = () => {
       if (!allowedDomains.length) {
         showToast({
           message: `Institution "${institution.name}" has no configured email domains.`,
-          type: "danger",
+          type: "info",
           icon: OctagonAlert,
           duration: 3200,
         });
@@ -491,7 +491,7 @@ const FormProfile = () => {
           message: `The email "${eduEmail}" does not match allowed domains for "${institution.name}" (${allowedDomains.join(
             ", ",
           )}).`,
-          type: "danger",
+          type: "info",
           icon: OctagonAlert,
           duration: 3500,
         });
@@ -613,7 +613,7 @@ const FormProfile = () => {
       console.error(err);
       showToast({
         message: "Error updating profile.",
-        type: "danger",
+        type: "info",
         icon: OctagonAlert,
         duration: 2600,
       });

@@ -688,7 +688,7 @@ const LikedThesesSearch = () => {
     if (!token || actor !== "user") {
       showToast({
         message: "Log in as a user to manage liked theses.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });
@@ -757,7 +757,7 @@ const LikedThesesSearch = () => {
       showToast({
         message:
           err?.response?.data?.message || "Could not update like status.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });

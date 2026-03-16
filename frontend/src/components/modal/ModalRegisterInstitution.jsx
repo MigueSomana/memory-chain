@@ -164,8 +164,8 @@ const ModalRegisterInstitution = ({
     const loginEl = document.getElementById(loginModalId);
     if (!loginEl) {
       showToast({
-        message: `No encuentro el modal "${loginModalId}" en el DOM. Asegúrate de renderizar <ModalLogin />.`,
-        type: "error",
+        message: `Modal not found`,
+        type: "info",
         icon: OctagonAlert,
         duration: 3000,
       });
@@ -197,8 +197,8 @@ const ModalRegisterInstitution = ({
     const userRegEl = document.getElementById(userRegisterModalId);
     if (!userRegEl) {
       showToast({
-        message: `No encuentro el modal "${userRegisterModalId}" en el DOM. Asegúrate de renderizar <ModalRegister />.`,
-        type: "error",
+        message: `Modal not found`,
+        type: "info",
         icon: OctagonAlert,
         duration: 3000,
       });
@@ -238,7 +238,7 @@ const ModalRegisterInstitution = ({
     if (!ok) {
       showToast({
         message: "Please fix the highlighted fields.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });
@@ -292,7 +292,7 @@ const ModalRegisterInstitution = ({
         message:
           err?.response?.data?.message ||
           "Institution registration failed. Please try again.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2600,
       });

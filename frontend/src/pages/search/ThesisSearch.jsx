@@ -685,7 +685,7 @@ const ThesisSearch = ({
     if (!token || actor !== "user") {
       showToast({
         message: "Log in as a user to like theses.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });
@@ -738,7 +738,7 @@ const ThesisSearch = ({
       console.error("Error toggling like:", err);
       showToast({
         message: err?.response?.data?.message || "Could not toggle like.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });

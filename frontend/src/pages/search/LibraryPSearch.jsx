@@ -390,7 +390,7 @@ const LibraryPSearch = () => {
 
       showToast({
         message: "No se pudo obtener el certificado",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });
@@ -442,7 +442,7 @@ const LibraryPSearch = () => {
       console.error("Error incrementing quotes:", err);
       showToast({
         message: "Failed to add quote",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });
@@ -456,7 +456,7 @@ const LibraryPSearch = () => {
     if (!ok) {
       showToast({
         message: "Could not copy to clipboard",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2200,
       });

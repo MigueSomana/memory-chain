@@ -562,7 +562,7 @@ const MembersSearch = () => {
 
         showToast({
           message: msg,
-          type: "error",
+          type: "info",
           icon: OctagonAlert,
           duration: 2400,
         });

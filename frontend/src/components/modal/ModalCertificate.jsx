@@ -233,7 +233,7 @@ function ModalCertificate({ thesis, certificate }) {
     if (!value) {
       showToast({
         message: "Nothing to copy.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 1600,
       });
@@ -246,7 +246,7 @@ function ModalCertificate({ thesis, certificate }) {
       window.setTimeout(() => setCopiedField(null), 900);
 
       showToast({
-        message: `${label} ✅`,
+        message: `${label}`,
         type: "success",
         icon: Check,
         duration: 1400,
@@ -254,8 +254,8 @@ function ModalCertificate({ thesis, certificate }) {
     } catch (e) {
       console.warn("Copy failed", e);
       showToast({
-        message: "Copy failed ❌",
-        type: "error",
+        message: "Copy failed",
+        type: "info",
         icon: OctagonAlert,
         duration: 1800,
       });
@@ -274,7 +274,7 @@ function ModalCertificate({ thesis, certificate }) {
     if (!thesis || !certificate) {
       showToast({
         message: "Certificate data not available.",
-        type: "error",
+        type: "info",
         icon: OctagonAlert,
         duration: 2000,
       });
@@ -328,7 +328,7 @@ function ModalCertificate({ thesis, certificate }) {
       pdf.save("MemoryChain_Certificate.pdf");
 
       showToast({
-        message: "Certificate downloaded ✅",
+        message: "Certificate downloaded",
         type: "success",
         icon: BadgeCheck,
         duration: 2200,
@@ -336,8 +336,8 @@ function ModalCertificate({ thesis, certificate }) {
     } catch (err) {
       console.error(err);
       showToast({
-        message: "Could not generate certificate ❌",
-        type: "error",
+        message: "Could not generate certificate",
+        type: "info",
         icon: OctagonAlert,
         duration: 2400,
       });

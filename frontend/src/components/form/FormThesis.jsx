@@ -157,12 +157,12 @@ const FormThesis = ({
 
     if (f.type !== "application/pdf") {
       const msg = "Only PDF files are allowed.";
-      fireToasts("error", msg, OctagonAlert, 2000);
+      fireToasts("info", msg, OctagonAlert, 2000);
       return false;
     }
     if (f.size > MAX_PDF_BYTES) {
       const msg = `PDF must be less than ${MAX_PDF_MB}MB.`;
-      fireToasts("error", msg, OctagonAlert, 2000);
+      fireToasts("info", msg, OctagonAlert, 2000);
       return false;
     }
     return true;
@@ -297,11 +297,11 @@ const FormThesis = ({
     const rawId = String(a?.userId || "").trim();
 
     if (!rawId) {
-      fireToasts("error", "Enter a user ID first.", OctagonAlert, 2000);
+      fireToasts("info", "Enter a user ID first.", OctagonAlert, 2000);
       return;
     }
     if (!isObjectId(rawId)) {
-      fireToasts("error", "Invalid user ID format.", OctagonAlert, 2000);
+      fireToasts("info", "Invalid user ID format.", OctagonAlert, 2000);
       return;
     }
 
@@ -319,7 +319,7 @@ const FormThesis = ({
       const u = res.data;
       if (!u?.name || !u?.lastname) {
         fireToasts(
-          "error",
+          "info",
           "User found but missing name/lastname.",
           OctagonAlert,
           2000
@@ -347,7 +347,7 @@ const FormThesis = ({
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         "Failed to fetch user by id.";
-      fireToasts("error", msg, OctagonAlert, 2000);
+      fireToasts("info", msg, OctagonAlert, 2000);
     } finally {
       setAuthorFetchLoading((p) => ({ ...p, [index]: false }));
     }
@@ -397,7 +397,7 @@ const FormThesis = ({
 
   const toastValidationErrors = (msgs) => {
     // ✅ ahora: 2s + microdelay
-    fireToasts("error", msgs, OctagonAlert, 2000, 140);
+    fireToasts("info", msgs, OctagonAlert, 2000, 140);
   };
 
   const validateAll = () => {
@@ -580,7 +580,7 @@ const FormThesis = ({
     if (!idUser && !idThesis && !idInstitution) {
       const msg =
         "Missing context: provide idUser or idInstitution to create a thesis, or idThesis to edit one.";
-      fireToasts("error", msg, OctagonAlert, 2000);
+      fireToasts("info", msg, OctagonAlert, 2000);
       return;
     }
 
@@ -775,11 +775,11 @@ const FormThesis = ({
 
         const msg =
           "Invalid context: provide idThesis, or (idUser XOR idInstitution).";
-        fireToasts("error", msg, OctagonAlert, 2000);
+        fireToasts("info", msg, OctagonAlert, 2000);
       } catch (err) {
         console.error("Error initializing FormThesis:", err);
         const msg = "Error initializing the thesis form. Check console.";
-        fireToasts("error", msg, OctagonAlert, 2000);
+        fireToasts("info", msg, OctagonAlert, 2000);
       } finally {
         setIsInitializing(false);
       }
@@ -973,7 +973,7 @@ department: isPersonalResearch ? null : (department || null),
         err?.response?.data?.error ||
         "There was an error submitting the thesis.";
 
-      fireToasts("error", msg, OctagonAlert, 2000);
+      fireToasts("info", msg, OctagonAlert, 2000);
     } finally {
       setIsSubmitting(false);
     }

@@ -49,7 +49,7 @@ const UpdateThesis = () => {
         console.error("Error loading institutions:", err);
         showToast?.({
           message: "Error loading institutions.",
-          type: "danger",
+          type: "info",
           duration: 2600,
         });
       } finally {
