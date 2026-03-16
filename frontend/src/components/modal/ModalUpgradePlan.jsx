@@ -188,6 +188,10 @@ const ModalUpgradePlan = () => {
         type: "success",
         icon: BadgeCheck,
       });
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 600);
     } catch (error) {
       console.error("Upgrade plan error:", error);
       showToast({
