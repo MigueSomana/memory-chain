@@ -4489,7 +4489,7 @@ textarea.form-control.mcProfileTextarea {
 .mcToast--success .mcToastIcon {
   background: rgba(32, 201, 151, 0.16);
   border-color: rgba(32, 201, 151, 0.28);
-  fill: var(--mc-green);
+  fill: var(--mc-green) !important;
 }
 
 .mcToast--info {
@@ -4498,7 +4498,7 @@ textarea.form-control.mcProfileTextarea {
 .mcToast--info .mcToastIcon {
   background: rgba(99, 179, 237, 0.14);
   border-color: rgba(99, 179, 237, 0.25);
-  fill: rgba(99, 179, 237, 0.25);
+  fill: rgba(99, 179, 237, 0.25) !important;
 }
 
 .mcToast--warning {
@@ -4507,7 +4507,7 @@ textarea.form-control.mcProfileTextarea {
 .mcToast--warning .mcToastIcon {
   background: rgba(245, 158, 11, 0.14);
   border-color: rgba(245, 158, 11, 0.25);
-  fill: var(--mc-yellow)
+  fill: var(--mc-yellow) !important;
 }
 
 .mcToast--danger {
@@ -4516,7 +4516,7 @@ textarea.form-control.mcProfileTextarea {
 .mcToast--danger .mcToastIcon {
   background: rgba(239, 68, 68, 0.14);
   border-color: rgba(239, 68, 68, 0.25);
-  fill: var(--mc-red);
+  fill: var(--mc-red) !important;
 }
 
 /* Close opcional */
