@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import img404 from "../../assets/404.svg";
+import img404 from "../../assets/img404.gif";
 
 const NotFound = () => {
   const navigate = useNavigate();
