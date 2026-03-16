@@ -241,7 +241,6 @@ function ModalViewInstitution({ institution }) {
             "No se pudo obtener students count desde endpoint específico, intentando fallback general:",
             e,
           );
-          // seguimos a fallback
         }
 
         // 2) Fallback general: /api/users (si existe)
@@ -324,7 +323,6 @@ function ModalViewInstitution({ institution }) {
               </div>
 
               <div className="mcPanelHeadRight d-flex align-items-center gap-2">
-                {/* ✅ membership como dashboard (robusto) */}
                 <MemberPill isMember={isMember} />
               </div>
             </div>
@@ -368,12 +366,18 @@ function ModalViewInstitution({ institution }) {
                     </div>
 
                     {departments.length ? (
-                      <div className="mcSheetChips pt-2">
-                        {departments.map((d) => (
-                          <span key={d} className="mcSheetChip">
-                            {d}
-                          </span>
-                        ))}
+                      <div className="mcSheetChipsWrap pt-2">
+                        <div className="mcSheetChips mcSheetChips--scroll">
+                          {departments.map((d, idx) => (
+                            <span
+                              key={`${d}-${idx}`}
+                              className="mcSheetChip"
+                              title={d}
+                            >
+                              {d}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     ) : (
                       <div className="mcSheetMuted">—</div>

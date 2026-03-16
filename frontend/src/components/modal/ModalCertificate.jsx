@@ -292,7 +292,7 @@ function ModalCertificate({ thesis, certificate }) {
       });
 
       const APP_URL = import.meta.env.VITE_APP_URL || window.location.origin;
-      const verificationUrl = `${APP_URL}/verify/${thesis._id}`;
+      const verificationUrl = `https://memory-chain.netlify.app/verify/${thesis._id}`;
 
       const qr = await QRCode.toDataURL(verificationUrl, {
         errorCorrectionLevel: "M",

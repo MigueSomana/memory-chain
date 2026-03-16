@@ -60,7 +60,10 @@ const STATUS_CHANGE_OPTIONS = [
 
 // ===================== HELPERS =====================
 const safeStr = (v) => String(v ?? "").trim();
-const normalizeStatus = (s) => String(s || "").trim().toUpperCase();
+const normalizeStatus = (s) =>
+  String(s || "")
+    .trim()
+    .toUpperCase();
 const words = (s) =>
   String(s || "")
     .trim()
@@ -162,7 +165,9 @@ const statusLabelForToast = (s) => {
 // ✅ actualiza educationalEmails en memoria para que el modal refresque
 function patchEducationalEmails(userObj, institutionId, nextStatus) {
   const u = userObj || {};
-  const edu = Array.isArray(u.educationalEmails) ? [...u.educationalEmails] : [];
+  const edu = Array.isArray(u.educationalEmails)
+    ? [...u.educationalEmails]
+    : [];
 
   const idx = edu.findIndex((e) => {
     const instId = getAnyId(e?.institution);
@@ -172,7 +177,10 @@ function patchEducationalEmails(userObj, institutionId, nextStatus) {
   if (idx >= 0) {
     edu[idx] = { ...edu[idx], status: normalizeStatus(nextStatus) };
   } else {
-    edu.push({ institution: institutionId, status: normalizeStatus(nextStatus) });
+    edu.push({
+      institution: institutionId,
+      status: normalizeStatus(nextStatus),
+    });
   }
 
   return { ...u, educationalEmails: edu };
@@ -297,7 +305,9 @@ const MembersSearch = () => {
       if (!prev) return prev;
       const pid = String(getUserId(prev) ?? "");
       if (!pid) return prev;
-      const fresh = filteredMembers.find((m) => String(getUserId(m) ?? "") === pid);
+      const fresh = filteredMembers.find(
+        (m) => String(getUserId(m) ?? "") === pid,
+      );
       return fresh || prev;
     });
   }, [token, institutionId]);
@@ -369,10 +379,14 @@ const MembersSearch = () => {
 
         const headers = { Authorization: `Bearer ${token}` };
 
-        const usersRes = await axios.get(`${API_BASE_URL}/api/users`, { headers });
+        const usersRes = await axios.get(`${API_BASE_URL}/api/users`, {
+          headers,
+        });
         const usersData = Array.isArray(usersRes.data) ? usersRes.data : [];
 
-        const thesesRes = await axios.get(`${API_BASE_URL}/api/theses`, { headers });
+        const thesesRes = await axios.get(`${API_BASE_URL}/api/theses`, {
+          headers,
+        });
         const thesesData = Array.isArray(thesesRes.data) ? thesesRes.data : [];
         setTheses(thesesData);
 
@@ -486,7 +500,9 @@ const MembersSearch = () => {
       if (!canVerify) return;
 
       const uid = String(userId || "");
-      const prevMember = members.find((m) => String(getUserId(m) || "") === uid);
+      const prevMember = members.find(
+        (m) => String(getUserId(m) || "") === uid,
+      );
       const prevStatus = prevMember?.__memberStatus || "PENDING";
 
       // ✅ Optimistic update
@@ -524,7 +540,11 @@ const MembersSearch = () => {
           prev.map((u) => {
             const id = String(getUserId(u) || "");
             if (id !== uid) return u;
-            const patched = patchEducationalEmails(u, institutionId, updatedStatus);
+            const patched = patchEducationalEmails(
+              u,
+              institutionId,
+              updatedStatus,
+            );
             return { ...patched, __memberStatus: updatedStatus };
           }),
         );
@@ -533,7 +553,11 @@ const MembersSearch = () => {
           if (!prev) return prev;
           const pid = String(getUserId(prev) || "");
           if (pid !== uid) return prev;
-          const patched = patchEducationalEmails(prev, institutionId, updatedStatus);
+          const patched = patchEducationalEmails(
+            prev,
+            institutionId,
+            updatedStatus,
+          );
           return { ...patched, __memberStatus: updatedStatus };
         });
 
@@ -615,18 +639,38 @@ const MembersSearch = () => {
 
         <div className="mb-3">
           {canVerify ? (
-            <div className="alert border-0 mcDashBanner mcDashBanner--ok" role="alert">
+            <div
+              className="alert border-0 d-flex align-items-center mcDashBanner mcDashBanner--ok"
+              role="alert"
+            >
               <span className="mx-2">
                 <BadgeCheck />
               </span>
-              Your institution is <strong>verified</strong>. You can manage member roles.
+              Your institution is <strong className="mx-1">verified</strong>.
+              You can manage member roles.
             </div>
           ) : (
-            <div className="alert border-0 mcDashBanner mcDashBanner--bad" role="alert">
-              <span className="mx-2">
-                <OctagonAlert />
-              </span>
-              Your institution is <strong>not verified</strong>. You can’t modify member roles.
+            <div
+              className="alert border-0 d-flex align-items-center justify-content-between mcDashBanner mcDashBanner--bad"
+              role="alert"
+            >
+              <div className="d-flex align-items-center">
+                <span className="mx-2">
+                  <OctagonAlert />
+                </span>
+                Your institution is{" "}
+                <strong className="mx-1">not verified</strong>. You can’t modify
+                member roles.
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-memory"
+                data-bs-toggle="modal"
+                data-bs-target="#modalUpgradePlan"
+              >
+                Upgrade Plan
+              </button>
             </div>
           )}
         </div>
@@ -680,7 +724,9 @@ const MembersSearch = () => {
               <span className="mcSortIcon" aria-hidden="true">
                 {activeSortOption.icon}
               </span>
-              <span className="mcSortLabelDesktop">{activeSortOption.label}</span>
+              <span className="mcSortLabelDesktop">
+                {activeSortOption.label}
+              </span>
             </button>
 
             <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
@@ -714,7 +760,9 @@ const MembersSearch = () => {
               <span className="mcSortIcon" aria-hidden="true">
                 <Funnel size={18} />
               </span>
-              <span className="mcSortLabelDesktop">Filter: {statusFilterLabel}</span>
+              <span className="mcSortLabelDesktop">
+                Filter: {statusFilterLabel}
+              </span>
             </button>
 
             <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
@@ -814,7 +862,10 @@ const MembersSearch = () => {
                             <span className="mcMetaText">{uid || "—"}</span>
                           </div>
 
-                          <div className="mcCardAuthors mcMetaRow" title={email}>
+                          <div
+                            className="mcCardAuthors mcMetaRow"
+                            title={email}
+                          >
                             <span className="mcMetaIcon" aria-hidden="true">
                               <Mail size={18} />
                             </span>
@@ -858,7 +909,10 @@ const MembersSearch = () => {
                               title="Change status"
                             >
                               <StatusIcon size={18} />
-                              <span className="mcStatusChipCaret" aria-hidden="true">
+                              <span
+                                className="mcStatusChipCaret"
+                                aria-hidden="true"
+                              >
                                 <ChevronDown size={16} />
                               </span>
                             </button>
@@ -866,7 +920,8 @@ const MembersSearch = () => {
                             <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
                               {STATUS_CHANGE_OPTIONS.map((opt) => {
                                 const isCurrent =
-                                  normalizeStatus(opt.key) === normalizeStatus(rawStatus);
+                                  normalizeStatus(opt.key) ===
+                                  normalizeStatus(rawStatus);
 
                                 return (
                                   <li key={opt.key}>
@@ -874,7 +929,11 @@ const MembersSearch = () => {
                                       type="button"
                                       className={`dropdown-item ${isCurrent ? "active" : ""}`}
                                       onClick={(e) =>
-                                        handleChangeMemberStatus(e, uid, opt.key)
+                                        handleChangeMemberStatus(
+                                          e,
+                                          uid,
+                                          opt.key,
+                                        )
                                       }
                                       disabled={isCurrent}
                                     >
@@ -893,7 +952,9 @@ const MembersSearch = () => {
               );
             })}
 
-            {pageItems.length === 0 && <div className="mcMuted">No members found.</div>}
+            {pageItems.length === 0 && (
+              <div className="mcMuted">No members found.</div>
+            )}
           </div>
 
           <div className="mcPager">

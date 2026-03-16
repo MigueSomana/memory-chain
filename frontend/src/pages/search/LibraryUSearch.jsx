@@ -225,7 +225,9 @@ const LibraryUSearch = () => {
           return;
         }
 
-        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        const headers = token
+          ? { Authorization: `Bearer ${token}` }
+          : undefined;
 
         const res = await axios.get(
           `${API_BASE_URL}/api/theses/institution/${authInst._id}`,
@@ -274,7 +276,8 @@ const LibraryUSearch = () => {
         degree.includes(q) ||
         fileHash.includes(q);
 
-      const matchesStatus = selectedStatus === "ALL" || status === selectedStatus;
+      const matchesStatus =
+        selectedStatus === "ALL" || status === selectedStatus;
 
       return matchesQ && matchesStatus;
     });
@@ -320,11 +323,10 @@ const LibraryUSearch = () => {
   const start = (currentPage - 1) * pageSize;
   const end = start + pageSize;
 
-  const pageItems = useMemo(() => filteredOrdered.slice(start, end), [
-    filteredOrdered,
-    start,
-    end,
-  ]);
+  const pageItems = useMemo(
+    () => filteredOrdered.slice(start, end),
+    [filteredOrdered, start, end],
+  );
 
   const pagesArray = useMemo(
     () => Array.from({ length: totalPages }, (_, i) => i + 1),
@@ -431,7 +433,9 @@ const LibraryUSearch = () => {
   // ✅ quotes (endpoint real público)
   const handleAddQuote = async (thesisId) => {
     try {
-      const res = await axios.post(`${API_BASE_URL}/api/theses/${thesisId}/quote`);
+      const res = await axios.post(
+        `${API_BASE_URL}/api/theses/${thesisId}/quote`,
+      );
 
       const updated = res?.data?.thesis || res?.data || null;
       const newQuotes = Number(
@@ -559,12 +563,27 @@ const LibraryUSearch = () => {
 
       <div className="mcExploreContainer">
         {!canVerify && (
-          <div className="alert border-0 mcDashBanner mcDashBanner--bad" role="alert">
-            <span className="mx-2">
-              <OctagonAlert />
-            </span>
-            Your membership is <strong>inactive</strong>. Please activate your membership to
-            certify theses of your institution
+          <div
+            className="alert border-0 d-flex align-items-center justify-content-between mcDashBanner mcDashBanner--bad"
+            role="alert"
+          >
+            <div className="d-flex align-items-center">
+              <span className="mx-2">
+                <OctagonAlert />
+              </span>
+              Your membership is <strong className="mx-1">inactive</strong>.
+              Please activate your membership to certify theses of your
+              institution.
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-memory"
+              data-bs-toggle="modal"
+              data-bs-target="#modalUpgradePlan"
+            >
+              Upgrade Plan
+            </button>
           </div>
         )}
 
@@ -616,7 +635,9 @@ const LibraryUSearch = () => {
               <span className="mcSortIcon" aria-hidden="true">
                 {activeSortOption.icon}
               </span>
-              <span className="mcSortLabelDesktop">{activeSortOption.label}</span>
+              <span className="mcSortLabelDesktop">
+                {activeSortOption.label}
+              </span>
             </button>
 
             <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
@@ -648,7 +669,9 @@ const LibraryUSearch = () => {
               <span className="mcSortIcon" aria-hidden="true">
                 <Funnel size={18} />
               </span>
-              <span className="mcSortLabelDesktop">Filter: {statusFilterLabel}</span>
+              <span className="mcSortLabelDesktop">
+                Filter: {statusFilterLabel}
+              </span>
             </button>
 
             <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
@@ -710,7 +733,9 @@ const LibraryUSearch = () => {
                       </span>
                     </div>
 
-                    <div className="mcYear">{Number.isNaN(year) ? "—" : year}</div>
+                    <div className="mcYear">
+                      {Number.isNaN(year) ? "—" : year}
+                    </div>
                   </div>
 
                   <div className="mcCardBody">
@@ -718,7 +743,10 @@ const LibraryUSearch = () => {
                       {t.title}
                     </h3>
 
-                    <div className="mcCardAuthors mcMetaRow" title={authorsText}>
+                    <div
+                      className="mcCardAuthors mcMetaRow"
+                      title={authorsText}
+                    >
                       <span className="mcMetaIcon" aria-hidden="true">
                         <UserPen size={18} />
                       </span>
@@ -741,7 +769,10 @@ const LibraryUSearch = () => {
                       </div>
                     </div>
 
-                    <div className="mcHashCopyWrap mt-3 mb-3" title={fileHash || ""}>
+                    <div
+                      className="mcHashCopyWrap mt-3 mb-3"
+                      title={fileHash || ""}
+                    >
                       <span className="mcHashPrefix">
                         <FingerprintPattern size={18} />
                       </span>
@@ -768,7 +799,11 @@ const LibraryUSearch = () => {
                         onClick={() => handleCopyHash(t._id, fileHash)}
                         disabled={!fileHash}
                       >
-                        {copiedId === String(t._id) ? <Check size={16} /> : <Copy size={16} />}
+                        {copiedId === String(t._id) ? (
+                          <Check size={16} />
+                        ) : (
+                          <Copy size={16} />
+                        )}
                       </button>
                     </div>
 
@@ -780,7 +815,10 @@ const LibraryUSearch = () => {
                           title="Add quote"
                           onClick={() => handleAddQuote(t._id)}
                         >
-                          <span className="mcMetricIcon fix1" aria-hidden="true">
+                          <span
+                            className="mcMetricIcon fix1"
+                            aria-hidden="true"
+                          >
                             <TextQuote size={18} />
                           </span>
                           <span className="mcMetricVal">{quotesCount}</span>
@@ -788,7 +826,10 @@ const LibraryUSearch = () => {
                         </button>
 
                         <span className="mcMetric">
-                          <span className="mcMetricIcon fix1" aria-hidden="true">
+                          <span
+                            className="mcMetricIcon fix1"
+                            aria-hidden="true"
+                          >
                             <Heart size={18} />
                           </span>
                           <span className="mcMetricVal">{likesCount}</span>
@@ -815,14 +856,19 @@ const LibraryUSearch = () => {
                               }`}
                               data-bs-toggle={locked ? undefined : "dropdown"}
                               aria-expanded="false"
-                              title={locked ? "Open certificate" : "Change status"}
+                              title={
+                                locked ? "Open certificate" : "Change status"
+                              }
                               onClick={() => {
                                 if (locked) handleCertificate(t);
                               }}
                             >
                               <StatusIcon size={18} />
                               {!locked && (
-                                <span className="mcStatusChipCaret" aria-hidden="true">
+                                <span
+                                  className="mcStatusChipCaret"
+                                  aria-hidden="true"
+                                >
                                   <ChevronDown size={16} />
                                 </span>
                               )}
@@ -832,14 +878,17 @@ const LibraryUSearch = () => {
                               <ul className="dropdown-menu dropdown-menu-end mcDropdownMenu">
                                 {STATUS_CHANGE_OPTIONS.map((opt) => {
                                   const isCurrent =
-                                    normalizeStatus(opt.key) === normalizeStatus(t.status);
+                                    normalizeStatus(opt.key) ===
+                                    normalizeStatus(t.status);
 
                                   return (
                                     <li key={opt.key}>
                                       <button
                                         type="button"
                                         className={`dropdown-item ${isCurrent ? "active" : ""}`}
-                                        onClick={() => handleChangeStatus(t._id, opt.key)}
+                                        onClick={() =>
+                                          handleChangeStatus(t._id, opt.key)
+                                        }
                                         disabled={isCurrent}
                                       >
                                         {opt.label}
@@ -858,7 +907,9 @@ const LibraryUSearch = () => {
               );
             })}
 
-            {pageItems.length === 0 && <div className="mcMuted">No theses found.</div>}
+            {pageItems.length === 0 && (
+              <div className="mcMuted">No theses found.</div>
+            )}
           </div>
 
           <div className="mcPager">

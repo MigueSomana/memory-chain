@@ -54,7 +54,7 @@ const ModalRegisterInstitution = ({
 }) => {
   const { showToast } = useToast();
 
-  // ✅ SOLO campos permitidos
+  // SOLO campos permitidos
   const [name, setName] = useState("");
   const [country, setCountry] = useState(""); // Address
   const [email, setEmail] = useState("");

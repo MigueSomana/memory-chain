@@ -36,18 +36,18 @@ const ModalSignOut = () => {
 
     const modalEl = document.getElementById(MODAL_ID);
 
-    // ✅ limpia sesión primero
+    // limpia sesión primero
     clearAuthSession();
 
-    // ✅ toast inmediato (se ve antes de navegar)
+    // toast inmediato (se ve antes de navegar)
     showToast({
-      message: "Session closed successfully 👋",
+      message: "Session closed successfully",
       type: "success",
       icon: CheckCircle2,
       duration: 1600,
     });
 
-    // ✅ navegación fluida al cerrar modal
+    // navegación fluida al cerrar modal
     if (modalEl) {
       const onHidden = () => {
         modalEl.removeEventListener("hidden.bs.modal", onHidden);

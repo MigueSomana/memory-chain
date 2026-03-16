@@ -1,15 +1,16 @@
-import React from 'react'
-import ModalLogIn from './ModalLogIn'
-import ModalSignOut from './ModalSignOut'
+import React from "react";
+import ModalLogIn from "./ModalLogIn";
+import ModalSignOut from "./ModalSignOut";
+import ModalUpgradePlan from "./ModalUpgradePlan";
 
-// Clase Modal que engloba todos los modales de autenticación
 const Modal = () => {
   return (
     <>
-    <ModalLogIn />
-    <ModalSignOut />
+      <ModalLogIn />
+      <ModalSignOut />
+      <ModalUpgradePlan />
     </>
-  )
-}
+  );
+};
 
-export default Modal
+export default Modal;

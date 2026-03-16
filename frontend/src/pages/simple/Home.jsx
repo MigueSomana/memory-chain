@@ -20,6 +20,9 @@ import {
   CircleX,
   UserRound,
   LogIn,
+  Wallet,
+  Database,
+  Blocks,
 } from "lucide-react";
 import Logo from "../../assets/logo.png";
 import {
@@ -33,7 +36,7 @@ import ModalLogin from "../../components/modal/ModalLogIn";
 import ModalRegister from "../../components/modal/ModalRegister";
 import ModalRegisterInstitution from "../../components/modal/ModalRegisterInstitution";
 
-// ✅ VERIFY (ajusta ruta si hace falta)
+// ✅ VERIFY
 import Verify from "../simple/Verify";
 
 const Home = () => {
@@ -41,15 +44,12 @@ const Home = () => {
 
   const [isLogged, setIsLogged] = useState(false);
   const [actor, setActor] = useState(null);
-
-  // ✅ opcional: prefill del email cuando vuelves a login tras register
   const [prefillEmail, setPrefillEmail] = useState("");
 
   useEffect(() => {
     const t = getAuthToken();
     const a = getAuthActor();
 
-    // mismo criterio que NavbarInit
     if (t && !a) {
       clearAuthSession();
       setIsLogged(false);
@@ -81,12 +81,10 @@ const Home = () => {
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  // ✅ helper para abrir modales Bootstrap (patrón consistente)
   const openBsModal = (id) => {
     const el = document.getElementById(id);
     if (!el) return;
 
-    // ✅ si hay algún modal abierto, ciérralo antes
     const anyOpen = document.querySelector(".modal.show");
     if (anyOpen && anyOpen.id !== id) {
       const openInst = window.bootstrap?.Modal?.getInstance(anyOpen);
@@ -116,7 +114,6 @@ const Home = () => {
     openBsModal("modalVerify");
   };
 
-  // ✅ icono dinámico según estado
   const LoginIcon = isLogged ? UserRound : LogIn;
 
   return (
@@ -149,9 +146,8 @@ const Home = () => {
           </nav>
 
           <div className="mcHomeNavRight d-flex align-items-center gap-2">
-          
             {isLogged ? (
-              <Link to={profileHref} className="btn btn-memory mcHomeLoginBtn ">
+              <Link to={profileHref} className="btn btn-memory mcHomeLoginBtn">
                 <LoginIcon size={16} className="mx-1" />
                 Profile
               </Link>
@@ -161,9 +157,8 @@ const Home = () => {
                 className="btn btn-memory mcHomeLoginBtn"
                 onClick={onClickLogin}
               >
-                
                 Login
-                <LoginIcon size={16} className="mx-1"/>
+                <LoginIcon size={16} className="mx-1" />
               </button>
             )}
           </div>
@@ -178,18 +173,19 @@ const Home = () => {
             <span className="mcHomePillIcon">
               <ShieldCheck size={14} />
             </span>
-            <span>Blockchain-Powered Academic Verification</span>
+            <span>Blockchain-Powered Thesis Publication & Verification</span>
           </div>
 
           <h1 className="mcHomeHeroTitle">
-            <span className="mcHomeHeroTitleTop">The Future of</span>{" "}
-            <span className="mcHomeHeroTitleAccent">Academic Integrity</span>
+            <span className="mcHomeHeroTitleTop">Protect, Certify and</span>{" "}
+            <span className="mcHomeHeroTitleAccent">Preserve Academic Research</span>
           </h1>
 
           <p className="mcHomeHeroSub">
-            Memory-Chain certifies, verifies, and preserves academic research on
-            the blockchain — ensuring your work is tamper-proof and globally
-            recognized.
+            Memory-Chain is a web platform for thesis publication,
+            institutional certification, and public verification, combining
+            blockchain, decentralized storage, and cryptographic integrity to
+            strengthen academic trust.
           </p>
 
           <div className="mcHomeHeroActions">
@@ -212,16 +208,16 @@ const Home = () => {
 
           <div className="mcHomeStats">
             <div className="mcHomeStat">
-              <div className="mcHomeStatValue">12K+</div>
-              <div className="mcHomeStatLabel">Theses Verified</div>
+              <div className="mcHomeStatValue">Web2 + Web3</div>
+              <div className="mcHomeStatLabel">Hybrid Architecture</div>
             </div>
             <div className="mcHomeStat">
-              <div className="mcHomeStatValue">150+</div>
-              <div className="mcHomeStatLabel">Institutions</div>
+              <div className="mcHomeStatValue">IPFS + Polygon</div>
+              <div className="mcHomeStatLabel">Decentralized Stack</div>
             </div>
             <div className="mcHomeStat">
-              <div className="mcHomeStatValue">99.9%</div>
-              <div className="mcHomeStatLabel">Uptime</div>
+              <div className="mcHomeStatValue">Public</div>
+              <div className="mcHomeStatLabel">Open Verification</div>
             </div>
           </div>
         </div>
@@ -235,15 +231,18 @@ const Home = () => {
             How <span className="mcHomeAccent">Memory-Chain</span> Works
           </h2>
           <p className="mcHomeLead">
-            Watch how institutions and researchers use our platform to certify
-            and verify academic work.
+            A complete flow for publishing theses, generating cryptographic
+            evidence, issuing institutional certification, and enabling public
+            verification.
           </p>
 
           <div className="mcHomeVideoCard">
             <button type="button" className="mcHomePlayBtn" aria-label="Play">
               <Play size={18} />
             </button>
-            <div className="mcHomeVideoCaption">Platform Demo — Coming Soon</div>
+            <div className="mcHomeVideoCaption">
+              Platform Demo — Coming Soon
+            </div>
           </div>
         </div>
       </section>
@@ -253,40 +252,39 @@ const Home = () => {
         <div className="mcHomeSectionInner">
           <div className="mcHomeKicker">PLATFORM FEATURES</div>
           <h2 className="mcHomeH2">
-            Everything You Need for{" "}
-            <span className="mcHomeAccent">Academic Trust</span>
+            Built for <span className="mcHomeAccent">Academic Trust</span>
           </h2>
 
           <div className="mcHomeGrid3">
             <FeatureCard
               icon={Fingerprint}
               title="Blockchain Certification"
-              desc="Each thesis is hashed and recorded on-chain, creating an immutable proof of authenticity."
+              desc="Each certified thesis is linked to an immutable on-chain record through its cryptographic hash."
+            />
+            <FeatureCard
+              icon={Database}
+              title="Decentralized Preservation"
+              desc="Documents are stored through decentralized infrastructure to improve integrity, traceability, and long-term access."
             />
             <FeatureCard
               icon={ShieldCheck}
-              title="Instant Verification"
-              desc="Verify any document in seconds using its unique hash — no account required."
+              title="Public Verification"
+              desc="Anyone can verify the authenticity of a thesis by comparing its document fingerprint against the registered evidence."
             />
             <FeatureCard
               icon={Building2}
-              title="Institutional Management"
-              desc="Universities manage members, approve submissions, and track certifications from one dashboard."
-            />
-            <FeatureCard
-              icon={Search}
-              title="Academic Discovery"
-              desc="Explore a global repository of verified theses across institutions and disciplines."
+              title="Institutional Workflow"
+              desc="Institutions can review, certify, and manage academic submissions from a dedicated dashboard."
             />
             <FeatureCard
               icon={Users}
-              title="Member Governance"
-              desc="Approve or reject researchers, assign roles, and maintain institutional standards."
+              title="Member Management"
+              desc="Approve researchers, manage institutional members, and maintain academic standards across the platform."
             />
             <FeatureCard
-              icon={Lock}
-              title="Tamper-Proof Records"
-              desc="Once certified, records cannot be altered, ensuring lifelong document integrity."
+              icon={Wallet}
+              title="Institutional Wallet"
+              desc="Paid institutional plans unlock wallet-based certification capabilities for blockchain-backed validation."
             />
           </div>
         </div>
@@ -297,29 +295,29 @@ const Home = () => {
         <div className="mcHomeSectionInner">
           <div className="mcHomeKicker">HOW IT WORKS</div>
           <h2 className="mcHomeH2">
-            Verification in <span className="mcHomeAccent">4 Simple</span> Steps
+            Verification in <span className="mcHomeAccent">4 Steps</span>
           </h2>
 
           <div className="mcHomeSteps">
             <StepCard
               n="01"
-              title="Upload Document"
-              desc="Submit your thesis file to generate a unique cryptographic hash."
+              title="Publish Thesis"
+              desc="The author uploads the thesis and its metadata into the platform."
             />
             <StepCard
               n="02"
-              title="Institutional Review"
-              desc="Your institution reviews and approves the submission."
+              title="Generate Integrity Evidence"
+              desc="A cryptographic hash is created as a unique fingerprint of the uploaded document."
             />
             <StepCard
               n="03"
-              title="On-Chain Certification"
-              desc="The hash is recorded on the blockchain with a timestamp."
+              title="Institutional Certification"
+              desc="The institution validates the thesis and registers the certification through blockchain-enabled workflow."
             />
             <StepCard
               n="04"
-              title="Public Verification"
-              desc="Anyone can verify the document's authenticity instantly."
+              title="Open Verification"
+              desc="The public can verify authenticity and detect alterations through the registered evidence."
             />
           </div>
 
@@ -341,24 +339,24 @@ const Home = () => {
         <div className="mcHomeSectionInner">
           <div className="mcHomeKicker">PRICING</div>
           <h2 className="mcHomeH2">
-            Plans That <span className="mcHomeAccent">Scale</span> With You
+            Institutional Plans That <span className="mcHomeAccent">Scale</span>
           </h2>
           <p className="mcHomeLead">
-            From individual researchers to large institutions — choose the plan
-            that fits your needs.
+            Authors publish under a free plan, while institutions unlock
+            certification capacity based on their verification volume.
           </p>
 
           <div className="mcHomePricing">
             <PriceCard
               title="Researcher"
-              subtitle="For individual academics"
+              subtitle="For authors and academic researchers"
               price="Free"
               priceNote=""
               bullets={[
-                "Up to 3 thesis uploads",
-                "Public verification link",
-                "Basic academic profile",
-                "Community support",
+                "Register and publish theses",
+                "Public consultation and verification",
+                "Personal academic profile",
+                "Access to the platform at no cost",
               ]}
               cta="Get Started Free"
               variant="ghost"
@@ -366,71 +364,71 @@ const Home = () => {
             />
 
             <PriceCard
-              title="Institution"
-              subtitle="For universities & labs"
+              title="Institution Basic"
+              subtitle="For universities with standard certification needs"
               price="$99"
               priceNote="/month"
               badge="MOST POPULAR"
               bullets={[
-                "Unlimited thesis uploads",
-                "Member management dashboard",
-                "Institutional branding",
-                "Batch certification",
-                "Analytics & reporting",
-                "Priority support",
+                "Blockchain certification enabled",
+                "Academic metrics",
+                "Institutional wallet",
+                "Member management",
+                "Up to 1,500 verifiable theses per year",
+                "Standard technical support",
               ]}
-              cta="Start Free Trial"
+              cta="Upgrade to Basic"
               variant="primary"
               onCta={goGetStarted}
             />
 
             <PriceCard
-              title="Enterprise"
-              subtitle="For consortiums & networks"
-              price="Custom"
-              priceNote=""
+              title="Institution Pro"
+              subtitle="For institutions with higher certification demand"
+              price="$249"
+              priceNote="/month"
               bullets={[
-                "Everything in Institution",
-                "Multi-campus deployment",
-                "Custom API integrations",
-                "SLA & dedicated account manager",
-                "White-label options",
-                "On-premise available",
+                "Blockchain certification enabled",
+                "Academic metrics",
+                "Institutional wallet",
+                "Member management",
+                "More than 1,500 verifiable theses per year",
+                "Priority technical support",
               ]}
-              cta="Contact Sales"
+              cta="Upgrade to Pro"
               variant="ghost"
-              disabled
+              onCta={goGetStarted}
             />
           </div>
 
           <h3 className="mcHomeH3">
-            Power-Up With <span className="mcHomeAccent">Add-ons</span>
+            Add-ons for <span className="mcHomeAccent">Peak Demand</span>
           </h3>
 
           <div className="mcHomeAddons">
             <AddonCard
+              icon={Blocks}
+              price="$29"
+              title="Extra Certification Package"
+              desc="Add 1,000 extra certifications for institutions that need additional verification capacity."
+            />
+            <AddonCard
               icon={BarChart3}
-              price="$29/mo"
-              title="Advanced Analytics"
-              desc="Deep insights into verification trends & institutional metrics."
+              price="Included in paid plans"
+              title="Academic Metrics"
+              desc="Track certification activity and institutional usage with integrated academic metrics."
+            />
+            <AddonCard
+              icon={Wallet}
+              price="Included in paid plans"
+              title="Institutional Wallet"
+              desc="Enable the wallet layer required for institution-driven certification workflows."
             />
             <AddonCard
               icon={Globe}
-              price="$49/mo"
-              title="API Access"
-              desc="RESTful API to integrate Memory-Chain into your existing systems."
-            />
-            <AddonCard
-              icon={BookOpen}
-              price="$19/mo"
-              title="Bulk Certification"
-              desc="Certify up to 500 theses per batch with automated workflows."
-            />
-            <AddonCard
-              icon={Lock}
-              price="$39/mo"
-              title="Private Repository"
-              desc="Keep theses private with restricted access and embargo periods."
+              price="Included platform feature"
+              title="Public Verification"
+              desc="Keep consultation and verification accessible through an open and transparent experience."
             />
           </div>
         </div>
@@ -441,27 +439,28 @@ const Home = () => {
         <div className="mcHomeSectionInner">
           <div className="mcHomeKicker">BUILT FOR YOU</div>
           <h2 className="mcHomeH2">
-            One Platform, <span className="mcHomeAccent">Two Missions</span>
+            One Platform, <span className="mcHomeAccent">Two Core Roles</span>
           </h2>
           <p className="mcHomeLead">
-            Whether you're an institution seeking to modernize certification or a
-            researcher protecting your life's work.
+            Memory-Chain supports both the author who wants to protect academic
+            authorship and the institution that needs a trustworthy certification
+            workflow.
           </p>
 
           <div className="mcHomeTwoCols">
             <MissionCard
               icon={FileCheck2}
               title="For Institutions"
-              subtitle="Enterprise-grade academic infrastructure"
+              subtitle="Certification, governance, and academic trust"
               bullets={[
-                "Automated thesis certification pipeline",
-                "Real-time member & submission management",
-                "Institutional analytics & reporting dashboard",
-                "API integration with existing systems",
-                "White-label deployment options",
-                "Dedicated institutional support",
+                "Institutional review and certification workflow",
+                "Member approval and internal governance",
+                "Academic metrics and traceability",
+                "Institutional wallet support",
+                "Scalable certification capacity",
+                "Standard or priority support depending on plan",
               ]}
-              cta="Request Institutional Demo"
+              cta="Start as Institution"
               variant="primary"
               onCta={goGetStarted}
             />
@@ -469,14 +468,14 @@ const Home = () => {
             <MissionCard
               icon={GraduationCap}
               title="For Researchers"
-              subtitle="Your work, permanently verified"
+              subtitle="Publication, visibility, and proof of integrity"
               bullets={[
-                "Permanent proof of your research work",
-                "Global visibility across institutions",
-                "One-click verification sharing",
-                "Build your verified academic portfolio",
-                "Cross-institutional recognition",
-                "Free document verification forever",
+                "Publish theses on a dedicated platform",
+                "Preserve authorship through document fingerprinting",
+                "Allow public consultation and verification",
+                "Build a visible academic profile",
+                "Access core functions under the free plan",
+                "Protect research against unnoticed alteration",
               ]}
               cta="Create Free Account"
               variant="ghost"
@@ -494,9 +493,28 @@ const Home = () => {
             About <span className="mcHomeAccent">Memory-Chain</span>
           </h2>
           <p className="mcHomeLead">
-            A platform built to protect academic integrity through verifiable,
-            tamper-proof certification and global discovery.
+            Memory-Chain is a hybrid academic platform designed to modernize
+            thesis management through publication, institutional certification,
+            public verification, and decentralized preservation of knowledge.
           </p>
+
+          <div className="mcHomeGrid3">
+            <FeatureCard
+              icon={BookOpen}
+              title="Academic Integrity"
+              desc="Protects thesis authenticity and strengthens trust in academic production."
+            />
+            <FeatureCard
+              icon={Search}
+              title="Traceability"
+              desc="Connects metadata, cryptographic evidence, and verification flow in a single ecosystem."
+            />
+            <FeatureCard
+              icon={Lock}
+              title="Tamper Detection"
+              desc="Makes document alterations detectable through hash comparison and immutable certification evidence."
+            />
+          </div>
         </div>
       </section>
 
@@ -506,21 +524,22 @@ const Home = () => {
           <div className="mcHomeFinalIcon">
             <LayoutGrid size={22} />
           </div>
-          <h2 className="mcHomeFinalTitle">Ready to Secure Your Research?</h2>
+          <h2 className="mcHomeFinalTitle">
+            Ready to Modernize Thesis Certification?
+          </h2>
           <p className="mcHomeFinalSub">
-            Join hundreds of institutions and thousands of researchers who trust
-            Memory-Chain for academic verification.
+            Publish, certify, verify, and preserve academic work with a platform
+            designed for integrity, traceability, and institutional trust.
           </p>
           <button
             type="button"
             className="btn btn-memory mcHomeFinalBtn"
             onClick={goGetStarted}
           >
-            Start Now — It's Free <ArrowRight size={16} />
+            Start Now <ArrowRight size={16} />
           </button>
         </div>
 
-        {/* ✅ FOOTER sin tabs/links, con logo */}
         <footer className="mcHomeFooter">
           <div className="mcHomeFooterInner">
             <div className="mcHomeFooterBrand">
@@ -538,7 +557,7 @@ const Home = () => {
         </footer>
       </section>
 
-      {/* ✅ AUTH MODALS */}
+      {/* AUTH MODALS */}
       <ModalLogin
         modalId="modalLogin"
         registerModalId="registerModal"
@@ -557,7 +576,6 @@ const Home = () => {
         userRegisterModalId="registerModal"
       />
 
-      {/* ✅ VERIFY MODAL (minimal like login) */}
       <ModalVerify modalId="modalVerify" />
     </div>
   );
