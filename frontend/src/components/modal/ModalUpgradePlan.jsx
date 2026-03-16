@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import axios from "axios";
 import {
   Crown,
@@ -29,9 +29,9 @@ function hideModal(id) {
   const el = document.getElementById(id);
   if (!el) return false;
 
-  const inst = window.bootstrap?.Modal?.getInstance(el);
-  if (inst) {
-    inst.hide();
+  const instance = window.bootstrap?.Modal?.getInstance(el);
+  if (instance) {
+    instance.hide();
     return true;
   }
 
@@ -45,12 +45,10 @@ function hideModal(id) {
 
 const ModalUpgradePlan = () => {
   const { showToast } = useToast();
-  const [selectedPlan, setSelectedPlan] = useState("free");
-  const [loading, setLoading] = useState(false);
   const pendingRef = useRef(false);
 
-  const currentInstitution = useMemo(() => getAuthInstitution(), []);
-  const institutionId = useMemo(() => getIdInstitution(), []);
+  const [selectedPlan, setSelectedPlan] = useState("free");
+  const [loading, setLoading] = useState(false);
 
   const plans = [
     {
@@ -59,50 +57,48 @@ const ModalUpgradePlan = () => {
       title: "Researcher",
       price: "Free",
       period: "",
-      description: "For authors and researchers getting started",
+      description: "For individual researchers getting started",
       icon: GraduationCap,
       popular: false,
       features: [
-        "Register and publish theses",
-        "Public consultation and verification",
-        "Personal dashboard",
+        "Upload up to 3 theses",
+        "Basic verification",
+        "Public profile",
         "Community access",
       ],
     },
     {
       id: "basic",
       badge: "",
-      title: "Institution Basic",
+      title: "Institution",
       price: "$99",
       period: "/mo",
-      description: "For universities and academic institutions",
+      description: "For universities and research centers",
       icon: Building2,
       popular: true,
       features: [
-        "Blockchain certification",
-        "Academic metrics",
-        "Institutional wallet",
-        "Member management",
-        "Up to 1,500 theses / year",
-        "Standard support",
+        "Unlimited uploads",
+        "Priority verification",
+        "Advanced analytics",
+        "API access",
+        "Bulk certification",
       ],
     },
     {
-      id: "pro",
+      id: "enterprise",
       badge: "",
-      title: "Institution Pro",
-      price: "$249",
-      period: "/mo",
-      description: "For institutions with higher verification volume",
+      title: "Enterprise",
+      price: "Custom",
+      period: "",
+      description: "Tailored solutions for large organizations",
       icon: Rocket,
       popular: false,
       features: [
-        "Blockchain certification",
-        "Academic metrics",
-        "Institutional wallet",
-        "Member management",
-        "More than 1,500 theses / year",
-        "Priority support",
+        "Everything in Institution",
+        "Dedicated support",
+        "Custom integrations",
+        "Private repositories",
+        "SLA guarantee",
       ],
     },
   ];
@@ -119,7 +115,13 @@ const ModalUpgradePlan = () => {
       return;
     }
 
-    if (getAuthActor() !== "institution") {
+    const actor = getAuthActor();
+    const institutionId = getIdInstitution();
+    const currentInstitution = getAuthInstitution();
+    const token = getAuthToken();
+    const role = getAuthRole();
+
+    if (actor !== "institution") {
       showToast({
         message: "Only institutions can upgrade their plan.",
         type: "warning",
@@ -129,6 +131,11 @@ const ModalUpgradePlan = () => {
     }
 
     if (!institutionId) {
+      console.log("DEBUG auth actor:", actor);
+      console.log("DEBUG institution from storage:", currentInstitution);
+      console.log("DEBUG institutionId:", institutionId);
+      console.log("DEBUG token:", token);
+
       showToast({
         message: "Institution not found in the current session.",
         type: "danger",
@@ -156,9 +163,6 @@ const ModalUpgradePlan = () => {
         }
       );
 
-      const token = getAuthToken();
-      const role = getAuthRole();
-
       if (token) {
         saveAuthSession({
           token,
@@ -178,13 +182,14 @@ const ModalUpgradePlan = () => {
 
       showToast({
         message: `Plan upgraded successfully: ${
-          selectedPlan === "basic" ? "Institution Basic" : "Institution Pro"
+          selectedPlan === "basic" ? "Institution" : "Enterprise"
         }.`,
         type: "success",
         icon: BadgeCheck,
       });
     } catch (error) {
       console.error("Upgrade plan error:", error);
+
       showToast({
         message:
           error?.response?.data?.message ||
@@ -222,7 +227,7 @@ const ModalUpgradePlan = () => {
                     Upgrade Your Plan
                   </h5>
                   <span className="mcPanelSub m-0">
-                    Unlock more institutional features
+                    Unlock more features
                   </span>
                 </div>
               </div>
@@ -298,41 +303,27 @@ const ModalUpgradePlan = () => {
                   );
                 })}
               </div>
-
-              <div className="mcUpgradeAddonNote">
-                Add-on available: 1,000 extra certifications for $29.
-              </div>
             </div>
 
-            <div className="mcPanelHead mcUpgradeFooter">
-              <div className="mcPanelHeadLeft" />
-
-              <div className="mcPanelHeadRight d-flex align-items-center gap-2">
-                <button
-                  type="button"
-                  className="btn btn-outline-memory d-flex align-items-center gap-2"
-                  data-bs-dismiss="modal"
-                  disabled={loading}
-                >
-                  <CircleX size={18} />
-                  Close
-                </button>
-
-                <button
-                  type="button"
-                  className="btn mcUpgradeSubmitBtn d-flex align-items-center justify-content-center gap-2"
-                  onClick={handleUpgrade}
-                  disabled={loading}
-                >
-                  {loading ? (
+            <div className="mcUpgradeFooterWrap">
+              <button
+                type="button"
+                className="mcUpgradeSubmitBtn"
+                onClick={handleUpgrade}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
                     <LoaderCircle size={18} className="mcSpin" />
-                  ) : (
+                    Processing...
+                  </>
+                ) : (
+                  <>
                     <Sparkles size={18} />
-                  )}
-
-                  {selectedPlan === "free" ? "Current Plan" : "Upgrade Plan"}
-                </button>
-              </div>
+                    {selectedPlan === "free" ? "Current Plan" : "Upgrade Plan"}
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
