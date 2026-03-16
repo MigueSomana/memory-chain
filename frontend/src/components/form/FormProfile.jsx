@@ -86,7 +86,7 @@ const FormProfile = () => {
     if (!/image\/(png|jpe?g|webp)/.test(file.type)) {
       showToast({
         message: "Unsupported image format. Use PNG/JPG/WebP.",
-        type: "warning",
+        type: "danger",
         icon: OctagonAlert,
         duration: 2600,
       });
