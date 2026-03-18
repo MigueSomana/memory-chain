@@ -497,7 +497,7 @@ function ModalViewThesis({ thesis }) {
                 </button>
 
                 <a
-                  href={`http://localhost:3000/view/${t?._id}`}
+                  href={`https://memory-chain.netlify.app/view/${t?._id}`}
                   target="_blank"
                   rel="noreferrer"
                   className="btn btn-memory d-flex align-items-center justify-content-center gap-2"
